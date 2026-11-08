@@ -16,12 +16,13 @@ export function saveSettings(s) {
 let dbp = null;
 function db() {
   if (!dbp) dbp = new Promise((res, rej) => {
-    const r = indexedDB.open('golf-app', 1);
+    const r = indexedDB.open('golf-app', 2);
     r.onupgradeneeded = () => {
       const d = r.result;
       if (!d.objectStoreNames.contains('swings')) d.createObjectStore('swings', { keyPath: 'id' });
       // future modules: rounds, shots, clubs
       if (!d.objectStoreNames.contains('rounds')) d.createObjectStore('rounds', { keyPath: 'id' });
+      if (!d.objectStoreNames.contains('courses')) d.createObjectStore('courses', { keyPath: 'id' });
     };
     r.onsuccess = () => res(r.result);
     r.onerror = () => rej(r.error);
@@ -44,4 +45,19 @@ export const getSwing = (id) => tx('swings', 'readonly', (st) => st.get(id));
 export async function listSwings() {
   const all = await tx('swings', 'readonly', (st) => st.getAll());
   return (all || []).sort((a, b) => b.date - a.date);
+}
+
+export const putRound = (r) => tx('rounds', 'readwrite', (st) => st.put(r));
+export const getRound = (id) => tx('rounds', 'readonly', (st) => st.get(id));
+export const deleteRound = (id) => tx('rounds', 'readwrite', (st) => st.delete(id));
+export async function listRounds() {
+  const all = await tx('rounds', 'readonly', (st) => st.getAll());
+  return (all || []).sort((a, b) => b.date - a.date);
+}
+export const putCourse = (c) => tx('courses', 'readwrite', (st) => st.put(c));
+export const getCourse = (id) => tx('courses', 'readonly', (st) => st.get(id));
+export const deleteCourse = (id) => tx('courses', 'readwrite', (st) => st.delete(id));
+export async function listCourses() {
+  const all = await tx('courses', 'readonly', (st) => st.getAll());
+  return (all || []).sort((a, b) => (b.lastPlayed || 0) - (a.lastPlayed || 0) || a.name.localeCompare(b.name));
 }

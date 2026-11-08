@@ -2,6 +2,7 @@
 // keeps one work-in-progress focus, and checks each new swing against it.
 // Rounds will feed into the same profile once that module exists (see `roundSignals`).
 import { PRIORITY_COPY } from './metrics.js';
+import { roundTendencies, roundSummaryText } from '../rounds/stats.js';
 
 const PLAN_KEY = 'golf.plan';
 const WINDOW = 10;        // tendencies are judged on the last 10 learning swings
@@ -130,7 +131,7 @@ export function addCoachNote(note) {
 }
 
 /** Text block sent to the AI coach so it reviews like a coach who knows you. */
-export function coachContext(swings) {
+export function coachContext(swings, roundAgg = null) {
   const plan = getPlan();
   const t = tendencies(swings);
   const p = focusProgress(swings, plan);
@@ -143,10 +144,14 @@ export function coachContext(swings) {
   }
   if (plan.done.length) lines.push(`Previously fixed: ${plan.done.slice(0, 3).map((d) => d.label).join(', ')}.`);
   if (plan.notes.length) lines.push(`Your last coaching notes: ${plan.notes.slice(0, 3).map((n) => `(${new Date(n.date).toDateString()}) ${n.note}`).join(' | ')}`);
-  const rs = roundSignals();
-  if (rs) lines.push(`On-course data: ${rs}`);
+  const rs = roundSignals(roundAgg);
+  if (rs) lines.push(`On-course data (recent rounds): ${rs}`);
   return lines.join('\n');
 }
 
-/** Placeholder: round stats (miss patterns, strike codes) join the profile in the Rounds module. */
-export function roundSignals() { return ''; }
+/** Round stats (miss patterns, tagged causes/strikes) joined into the coach's picture. */
+export function roundSignals(A) {
+  if (!A) return '';
+  const t = roundTendencies(A);
+  return roundSummaryText(A) + (t.length ? ` Patterns: ${t.slice(0, 4).map((x) => `${x.text} (${x.detail})`).join('; ')}.` : '');
+}

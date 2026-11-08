@@ -27,6 +27,15 @@ Live: https://cocopoppyhead.github.io/golf-app/
 
 Inches are scaled from your height (Settings), so they're approximate. Target direction is detected automatically from where the hands go at the top, so right/left-handed and mirrored selfie video all work.
 
+## Rounds
+
+- **Courses**: type pars (tap to cycle 3/4/5), stroke index and yards, or fill them from a scorecard photo (Claude reads it).
+- **Log on the course**, hole by hole, with big buttons: score, putts, first-putt distance, tee shot (◀ trouble / rough / fairway / rough / trouble ▶), green hit is worked out automatically (or set by hand), miss direction plus green-side bunker, up-and-down and sand saves calculated.
+- **Bogey or worse → "what caused it?"** Tag the shot with your codes: shot (DRV/TEE/IRN/APP/CHP/BNK/PT), cause (TAC/SWE/FOC/BAC), flight/strike (HK/PL/SL/PU/THN/FAT/TOE/HEL), where it ended up (BNK/OBS/WDS/RGH/SS/LNG/SHT), cost +1/+2, or "saved it" on a par.
+- **Or after the round**: photograph the card, check the scores it read, then it walks you through only the bogey holes to tag them.
+- **Stats**: fairways, greens, miss patterns, putts, 3-putts, scrambling, sand saves, scoring mix, strokes lost by cause/shot/strike. Per round and per-round average across recent rounds.
+- **Coach link**: on-course patterns (e.g. "tee shots miss right", "most shots lost to SWE") show in Progress next to swing tendencies and go to the AI coach. **AI round review** reads the round, recent rounds and your swing profile together. Untick "count toward my coach profile" for scrambles or fun rounds.
+
 ## Code map
 
 ```
@@ -38,7 +47,9 @@ src/coach/player.js   slow playback with checkpoint freezes
 src/coach/export.js   MP4 export (WebCodecs + mp4-muxer)
 src/coach/ai.js       Claude API coaching (with coaching history)
 src/coach/profile.js  coach memory: tendencies, current focus, progress, notebook
-src/store.js          settings + IndexedDB history (has a `rounds` store ready for module 2)
+src/rounds/stats.js   round stats, on-course tendencies (pure)
+src/rounds/ui.js      courses, hole logger, tag sheet, scorecard import, summaries
+src/store.js          settings + IndexedDB (swings, rounds, courses)
 ```
 
 ## Dev
@@ -54,5 +65,4 @@ Pushing to `main` deploys to GitHub Pages via `.github/workflows/deploy.yml`.
 ## Roadmap
 
 - Down-the-line view: swing plane, posture, early extension
-- Rounds: score, putts, FIR/GIR, bogey-cause tags, scorecard photo
 - Bushnell Pro X3 over Web Bluetooth (Android Chrome): lock-on → club recommendation from your carries

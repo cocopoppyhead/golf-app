@@ -7,6 +7,8 @@ import { SwingPlayer } from './coach/player.js';
 import { exportMp4, canExport } from './coach/export.js';
 import { getCoaching, md } from './coach/ai.js';
 import { getSettings, saveSettings, putSwing, listSwings, getSwing, deleteSwing } from './store.js';
+import { initRounds, roundsHome, recentRoundAggregate } from './rounds/ui.js';
+import { roundTendencies } from './rounds/stats.js';
 import { tendencies, focusProgress, updatePlan, checkIn, getPlan, setFocus, addCoachNote, coachContext, metricLabel, metricCue } from './coach/profile.js';
 
 const $ = (s) => document.querySelector(s);
@@ -23,6 +25,7 @@ function showTab(name) {
   $('#tabTitle').textContent = TITLES[name];
   if (name === 'history') renderHistory();
   if (name === 'settings') fillSettings();
+  if (name === 'rounds') roundsHome();
   if (name !== 'coach') state?.player?.stop();
   window.scrollTo(0, 0);
 }
@@ -351,7 +354,7 @@ async function doAi() {
   try {
     const images = await checkpointImages(560, true);
     const swings = (await listSwings().catch(() => [])).filter((s) => s.id !== state.id);
-    const history = state.learning ? coachContext(swings) : '';
+    const history = state.learning ? coachContext(swings, await recentRoundAggregate()) : '';
     const { text, meta } = await getCoaching({ apiKey: settings.apiKey, model: settings.model, A: state.A, images, golfer: settings.golfer, history });
     state.ai = text;
     let extra = '';
@@ -398,7 +401,11 @@ async function renderCoachPanel(all) {
   }
   if (plan.done.length) html += `<h3 style="margin-top:16px">Fixed</h3>` + plan.done.slice(0, 5).map((d) => `<p class="small">✓ ${esc(d.label)} <span class="mute">${new Date(d.finished).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}</span></p>`).join('');
   if (plan.notes.length) html += `<h3 style="margin-top:16px">Coach's notebook</h3>` + plan.notes.slice(0, 4).map((n) => `<p class="small"><span class="mute">${new Date(n.date).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}</span> ${esc(n.note)}</p>`).join('');
-  html += `<p class="mute small" style="margin-top:12px">Rounds and scorecards will feed this profile too, once that module is built.</p>`;
+  const RA = await recentRoundAggregate();
+  const rt = roundTendencies(RA);
+  html += `<h3 style="margin-top:16px">On the course <span class="mute small">${RA ? `last ${RA.rounds} round${RA.rounds > 1 ? 's' : ''}` : ''}</span></h3>`;
+  html += rt.length ? rt.slice(0, 4).map((x) => `<div class="tend"><div><b>${esc(x.text)}</b><div class="mute small">${esc(x.detail)}</div></div></div>`).join('')
+    : `<p class="mute small">${RA ? 'No clear on-course pattern yet.' : 'Log rounds in the Rounds tab and on-course patterns show up here next to your swing ones.'}</p>`;
   el.innerHTML = html;
   $('#focusSel')?.addEventListener('change', (e) => {
     if (e.target.value) setFocus(e.target.value);
@@ -473,6 +480,13 @@ $('#settingsForm').addEventListener('submit', (e) => {
   };
   saveSettings(settings);
   $('#savedMsg').hidden = false;
+});
+
+// ---------------- Rounds ----------------
+initRounds($('#roundsRoot'), {
+  settings: () => settings,
+  toast,
+  saveSetting: (k, v) => { settings[k] = v; saveSettings(settings); },
 });
 
 // ---------------- PWA ----------------

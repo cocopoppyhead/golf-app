@@ -23,6 +23,52 @@ After the review, end with one fenced json block, nothing after it:
 {"focus": "<one key from the allowed list, or null to keep the current focus>", "note": "<one line for your coaching notebook: what you saw and what you asked for>"}
 \`\`\``;
 
+async function callClaude({ apiKey, model, system, content, maxTokens = 1200 }) {
+  if (!apiKey) throw new Error('Add your Claude API key in Settings first.');
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
+    body: JSON.stringify({ model, max_tokens: maxTokens, system, messages: [{ role: 'user', content }] }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data?.error?.message || `Claude API error ${res.status}`);
+  return data.content.filter((b) => b.type === 'text').map((b) => b.text).join('\n');
+}
+
+const img = (d) => ({ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: d.split(',')[1] } });
+
+/** Read a scorecard photo into JSON. kind: 'course' (par/SI/yards) or 'scores' (one player's row). */
+export async function readCard({ apiKey, model, images, kind, player = '', holes = 18 }) {
+  const ask = kind === 'course'
+    ? `This is a golf scorecard. Extract the course layout. Return ONLY JSON:
+{"name": "<course name if printed, else null>", "tees": [{"name": "<tee colour/name>", "yards": [<${holes} numbers or null>]}], "par": [<${holes} integers>], "si": [<${holes} integers or null>]}
+Use the men's stroke index row if there are several. If a value is unreadable use null.`
+    : `This is a filled-in golf scorecard. Read the hole-by-hole scores for ${player ? `the player "${player}" (match the name or initials)` : 'the player whose row is filled in most completely (if several, the first player row)'}.
+The player may also mark putts as a small number next to the score (e.g. "5²" or "5/2") and a fairway hit with a dot or tick.
+Return ONLY JSON: {"player": "<name/initials on the row>", "scores": [<${holes} integers or null>], "putts": [<${holes} integers or null>], "fairway": [<${holes} true/false/null>], "confidence": "<high|medium|low>", "notes": "<anything unclear>"}`;
+  const text = await callClaude({ apiKey, model, system: 'You read golf scorecards precisely. Output only valid JSON, no prose.', content: [...images.map(img), { type: 'text', text: ask }], maxTokens: 1500 });
+  const m = text.match(/\{[\s\S]*\}/);
+  if (!m) throw new Error('Could not read that card. Try a flatter, brighter photo.');
+  return JSON.parse(m[0]);
+}
+
+const ROUND_SYSTEM = `You are the golfer's ongoing coach. You see their round stats, their tagged mistakes (their own codes), their recent rounds and their swing profile from video analysis.
+Be blunt and short. No praise padding. Markdown:
+**Verdict:** one sentence on the round.
+**Where the shots went:** the 2 biggest leaks with numbers.
+**Why:** link on-course patterns to swing tendencies when the data supports it (e.g. tee misses right + hips sliding at the top). Say "no clear link" if there isn't one.
+**Next round:** 2 course-management changes they can make without practice.
+**Practice (only if worth it):** one 20-minute session.
+Under 230 words. Then end with one fenced json block: \`\`\`json {"note": "<one line for your coaching notebook>"} \`\`\``;
+
+export async function reviewRound({ apiKey, model, roundText, recentText, history, golfer = '' }) {
+  const full = await callClaude({ apiKey, model, system: ROUND_SYSTEM, content: [{ type: 'text', text: `${golfer ? `About the golfer: ${golfer}\n` : ''}THIS ROUND\n${roundText}\n\nRECENT ROUNDS\n${recentText || 'none yet'}\n\nCOACHING HISTORY (swings + notebook)\n${history || 'none yet'}` }] });
+  let meta = null, text = full;
+  const m = full.match(/```json\s*([\s\S]*?)```\s*$/);
+  if (m) { try { meta = JSON.parse(m[1]); } catch {} text = full.slice(0, m.index).trim(); }
+  return { text, meta };
+}
+
 export async function getCoaching({ apiKey, model, A, images, golfer = '', history = '' }) {
   if (!apiKey) throw new Error('Add your Claude API key in Settings first.');
   const metrics = A.checkpoints.map((c) => ({
