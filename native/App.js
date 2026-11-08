@@ -58,52 +58,87 @@ function Shell() {
     return () => h.remove();
   }, []);
 
-  useEffect(() => () => { sub.current?.remove(); ble.stopDeviceScan(); }, []);
+  useEffect(() => () => { subs.current.forEach((x) => x.remove()); sub.current?.remove(); ble.stopDeviceScan(); }, []);
 
-  const laserConnect = useCallback(async () => {
+  const subs = useRef([]);
+  const stopSubs = () => { subs.current.forEach((x) => { try { x.remove(); } catch {} }); subs.current = []; sub.current?.remove(); };
+
+  const ready = async () => {
+    if (!(await androidBlePermissions())) throw new Error('Bluetooth permission was not granted.');
+    const state = await ble.state();
+    if (state !== 'PoweredOn') throw new Error('Turn on Bluetooth on your phone.');
+  };
+
+  // List nearby named Bluetooth devices so you can pick a rangefinder that isn't a Bushnell.
+  const laserScan = useCallback(async () => {
+    try {
+      await ready();
+      const seen = new Map();
+      send({ type: 'laser.status', text: 'Scanning… fire the rangefinder once to wake it.' });
+      ble.startDeviceScan(null, null, (err, d) => {
+        if (err) { send({ type: 'laser.error', text: err.message }); ble.stopDeviceScan(); return; }
+        const name = d?.name || d?.localName;
+        if (!name) return;
+        seen.set(d.id, { id: d.id, name, rssi: d.rssi });
+        send({ type: 'laser.found', devices: [...seen.values()].sort((x, y) => (y.rssi || -999) - (x.rssi || -999)) });
+      });
+      setTimeout(() => { ble.stopDeviceScan(); send({ type: 'laser.scanDone' }); }, 15000);
+    } catch (e) { send({ type: 'laser.error', text: e?.message || String(e) }); }
+  }, [send]);
+
+  // id: connect to a picked device; otherwise look for a Bushnell by name.
+  // Bushnell: listen on its known distance characteristic. Anything else: listen on every
+  // notify/indicate characteristic and forward packets tagged with their UUID so the web app can learn them.
+  const laserConnect = useCallback(async ({ id } = {}) => {
     const log = (text) => send({ type: 'laser.log', text });
     try {
-      if (!(await androidBlePermissions())) throw new Error('Bluetooth permission was not granted.');
-      const state = await ble.state();
-      if (state !== 'PoweredOn') throw new Error('Turn on Bluetooth on your phone.');
-      send({ type: 'laser.status', text: 'Looking for your Bushnell… fire the laser once to wake it.' });
-      const found = await new Promise((resolve, reject) => {
-        const t = setTimeout(() => { ble.stopDeviceScan(); reject(new Error('No Bushnell found. Turn on Bluetooth in the laser menu, close the Bushnell app, and try again.')); }, 20000);
-        ble.startDeviceScan(null, null, (err, d) => {
-          if (err) { clearTimeout(t); ble.stopDeviceScan(); reject(err); return; }
-          const name = d?.name || d?.localName || '';
-          if (name && LASER_NAME.test(name)) { clearTimeout(t); ble.stopDeviceScan(); resolve(d); }
+      await ready();
+      ble.stopDeviceScan();
+      let found;
+      if (id) found = { id, connect: () => ble.connectToDevice(id) };
+      else {
+        send({ type: 'laser.status', text: 'Looking for your Bushnell… fire the laser once to wake it.' });
+        found = await new Promise((resolve, reject) => {
+          const t = setTimeout(() => { ble.stopDeviceScan(); reject(new Error('No Bushnell found. Turn on Bluetooth in the laser menu, close the Bushnell app, and try again.')); }, 20000);
+          ble.startDeviceScan(null, null, (err, d) => {
+            if (err) { clearTimeout(t); ble.stopDeviceScan(); reject(err); return; }
+            const name = d?.name || d?.localName || '';
+            if (name && LASER_NAME.test(name)) { clearTimeout(t); ble.stopDeviceScan(); resolve(d); }
+          });
         });
-      });
-      log(`device ${found.name || found.localName} (${found.id})`);
+      }
+      log(`device ${found.name || found.localName || ''} (${found.id})`);
       send({ type: 'laser.status', text: 'Connecting…' });
       const d = await found.connect();
       await d.discoverAllServicesAndCharacteristics();
       device.current = d;
-      d.onDisconnected(() => { device.current = null; sub.current?.remove(); send({ type: 'laser.disconnected' }); });
+      d.onDisconnected(() => { device.current = null; stopSubs(); send({ type: 'laser.disconnected' }); });
+      const name = d.name || d.localName || found.name || 'Rangefinder';
       const services = await d.services();
       log(`services: ${services.map((s) => s.uuid).join(', ')}`);
+      const all = [];
       for (const s of services) {
         const chars = await s.characteristics();
-        log(`  ${s.uuid}: ${chars.map((c) => c.uuid + (c.isNotifiable ? ' N' : '') + (c.isIndicatable ? ' I' : '')).join(', ')}`);
-        const c = chars.find((x) => x.uuid.toLowerCase() === LASER_CHAR);
-        if (c) {
-          sub.current = c.monitor((err, ch) => {
-            if (err) { log(`monitor error: ${err.message}`); return; }
-            if (ch?.value) send({ type: 'laser.packet', b64: ch.value });
-          });
-          send({ type: 'laser.connected', name: d.name || 'Bushnell' });
-          return;
-        }
+        log(`  ${s.uuid}: ${chars.map((c) => c.uuid + (c.isNotifiable ? ' N' : '') + (c.isIndicatable ? ' I' : '') + (c.isReadable ? ' R' : '')).join(', ')}`);
+        all.push(...chars);
       }
-      send({ type: 'laser.error', text: 'Connected, but the distance signal wasn\'t found. Copy the log and send it to Claude.' });
+      const bush = all.find((x) => x.uuid.toLowerCase() === LASER_CHAR);
+      const listen = bush ? [bush] : all.filter((c) => c.isNotifiable || c.isIndicatable);
+      for (const c of listen) {
+        subs.current.push(c.monitor((err, ch) => {
+          if (err) { log(`monitor error ${c.uuid}: ${err.message}`); return; }
+          if (ch?.value) send({ type: 'laser.packet', b64: ch.value, char: c.uuid.toLowerCase() });
+        }));
+      }
+      if (!listen.length) { send({ type: 'laser.error', text: 'Connected, but this device sends nothing the app can listen to. Copy the log and send it to Claude.' }); return; }
+      send({ type: 'laser.connected', name, known: !!bush, chars: listen.map((c) => c.uuid.toLowerCase()) });
     } catch (e) {
       send({ type: 'laser.error', text: e?.message || String(e) });
     }
   }, [send]);
 
   const laserDisconnect = useCallback(async () => {
-    sub.current?.remove();
+    stopSubs();
     try { await device.current?.cancelConnection(); } catch {}
     device.current = null;
     send({ type: 'laser.disconnected' });
@@ -122,10 +157,11 @@ function Shell() {
 
   const onMessage = useCallback((e) => {
     let msg; try { msg = JSON.parse(e.nativeEvent.data); } catch { return; }
-    if (msg.type === 'laser.connect') laserConnect();
+    if (msg.type === 'laser.connect') laserConnect(msg);
+    else if (msg.type === 'laser.scan') laserScan();
     else if (msg.type === 'laser.disconnect') laserDisconnect();
     else if (msg.type === 'share.file') shareFile(msg);
-  }, [laserConnect, laserDisconnect, shareFile]);
+  }, [laserConnect, laserScan, laserDisconnect, shareFile]);
 
   return (
     <View style={[styles.root, pad]}>

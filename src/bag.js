@@ -5,7 +5,7 @@ import { getSettings, saveSettings, listShots } from './store.js';
 import { saveShotSheet, renderClubPage, trueDistance } from './shots.js';
 import { dist as D, toYards, du, duLong } from './units.js';
 import { isNative } from './native.js';
-import { connectLaser, disconnectLaser, onLaser, laserConnected, laserName, laserLog, laserSupported, isIOS } from './laser.js';
+import { connectLaser, disconnectLaser, onLaser, laserConnected, laserName, laserLog, laserSupported, isIOS, scanLasers, teachLaser, laserNeedsTeaching, forgetLaser } from './laser.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 // New golfers start with a standard bag and no numbers. Personal numbers come from
@@ -60,6 +60,7 @@ export async function renderBag(root) {
   let mode = 'carry';
   let shots = await listShots().catch(() => []);
   let dist = '', shot = null, status = laserConnected() ? `Connected to ${laserName()}` : '';
+  let found = null, scanning = false, teachMsg = '';
   const comp = () => getSettings().competition === true;
 
   const draw = () => {
@@ -75,7 +76,7 @@ export async function renderBag(root) {
         <div class="sechead" style="margin:0 0 8px"><h2 style="margin:0">Which club?</h2>
           <label class="check small"><input type="checkbox" id="compBox" ${comp() ? 'checked' : ''}/> Competition</label></div>
         <input id="distIn" inputmode="numeric" placeholder="Distance in ${duLong()}" value="${esc(dist)}" />
-        ${shot ? `<p class="small mute" style="margin:6px 0 0">Laser: ${D(shot.raw)} ${du()} · slope ${shot.slope.toFixed(1)}% · plays ${D(shot.playsAs)} ${du()}${comp() ? '' : ' · using plays-as'}</p>` : ''}
+        ${shot ? `<p class="small mute" style="margin:6px 0 0">Laser: ${D(shot.raw)} ${du()}${shot.slope != null ? ` · slope ${shot.slope.toFixed(1)}% · plays ${D(shot.playsAs)} ${du()}${comp() ? '' : ' · using plays-as'}` : ''}</p>` : ''}
         ${comp() ? '<p class="mute small">Competition mode: distance only, no club advice (Rules of Golf).</p>'
           : pick?.gap ? `<div class="pickbox"><div class="big" style="font-size:22px">No club for ${n} ${du()} yet</div><div class="mute small">Nothing between ${esc(pick.gap.below.club)} (${D(pick.gap.below.carry)} ${du()}) and ${esc(pick.gap.above.club)} (${D(pick.gap.above.carry)} ${du()}). Add carries or ¾ / ½ numbers below.</div></div>`
           : pick ? `<div class="pickbox"><div class="big">${esc(pick.best.club)}${pick.best.swing !== 'full' ? ` <span style="font-size:20px">${pick.best.swing}</span>` : ''}</div>
@@ -85,14 +86,22 @@ export async function renderBag(root) {
       </div>
 
       <div class="card">
-        <h2>Bushnell laser</h2>
+        <h2>Rangefinder</h2>
         ${laserSupported() ? `
-          <p class="mute small">Turn Bluetooth on in the laser's menu, set it to <b>yards</b>, close the Bushnell Golf app${isNative() ? '' : ', fire the laser once to wake it'}, then connect${isNative() ? ' and fire the laser once' : ''}.</p>
-          <button class="btn ${laserConnected() ? '' : 'primary'}" id="laserBtn" style="width:100%">${laserConnected() ? 'Disconnect' : 'Connect laser'}</button>
+          ${laserConnected() ? `<p class="small" style="margin:0 0 8px"><b>${esc(laserName())}</b> connected</p>
+            <button class="btn" id="laserBtn" style="width:100%">Disconnect</button>`
+          : `<p class="mute small">Bushnell (Pro X3 / X3+): turn Bluetooth on in the laser's menu, close the Bushnell Golf app, connect, then fire once.</p>
+            <button class="btn primary" id="laserBtn" style="width:100%">Connect Bushnell</button>
+            ${isNative() ? `<button class="btn" id="scanBtn" style="width:100%;margin-top:8px">${scanning ? 'Scanning…' : 'Other rangefinder (Blue Tees, Shot Scope…)'}</button>` : ''}`}
+          ${found?.length && !laserConnected() ? `<div class="devlist">${found.map((d) => `<button class="pick" data-dev="${esc(d.id)}">${esc(d.name)} <span class="mute">${d.rssi ?? ''}</span></button>`).join('')}</div><p class="mute small">Fire the rangefinder to wake it; the strongest signal is at the top.</p>` : ''}
           ${status ? `<p class="small" style="margin:8px 0 0">${esc(status)}</p>` : ''}
+          ${laserNeedsTeaching() ? `<div class="teach"><b>Teach it once</b><p class="mute small">Laser a flag or tree, then type exactly what the rangefinder shows. Do it twice with different distances.</p>
+            <div class="row"><input id="teachIn" inputmode="decimal" placeholder="Number on screen" /><div class="seg seg2 mini" id="teachUnit"><button data-u="y" class="on">yds</button><button data-u="m">m</button></div></div>
+            <button class="btn primary" id="teachBtn" style="width:100%;margin-top:8px">That's the reading</button>${teachMsg ? `<p class="small" style="margin:8px 0 0">${esc(teachMsg)}</p>` : ''}</div>` : ''}
+          ${laserConnected() && !laserNeedsTeaching() && getSettings().laserProfiles?.[laserName()] ? '<button class="link" id="forgetBtn" style="margin-top:8px">Re-teach this rangefinder</button>' : ''}
           <details style="margin-top:8px"><summary class="small mute">Diagnostics log</summary><pre class="log">${esc(laserLog() || 'Nothing yet.')}</pre><button class="btn" id="copyLog" style="width:100%">Copy log</button></details>`
-        : `<p class="mute small">${isIOS() ? 'iPhone browsers don\'t support Bluetooth. Use the Golf Coach iPhone app (TestFlight) for the laser, or the free <b>Bluefy</b> browser.' : 'This browser has no Bluetooth. Use Chrome, or the Golf Coach Android app.'}</p>`}
-        <p class="mute small" style="margin-top:8px">Unproven on the Pro X3 (your friend's app was tested on the X3+). The first connect is the test: if it says the signal wasn't found, copy the log and send it over.</p>
+        : `<p class="mute small">${isIOS() ? 'iPhone browsers don\'t support Bluetooth. Use the Golf Coach app for the rangefinder.' : 'This browser has no Bluetooth. Use Chrome, or the Golf Coach Android app.'}</p>`}
+        ${!isNative() ? '<p class="mute small" style="margin-top:8px">Other brands (Blue Tees, Shot Scope) need the Golf Coach app.</p>' : ''}
       </div>
 
       <div class="card form">
@@ -131,6 +140,18 @@ export async function renderBag(root) {
     root.querySelector('#addClub').onclick = () => { sync(); bag.push({ club: '', carry: null, total: null, three: null, threeTotal: null, half: null, halfTotal: null }); draw(); };
     root.querySelector('#saveBag').onclick = () => { sync(); bag = bag.filter((c) => c.club); saveBag(bag); draw(); root.dispatchEvent(new CustomEvent('toast', { detail: 'Bag saved', bubbles: true })); };
     root.querySelector('#copyLog')?.addEventListener('click', () => navigator.clipboard?.writeText(laserLog()).then(() => root.dispatchEvent(new CustomEvent('toast', { detail: 'Log copied', bubbles: true }))));
+    root.querySelector('#scanBtn')?.addEventListener('click', () => {
+      sync(); scanning = true; found = []; status = 'Scanning… fire the rangefinder to wake it.'; draw();
+      scanLasers((list) => { if (list === null) { scanning = false; status = found?.length ? 'Pick your rangefinder.' : 'Nothing found. Turn Bluetooth on in the rangefinder menu and try again.'; } else found = list; if (root.isConnected) draw(); });
+    });
+    root.querySelectorAll('[data-dev]').forEach((b) => b.addEventListener('click', async () => {
+      sync(); found = null; teachMsg = '';
+      await connectLaser((m) => { status = m; draw(); }, { id: b.dataset.dev }); draw();
+    }));
+    let tu = 'y';
+    root.querySelectorAll('#teachUnit button').forEach((b) => b.addEventListener('click', () => { tu = b.dataset.u; root.querySelectorAll('#teachUnit button').forEach((x) => x.classList.toggle('on', x === b)); }));
+    root.querySelector('#teachBtn')?.addEventListener('click', () => { sync(); const r = teachLaser(parseFloat(root.querySelector('#teachIn').value), tu); teachMsg = r.msg; if (r.done) status = `${laserName()} learned. Lock on to a target.`; draw(); });
+    root.querySelector('#forgetBtn')?.addEventListener('click', () => { forgetLaser(); teachMsg = ''; status = 'Forgotten. Teach it again below.'; draw(); });
     root.querySelector('#laserBtn')?.addEventListener('click', async () => {
       sync();
       if (laserConnected()) { disconnectLaser(); status = 'Disconnected'; return draw(); }
