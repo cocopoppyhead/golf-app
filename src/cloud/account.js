@@ -1,5 +1,5 @@
 // Account card (Settings): email code sign-in, profile name + handicap, sync status.
-import { sb, currentUser, sendCode, verifyCode, signOut, getProfile, saveProfile } from './supabase.js';
+import { currentUser, signInPassword, signUpPassword, signOut, getProfile, saveProfile } from './supabase.js';
 import { syncNow, onSyncStatus, claimDevice } from './sync.js';
 import { getSettings, saveSettings } from '../store.js';
 
@@ -37,29 +37,27 @@ export async function renderAccount(el, { toast = () => {}, onChange = () => {} 
 
 function signedOut(el, { toast, onChange }) {
   const owner = localStorage.getItem('golf.owner');
-  el.innerHTML = `<div class="acct">
-    <b>Sign in</b>
-    <p class="mute small" style="margin:4px 0 10px">Backs up your swings, rounds, bag and notes, puts them on any phone, and lets you join leagues with friends. We'll email you a 6-digit code.</p>
-    <div id="step1"><div class="row"><input id="aEmail" type="email" inputmode="email" autocomplete="email" placeholder="you@email.com" /><button class="btn primary" type="button" id="aSend" style="flex:0 0 auto">Send code</button></div></div>
-    <div id="step2" hidden><p class="small" id="aSent"></p><div class="row"><input id="aCode" inputmode="numeric" autocomplete="one-time-code" maxlength="8" placeholder="123456" /><button class="btn primary" type="button" id="aVerify" style="flex:0 0 auto">Sign in</button></div>
-      <button class="link" type="button" id="aBack" style="margin-top:8px">Use a different email</button></div>
-    ${owner ? '<p class="mute small" style="margin-top:8px">This phone already has a signed-in owner\'s data. Signing in with a different account clears it from this phone (it stays safe in their account).</p>' : ''}
-  </div>`;
-  let email = '';
-  el.querySelector('#aSend').onclick = async () => {
-    email = el.querySelector('#aEmail').value.trim().toLowerCase();
-    if (!/^\S+@\S+\.\S+$/.test(email)) return toast('Enter your email address.');
-    el.querySelector('#aSend').disabled = true;
-    try { await sendCode(email); el.querySelector('#step1').hidden = true; el.querySelector('#step2').hidden = false; el.querySelector('#aSent').textContent = `Code sent to ${email}. Check your inbox (and spam).`; el.querySelector('#aCode').focus(); }
-    catch (e) { toast(e.message, 6000); }
-    el.querySelector('#aSend').disabled = false;
+  let mode = 'in';
+  const draw = () => {
+    el.innerHTML = `<div class="acct">
+      <div class="seg seg2" style="margin-bottom:10px"><button type="button" data-m="in" class="${mode === 'in' ? 'on' : ''}">Sign in</button><button type="button" data-m="up" class="${mode === 'up' ? 'on' : ''}">Create account</button></div>
+      <p class="mute small" style="margin:0 0 10px">Backs up your swings, rounds, bag and notes, puts them on any phone, and lets you join leagues with friends.</p>
+      <input id="aEmail" type="email" inputmode="email" autocomplete="email" placeholder="you@email.com" style="margin-bottom:8px" />
+      <input id="aPass" type="password" autocomplete="${mode === 'in' ? 'current-password' : 'new-password'}" placeholder="${mode === 'in' ? 'Password' : 'Choose a password (8+ characters)'}" style="margin-bottom:8px" />
+      <button class="btn primary" type="button" id="aGo" style="width:100%">${mode === 'in' ? 'Sign in' : 'Create account'}</button>
+      ${owner ? '<p class="mute small" style="margin-top:8px">This phone has a previous owner\'s data. Signing in with a different account clears it from this phone (it stays safe in their account).</p>' : ''}
+    </div>`;
+    el.querySelectorAll('[data-m]').forEach((b) => (b.onclick = () => { mode = b.dataset.m; draw(); }));
+    el.querySelector('#aGo').onclick = go;
   };
-  el.querySelector('#aBack').onclick = () => { el.querySelector('#step1').hidden = false; el.querySelector('#step2').hidden = true; };
-  el.querySelector('#aVerify').onclick = async () => {
-    const code = el.querySelector('#aCode').value.trim();
-    el.querySelector('#aVerify').disabled = true;
+  const go = async () => {
+    const email = el.querySelector('#aEmail').value.trim().toLowerCase(), pass = el.querySelector('#aPass').value;
+    if (!/^\S+@\S+\.\S+$/.test(email)) return toast('Enter your email address.');
+    if (pass.length < 8) return toast('Password needs at least 8 characters.');
+    const btn = el.querySelector('#aGo'); btn.disabled = true;
     try {
-      const user = await verifyCode(email, code);
+      const user = mode === 'in' ? await signInPassword(email, pass) : await signUpPassword(email, pass);
+      if (!user) { toast('Account created. Supabase wants the email confirmed first: turn off "Confirm email" in Supabase, or click the link it sent.', 8000); btn.disabled = false; return; }
       const how = await claimDevice(user.id);
       if (how === 'switched') toast('Signed in. Loading your data…', 4000);
       const prof = await getProfile(user.id).catch(() => null);
@@ -67,6 +65,10 @@ function signedOut(el, { toast, onChange }) {
       await syncNow();
       onChange();
       renderAccount(el, { toast, onChange });
-    } catch (e) { toast(e.message || 'That code didn\'t work.', 6000); el.querySelector('#aVerify').disabled = false; }
+    } catch (e) {
+      const m = /invalid login/i.test(e.message) ? 'Wrong email or password.' : /already registered/i.test(e.message) ? 'That email already has an account. Use Sign in.' : e.message;
+      toast(m, 6000); btn.disabled = false;
+    }
   };
+  draw();
 }

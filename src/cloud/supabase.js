@@ -14,6 +14,18 @@ export async function currentUser() {
   return data.session?.user || null;
 }
 
+export async function signInPassword(email, password) {
+  const { data, error } = await sb.auth.signInWithPassword({ email, password });
+  if (error) throw error;
+  return data.user;
+}
+/** Returns the user if signed straight in; null if Supabase wants the email confirmed first. */
+export async function signUpPassword(email, password) {
+  const { data, error } = await sb.auth.signUp({ email, password });
+  if (error) throw error;
+  return data.session ? data.user : null;
+}
+
 /** Email a 6-digit code (creates the account the first time). */
 export async function sendCode(email) {
   const { error } = await sb.auth.signInWithOtp({ email, options: { shouldCreateUser: true } });

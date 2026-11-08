@@ -685,6 +685,7 @@ function fillSettings() {
   f.apiKey.value = settings.apiKey; f.model.value = settings.model; f.golfer.value = settings.golfer;
   $('#savedMsg').hidden = true;
 }
+$('#settingsForm').theme.addEventListener('change', (e) => { settings.theme = e.target.value; saveSettings(settings); applyTheme(); });
 $('#settingsForm').system.addEventListener('change', (e) => {
   const f = $('#settingsForm'); const h = parseFloat(f.height.value);
   const m = e.target.value === 'metric';
