@@ -1,5 +1,6 @@
 // Rounds module UI: courses, hole-by-hole logging (Conor's shot codes), scorecard photo import, summaries.
 import { CODES, TEE_ZONES, MISS, isGir, roundStats, aggregate, roundTendencies, roundSummaryText, pct, top, played } from './stats.js';
+import { openLibrary } from './library.js';
 import { putRound, getRound, deleteRound, listRounds, putCourse, getCourse, listCourses, deleteCourse, listSwings } from '../store.js';
 import { readCard, reviewRound, md } from '../coach/ai.js';
 import { coachContext, addCoachNote } from '../coach/profile.js';
@@ -31,9 +32,10 @@ export async function roundsHome() {
     ${open ? `<div class="card event-card"><b>Round in progress</b><p class="mute small">${esc(open.courseName)} · ${fmtD(open.date)} · ${played(open).length} holes logged</p><button class="btn primary" data-act="resume" data-id="${open.id}">Resume round</button></div>` : ''}
     <div class="card">
       <h2>Play a round</h2>
-      ${courses.length ? `<label class="small mute">Course</label><select id="courseSel">${courses.map((c) => `<option value="${c.id}">${esc(c.name)}${c.tees ? ` · ${esc(c.tees)}` : ''} (par ${c.holes.reduce((a, h) => a + h.par, 0)})</option>`).join('')}</select>` : '<p class="mute">Add your course first: type the pars, or photograph the scorecard.</p>'}
-      <div class="row" style="margin-top:10px">
-        <button class="btn" data-act="newcourse">+ Course</button>
+      ${courses.length ? `<label class="small mute">Course</label><select id="courseSel">${courses.map((c) => `<option value="${c.id}">${esc(c.name)}${c.tees ? ` · ${esc(c.tees)}` : ''} (par ${c.holes.reduce((a, h) => a + h.par, 0)})</option>`).join('')}</select>` : '<p class="mute">Pick your course from the UAE list and the scorecard fills in.</p>'}
+      <button class="btn ${courses.length ? '' : 'primary'}" data-act="library" style="width:100%;margin-top:10px">🇦🇪 Find a UAE course</button>
+      <div class="row" style="margin-top:8px">
+        <button class="btn" data-act="newcourse">+ Course by hand</button>
         ${courses.length ? '<button class="btn" data-act="editcourse">Edit course</button>' : ''}
       </div>
       ${courses.length ? `<button class="btn primary big" data-act="start" style="margin-top:10px">Start logging hole 1</button>
@@ -66,6 +68,7 @@ async function homeAction(act, id) {
   const sel = root.querySelector('#courseSel')?.value;
   if (act === 'resume' || act === 'open') return openRound(id);
   if (act === 'newcourse') return editCourse(null);
+  if (act === 'library') return openLibrary({ toast: ctx.toast, onPicked: () => roundsHome() });
   if (act === 'editcourse') return editCourse(sel);
   if (act === 'start') {
     const c = await getCourse(sel);
