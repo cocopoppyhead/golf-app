@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0b1120" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>Golf Coach</title>
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="icon" href="icon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="icon-192.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;800&display=swap" rel="stylesheet" />
+</head>
+<body>
+  <header class="top">
+    <div class="brand"><span class="dot"></span>Golf<span class="mute">·</span><span id="tabTitle">Coach</span></div>
+  </header>
+
+  <main>
+    <!-- COACH -->
+    <section id="tab-coach" class="tab active">
+      <div id="coach-start" class="screen">
+        <div class="hero">
+          <h1>Swing check</h1>
+          <p>Film a face-on swing. The app tracks your body, finds address, top, impact and finish, and measures you against tour benchmarks. All on your phone.</p>
+        </div>
+        <label class="field-label">Club</label>
+        <div class="seg" id="clubSeg">
+          <button data-club="driver">Driver</button><button data-club="wood">Wood/Hybrid</button><button data-club="iron">Iron</button><button data-club="wedge">Wedge</button>
+        </div>
+        <label class="btn primary big" for="videoInput">Record or choose a swing video</label>
+        <input id="videoInput" type="file" accept="video/*" hidden />
+        <details class="tips">
+          <summary>How to film it</summary>
+          <ul>
+            <li><b>Face-on:</b> camera square to your chest, in line with the ball.</li>
+            <li><b>Hip height</b>, 3–4 m away, phone upright (portrait). Tripod or lean it on your bag.</li>
+            <li>Whole body, the ball and a bit of space above the club at the top in frame.</li>
+            <li>Use <b>slow-mo or 60 fps</b> if you can. Start filming 2 s before you set up.</li>
+            <li>One swing per clip. Good light, no one walking behind you.</li>
+          </ul>
+        </details>
+      </div>
+
+      <div id="coach-busy" class="screen" hidden>
+        <div class="busy">
+          <div class="spinner"></div>
+          <p id="busyMsg">Loading the pose model…</p>
+          <div class="bar"><div id="busyBar"></div></div>
+          <p class="mute small">First run downloads the model (~10 MB). After that it's cached.</p>
+        </div>
+      </div>
+
+      <div id="coach-ball" class="screen" hidden>
+        <p class="lead"><b>Tap the ball.</b> It anchors ball position and hands-ahead measurements.</p>
+        <div class="stage"><canvas id="ballCanvas"></canvas></div>
+        <div class="row">
+          <button class="btn" id="ballSkip">Skip (guess)</button>
+          <button class="btn primary" id="ballOk" disabled>Use this</button>
+        </div>
+      </div>
+
+      <div id="coach-result" class="screen" hidden>
+        <div class="stage"><canvas id="playCanvas"></canvas></div>
+        <div class="chips" id="cpChips"></div>
+        <div class="controls">
+          <button class="btn icon" id="playBtn" aria-label="Play">▶</button>
+          <span class="mute small" style="flex:1">Plays slowly and pauses at each checkpoint</span>
+          <select id="rateSel" aria-label="Speed"><option value="0.15">0.15×</option><option value="0.25" selected>0.25×</option><option value="0.5">0.5×</option><option value="1">1×</option></select>
+        </div>
+        <div id="cpCard" class="card cp"></div>
+        <div id="summary" class="card summary"></div>
+        <div class="actions">
+          <button class="btn primary" id="aiBtn">AI coach</button>
+          <button class="btn" id="exportBtn">Save video</button>
+          <button class="btn" id="newBtn">New swing</button>
+        </div>
+        <div id="aiOut" class="card ai" hidden></div>
+        <p class="mute small center">Measurements are approximate (2D pose tracking, scaled from your height). Pro marks are general tour benchmarks, not a specific player.</p>
+      </div>
+    </section>
+
+    <!-- HISTORY -->
+    <section id="tab-history" class="tab">
+      <div id="trend" class="card"></div>
+      <div id="historyList"></div>
+      <div id="historyDetail" hidden></div>
+    </section>
+
+    <!-- ROUNDS (next) -->
+    <section id="tab-rounds" class="tab">
+      <div class="card">
+        <h2>Rounds &amp; laser: coming next</h2>
+        <p class="mute">Same app, next module:</p>
+        <ul class="plain">
+          <li>🎯 Bushnell laser lock-on → club recommendation from your real carries</li>
+          <li>📝 Round logging: score, putts, fairways, greens, bogey-cause tags</li>
+          <li>📷 Scorecard photo → hole-by-hole scores</li>
+          <li>📈 Yardage book that updates from on-course shots</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- SETTINGS -->
+    <section id="tab-settings" class="tab">
+      <form id="settingsForm" class="card form">
+        <label>Your height
+          <div class="row"><input name="height" inputmode="decimal" /><select name="units"><option value="in">in</option><option value="cm">cm</option></select></div>
+          <span class="hint">Used to turn pixels into inches. Wrong height = wrong inches.</span>
+        </label>
+        <label>Golfer
+          <select name="handedness"><option value="auto">Detect automatically</option><option value="right">Right-handed</option><option value="left">Left-handed</option></select>
+          <span class="hint">Auto also handles mirrored selfie video.</span>
+        </label>
+        <label>Tracking quality
+          <select name="quality"><option value="full">Standard (faster)</option><option value="heavy">High (slower, more accurate)</option></select>
+        </label>
+        <hr />
+        <label>Claude API key (for AI coach)
+          <input name="apiKey" type="password" autocomplete="off" placeholder="sk-ant-…" />
+          <span class="hint">Stored only on this phone. Get one at console.anthropic.com. Each review costs about 1–3¢.</span>
+        </label>
+        <label>Model
+          <input name="model" autocomplete="off" />
+        </label>
+        <label>About you (sent with AI reviews)
+          <textarea name="golfer" rows="3" placeholder="e.g. 5 handicap. Miss: block right with irons. Working on: staying centred."></textarea>
+        </label>
+        <button class="btn primary" type="submit">Save</button>
+        <p id="savedMsg" class="mute small center" hidden>Saved</p>
+      </form>
+    </section>
+  </main>
+
+  <nav class="tabs">
+    <button data-tab="coach" class="active"><span>🏌️</span>Coach</button>
+    <button data-tab="history"><span>📈</span>History</button>
+    <button data-tab="rounds"><span>⛳</span>Rounds</button>
+    <button data-tab="settings"><span>⚙️</span>Settings</button>
+  </nav>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>

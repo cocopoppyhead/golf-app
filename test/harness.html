@@ -1,0 +1,26 @@
+<!doctype html><html><body>
+<script type="module">
+import { loadVideo, extractPose } from '../src/coach/pose.js';
+import { cleanTrack, findPhases } from '../src/coach/phases.js';
+import { analyse } from '../src/coach/metrics.js';
+import { drawOverlay, drawSummary } from '../src/coach/render.js';
+window.run = async (src, opts = {}) => {
+  const v = await loadVideo(src);
+  const log = [];
+  const raw = await extractPose(v, { quality: opts.quality || 'full', onProgress: (p, m) => { if (Math.random() < 0.02) log.push(m + ' ' + p.toFixed(2)); } });
+  const fr = cleanTrack(raw.frames);
+  const ph = findPhases(fr, {});
+  const A = analyse(fr, ph, { club: 'iron', heightIn: 70 });
+  const shots = [];
+  const c = document.createElement('canvas'); c.width = raw.width; c.height = raw.height;
+  const ctx = c.getContext('2d');
+  for (const [i, cp] of A.checkpoints.entries()) {
+    v.currentTime = fr[cp.frame].t; await new Promise(r => v.onseeked = r);
+    ctx.drawImage(v, 0, 0); drawOverlay(ctx, A, fr[cp.frame].lm, { cp, card: true, cpIndex: i });
+    shots.push(c.toDataURL('image/jpeg', 0.85));
+  }
+  drawSummary(ctx, A); shots.push(c.toDataURL('image/jpeg', 0.85));
+  return { n: raw.frames.length, window: raw.window, times: ['address','top','impact','finish'].map(k => fr[ph[k]].t.toFixed(2)), ph: { ...ph }, cps: A.checkpoints.map(c => ({ k: c.key, items: c.items.map(i => `${i.name}: ${i.you} [${i.status}]`) })), summary: A.summary, scale: A.scale, shots, log };
+};
+window.ready = true;
+</script></body></html>
