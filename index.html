@@ -17,6 +17,7 @@
 <body>
   <header class="top">
     <div class="brand"><span class="dot"></span>Golf<span class="mute">·</span><span id="tabTitle">Swing</span></div>
+    <button class="hdr-av" id="hdrAvatar" aria-label="Profile" hidden></button>
   </header>
 
   <main>
@@ -27,44 +28,29 @@
         <div class="hero">
           <div class="eyebrow">SWING COACH</div>
           <h1 class="display">Check a swing</h1>
-          <p>Get your four checkpoints, the tour benchmarks and your biggest fix.</p>
+          <p>Film or pick a video. The app finds each swing from address to finish, so there's nothing to trim.</p>
         </div>
         <div id="focusStrip" class="strip-note" hidden></div>
         <div class="tiles">
           <label class="tile" for="videoCapture">
             <svg viewBox="0 0 24 24"><path d="M15 10l5-3v10l-5-3z"/><rect x="3" y="6" width="12" height="12" rx="2"/></svg>
-            <b>Record a swing</b><span>Use your camera</span>
+            <b>Record</b><span>One swing or a few in a row</span>
           </label>
           <label class="tile" for="videoInput">
             <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-9 9"/></svg>
-            <b>Upload a video</b><span>From your gallery</span>
+            <b>Upload</b><span>From your camera roll</span>
           </label>
         </div>
-        <button class="tile wide" id="rangeTile">
-          <svg viewBox="0 0 24 24"><rect x="2" y="7" width="5" height="10" rx="1"/><rect x="9.5" y="7" width="5" height="10" rx="1"/><rect x="17" y="7" width="5" height="10" rx="1"/></svg>
-          <div><b>Range mode</b><span>Several swings in a row. The app splits and reviews each.</span></div>
-        </button>
-        <input id="rangeInput" type="file" accept="video/*" hidden />
         <input id="videoCapture" type="file" accept="video/*" capture="environment" hidden />
         <input id="videoInput" type="file" accept="video/*" hidden />
-        <div class="clubrow">
-          <span class="mute small">View</span>
-          <div class="seg seg2" id="viewSeg"><button data-view="face">Face-on</button><button data-view="dtl">From behind</button></div>
-        </div>
-        <div class="clubrow">
-          <span class="mute small">Club</span>
-          <div class="seg" id="clubSeg">
-            <button data-club="driver">Driver</button><button data-club="wood">Wood</button><button data-club="iron">Iron</button><button data-club="wedge">Wedge</button>
-          </div>
-        </div>
-        <label class="check learn"><input type="checkbox" id="learnBox" /> <span><b>Learning mode</b><br /><span class="mute small">Counts toward your coach profile. Untick for test swings.</span></span></label>
+        
         <details class="tips rowcard" id="keysCard" hidden>
           <summary><span class="ic">📓</span><span><b>My swing keys</b><br /><span class="mute small">Your own notes. Edit in Settings.</span></span><span class="chev">⌄</span></summary>
           <div class="keys" id="keysBody" style="padding:0 16px 14px"></div>
         </details>
         <details class="tips rowcard">
           <summary><span class="ic">💡</span><span><b>For the best results</b><br /><span class="mute small">How to film your swing</span></span><span class="chev">⌄</span></summary>
-          <ul data-tips="dtl" hidden>
+          <ul data-tips="dtl">
             <li><b>From behind (down the line):</b> stand behind your hands, camera pointing at the target, in line with your hands (not the ball).</li>
             <li><b>Hip height</b>, 3–4 m back, phone upright. Whole body and club at the top in frame.</li>
             <li>Shows posture, knee flex, early extension, spine angle and head height.</li>
@@ -81,6 +67,21 @@
         <div class="sechead"><h2>Recent swings</h2><button class="link acc" id="seeAll">See all</button></div>
         <div id="recentSwings"></div>
         <p class="mute small center" style="margin-top:14px">Tracking runs on your phone. Videos stay on this device.</p>
+      </div>
+
+      <div id="coach-setup" class="screen" hidden>
+        <div class="stage setup-stage"><canvas id="setupCanvas"></canvas>
+          <div class="scan" id="setupScan"><div class="bar"><i id="setupBar"></i></div><span id="setupMsg">Finding your swing…</span></div>
+        </div>
+        <p class="found" id="setupFound"></p>
+        <div class="setcard">
+          <div class="setrow"><span class="lbl">View</span><div class="seg seg2" id="viewSeg"><button data-view="face">Face-on</button><button data-view="dtl">From behind</button></div></div>
+          <p class="mute small hint" id="viewHint"></p>
+          <div class="setrow"><span class="lbl">Club</span><div class="seg" id="clubSeg"><button data-club="driver">Driver</button><button data-club="wood">Wood</button><button data-club="iron">Iron</button><button data-club="wedge">Wedge</button></div></div>
+          <label class="check learn"><input type="checkbox" id="learnBox" /> <span><b>Learning mode</b><br /><span class="mute small">Counts toward your coach profile. Untick for test swings.</span></span></label>
+        </div>
+        <button class="btn primary big" id="setupGo" disabled>Analyse swing</button>
+        <div class="setlinks"><button class="link" id="setupManual">Pick the swing myself</button><button class="link" id="setupCancel">Cancel</button></div>
       </div>
 
       <div id="coach-trim" class="screen" hidden>
@@ -121,12 +122,15 @@
       </div>
 
       <div id="coach-result" class="screen" hidden>
-        <div class="stage"><canvas id="playCanvas"></canvas></div>
+        <div class="stage"><canvas id="playCanvas"></canvas><div class="tapnote" id="tapNote">Tap to pause · drag the bar to scrub</div></div>
+        <div class="scrub">
+          <button class="btn icon" id="playBtn" aria-label="Pause">❚❚</button>
+          <div class="track"><input type="range" id="scrub" min="0" max="1" step="0.001" value="0" aria-label="Scrub through the swing" /><div class="marks" id="cpMarks"></div></div>
+        </div>
         <div class="chips" id="cpChips"></div>
-        <div class="controls">
-          <button class="btn icon" id="playBtn" aria-label="Play">▶</button>
-          <span class="mute small" style="flex:1">Plays slowly and pauses at each checkpoint</span>
-          <select id="rateSel" aria-label="Speed"><option value="0.15">0.15×</option><option value="0.25" selected>0.25×</option><option value="0.5">0.5×</option><option value="1">1×</option></select>
+        <div class="speedrow">
+          <div class="seg rate" id="rateSeg"><button data-r="0.1">0.1×</button><button data-r="0.25">¼×</button><button data-r="0.5">½×</button><button data-r="1">1×</button></div>
+          <label class="check mini"><input type="checkbox" id="cpStop" /> Stop at checkpoints</label>
         </div>
         <div class="nudge">
           <button class="btn" id="nudgeBack" aria-label="One frame earlier">◀</button>

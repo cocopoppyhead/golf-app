@@ -21,6 +21,7 @@ import { initRounds, roundsHome, recentRoundAggregate } from './rounds/ui.js';
 import { roundTendencies } from './rounds/stats.js';
 import { savePlan as savePlanX } from './coach/profile.js';
 import { renderAccount } from './cloud/account.js';
+import { maybeOnboard, avatarHtml, localProfile, openProfileEditor } from './onboarding.js';
 import { startSync } from './cloud/sync.js';
 import { tendencies, focusProgress, updatePlan, checkIn, getPlan, setFocus, addCoachNote, coachContext, metricLabel, metricCue } from './coach/profile.js';
 
@@ -57,19 +58,21 @@ function toast(msg, ms = 3200) {
 // ---------------- Coach: start ----------------
 function setClub(c) {
   settings.club = c; saveSettings(settings);
+  if (state && !state.A) state.club = c;
   document.querySelectorAll('#clubSeg button').forEach((b) => b.classList.toggle('on', b.dataset.club === c));
 }
 document.querySelectorAll('#clubSeg button').forEach((b) => b.addEventListener('click', () => setClub(b.dataset.club)));
-function setView(v) {
-  settings.view = v; saveSettings(settings);
+function setView(v, guessed = false) {
+  if (!guessed) { settings.view = v; saveSettings(settings); }
+  if (state && !state.A) state.view = v;
   document.querySelectorAll('#viewSeg button').forEach((b) => b.classList.toggle('on', b.dataset.view === v));
-  document.querySelectorAll('[data-tips]').forEach((el) => (el.hidden = el.dataset.tips !== v));
+  $('#viewHint').textContent = guessed ? `Looks like ${v === 'dtl' ? 'it was filmed from behind' : 'a face-on video'}. Change it if not.` : '';
 }
 document.querySelectorAll('#viewSeg button').forEach((b) => b.addEventListener('click', () => setView(b.dataset.view)));
 setView(settings.view || 'face');
 setClub(settings.club);
 $('#learnBox').checked = settings.learning !== false;
-$('#learnBox').addEventListener('change', (e) => { settings.learning = e.target.checked; saveSettings(settings); });
+$('#learnBox').addEventListener('change', (e) => { settings.learning = e.target.checked; saveSettings(settings); if (state && !state.A) state.learning = e.target.checked; });
 
 for (const id of ['#videoInput', '#videoCapture']) $(id).addEventListener('change', async (e) => {
   const file = e.target.files?.[0];
@@ -124,60 +127,127 @@ async function openSaved(id) {
   } catch (e) { toast(e.message, 5000); }
 }
 
-async function openVideo(file) {
+function dropVideo() {
   state?.player?.stop();
+  stopPreview();
   if (state?.video) { URL.revokeObjectURL(state.video.src); state.video.remove(); }
   state = null;
+}
+
+// ---------------- Coach: setup (finds the swing(s) for you) ----------------
+let preview = null;
+function stopPreview() { if (preview) { preview.on = false; preview.video.pause(); preview = null; } }
+/** Loop the found swing(s) on the setup screen so you can see what will be analysed. */
+async function startPreview(video, wins) {
+  stopPreview();
+  const c = $('#setupCanvas'), ctx = c.getContext('2d');
+  const me = (preview = { on: true, video });
+  let w = 0;
+  const go = async () => {
+    await seekTo(video, wins[w][0]);
+    if (!me.on) return;
+    try { video.playbackRate = 0.5; } catch {}
+    await video.play().catch(() => {});
+  };
+  await go();
+  const tick = async () => {
+    if (!me.on) return;
+    ctx.drawImage(video, 0, 0, c.width, c.height);
+    if (video.currentTime >= wins[w][1] || video.ended) {
+      video.pause(); await new Promise((r) => setTimeout(r, 500));
+      w = (w + 1) % wins.length; await go();
+    }
+    requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
+}
+
+async function openVideo(file) {
+  dropVideo();
+  screen('coach-setup');
+  $('#setupScan').hidden = false; $('#setupBar').style.width = '0%'; $('#setupMsg').textContent = 'Opening the video…';
+  $('#setupFound').innerHTML = ''; $('#viewHint').textContent = '';
+  $('#setupGo').disabled = true; $('#setupGo').hidden = false; $('#setupGo').textContent = 'Analyse swing';
+  $('#setupManual').textContent = 'Pick the swing myself';
+  setClub(settings.club); $('#learnBox').checked = settings.learning !== false;
+  document.querySelectorAll('#viewSeg button').forEach((b) => b.classList.toggle('on', b.dataset.view === (settings.view || 'face')));
+  let video;
   try {
-    const video = await loadVideo(file);
+    video = await loadVideo(file);
     // iOS needs the element in the DOM to decode frames reliably
     Object.assign(video.style, { position: 'fixed', left: '-9999px', width: '2px', height: '2px', opacity: 0 });
     document.body.appendChild(video);
-    state = { video, file, club: settings.club, view: settings.view || 'face', ball: null, learning: settings.learning !== false };
-    if (video.duration <= 4) return runAnalysis([0, video.duration]); // short clip: nothing to trim
-    await showTrim();
   } catch (err) {
-    console.error(err);
-    screen('coach-start');
-    toast(err.message || 'Could not open that video.', 6000);
+    console.error(err); screen('coach-start'); return toast(err.message || 'Could not open that video.', 6000);
   }
+  const me = (state = { video, file, club: settings.club, view: settings.view || 'face', ball: null, learning: settings.learning !== false, wins: [] });
+  const c = $('#setupCanvas'); c.width = video.videoWidth; c.height = video.videoHeight;
+  const ctx = c.getContext('2d');
+  await seekTo(video, Math.min(0.5, video.duration / 2)); ctx.drawImage(video, 0, 0);
+  let scan = { windows: [], view: null };
+  try {
+    let n = 0;
+    scan = await findSwings(video, {
+      quality: settings.quality,
+      onProgress: (p, m) => {
+        if (state !== me) return;
+        $('#setupBar').style.width = `${Math.round(p * 100)}%`; $('#setupMsg').textContent = m;
+        if (++n % 2 === 0) ctx.drawImage(video, 0, 0); // live look at what's being scanned
+      },
+    });
+  } catch (err) { console.warn('scan failed', err); }
+  if (state !== me) return; // cancelled or another video opened
+  $('#setupScan').hidden = true;
+  if (scan.view) setView(scan.view, true);
+  let wins = scan.windows;
+  const dur = video.duration;
+  if (!wins.length && dur <= 6) wins = [[0, dur]];
+  me.wins = wins;
+  if (!wins.length) {
+    $('#setupFound').innerHTML = `Couldn't spot a full swing<span class="mute">Check your whole body and the club at the top are in frame, or pick the swing yourself.</span>`;
+    $('#setupGo').hidden = true;
+    $('#setupManual').textContent = 'Pick the swing myself ›';
+    return;
+  }
+  const len = wins.reduce((a, w) => a + w[1] - w[0], 0);
+  $('#setupFound').innerHTML = wins.length === 1
+    ? `✓ Swing found<span class="mute">Address to finish, ${len.toFixed(1)} s. Playing below.</span>`
+    : `✓ ${wins.length} swings found<span class="mute">Each one gets its own review. Playing them in turn below.</span>`;
+  $('#setupGo').textContent = wins.length === 1 ? 'Analyse swing' : `Analyse all ${wins.length} swings`;
+  $('#setupGo').disabled = false;
+  startPreview(video, wins);
 }
 
-// ---------------- Range mode: several swings in one clip ----------------
-$('#rangeTile').onclick = () => {
-  const sheet = document.createElement('div'); sheet.className = 'sheet';
-  sheet.innerHTML = `<div class="sheet-in"><div class="sheet-h"><b>Range session</b><button class="link" data-close>Close</button></div>
-    <p class="mute small">Set the phone up ${settings.view === 'dtl' ? 'behind you, in line with your hands' : 'face-on, square to your chest'}, hit 3–4 balls (or more), and the app finds and reviews each swing.</p>
-    <button class="btn primary big" data-rec>● Record now</button>
-    <label class="btn big" for="rangeInput" style="width:100%;margin-top:8px">Upload a range video</label></div>`;
-  sheet.querySelector('[data-close]').onclick = () => sheet.remove();
-  sheet.querySelector('[data-rec]').onclick = () => {
-    sheet.remove();
-    const host = document.createElement('div'); host.className = 'rec-host'; document.body.appendChild(host);
-    openRecorder(host, { onDone: (blob) => { host.remove(); runSession(blob); }, onCancel: () => host.remove() });
-  };
-  sheet.querySelector('label').onclick = () => setTimeout(() => sheet.remove(), 300);
-  document.body.appendChild(sheet);
+$('#setupGo').onclick = () => {
+  if (!state?.wins?.length) return;
+  stopPreview();
+  if (state.wins.length === 1) runAnalysis(state.wins[0]);
+  else runSession(state.file, { video: state.video, wins: state.wins });
 };
-$('#rangeInput').addEventListener('change', (e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) runSession(f); });
+$('#setupManual').onclick = () => { if (!state?.video) return; stopPreview(); showTrim(); };
+$('#setupCancel').onclick = () => { dropVideo(); screen('coach-start'); renderRecent(); };
 
-async function runSession(file) {
-  state?.player?.stop();
-  if (state?.video) { URL.revokeObjectURL(state.video.src); state.video.remove(); }
+async function runSession(file, pre = null) {
+  const keep = pre ? { view: state.view, club: state.club, learning: state.learning } : null;
+  if (!pre) dropVideo();
   screen('coach-busy');
   const setP = (p, msg) => { $('#busyBar').style.width = `${Math.round(p * 100)}%`; if (msg) $('#busyMsg').textContent = msg; };
   setP(0, 'Loading the pose model…');
   try {
-    const video = await loadVideo(file);
-    Object.assign(video.style, { position: 'fixed', left: '-9999px', width: '2px', height: '2px', opacity: 0 });
-    document.body.appendChild(video);
-    const wins = await findSwings(video, { quality: settings.quality, onProgress: (p, m) => setP(p * 0.3, m) });
+    let video = pre?.video, wins = pre?.wins;
+    if (!pre) {
+      video = await loadVideo(file);
+      Object.assign(video.style, { position: 'fixed', left: '-9999px', width: '2px', height: '2px', opacity: 0 });
+      document.body.appendChild(video);
+      const scan = await findSwings(video, { quality: settings.quality, onProgress: (p, m) => setP(p * 0.3, m) });
+      wins = scan.windows;
+    }
     if (!wins.length) throw new Error('No full swings found. Make sure your whole body and the top of the swing are in frame.');
-    const view = settings.view || 'face', club = settings.club, learning = settings.learning !== false;
+    const view = keep?.view || settings.view || 'face', club = keep?.club || settings.club, learning = keep ? keep.learning !== false : settings.learning !== false;
     const swings = [];
     for (const [i, w] of wins.entries()) {
       try {
-        const raw = await extractPose(video, { quality: settings.quality, range: w, dense: true, onProgress: (p) => setP(0.3 + 0.6 * ((i + p) / wins.length), `Reviewing swing ${i + 1} of ${wins.length}…`) });
+        const raw = await extractPose(video, { quality: settings.quality, range: w, dense: true, onProgress: (p) => setP((pre ? 0.05 : 0.3) + (pre ? 0.85 : 0.6) * ((i + p) / wins.length), `Reviewing swing ${i + 1} of ${wins.length}…`) });
         const fr = cleanTrack(raw.frames);
         swings.push({ fr, ph: findPhases(fr, { handedness: settings.handedness }), range: w });
       } catch (e) { console.warn('swing skipped', e); }
@@ -301,7 +371,7 @@ async function runAnalysis(range) {
     const raw = await extractPose(video, { quality: settings.quality, range, onProgress: setP });
     const fr = cleanTrack(raw.frames);
     const ph = findPhases(fr, { handedness: settings.handedness });
-    Object.assign(state, { fr, ph, raw, range, club: settings.club, ball: null });
+    Object.assign(state, { fr, ph, raw, range, ball: null });
     if (state.view === 'dtl') await showResult(); else await askBall();
   } catch (err) {
     console.error(err);
@@ -368,23 +438,53 @@ async function showResult(reopen = false) {
   else { $('#aiOut').hidden = true; $('#aiOut').innerHTML = ''; }
   if (!reopen) state.ai = null;
 
+  const scrub = $('#scrub');
+  let dragging = false;
+  const setFill = (t) => { const p = (t - player.start) / ((player.end - player.start) || 1); scrub.style.setProperty('--fill', `${Math.max(0, Math.min(1, p)) * 100}%`); };
   const player = new SwingPlayer($('#playCanvas'), video, fr, A, {
-    onCheckpoint: (k) => renderCp(k),
-    onEnd: () => { $('#playBtn').textContent = '↻'; },
+    onCheckpoint: (k, passing) => (passing ? highlightCp(k) : renderCp(k)),
+    onTime: (t) => { if (!dragging) scrub.value = t; setFill(t); },
+    onState: (on) => { $('#playBtn').textContent = on ? '❚❚' : '▶'; $('#playBtn').setAttribute('aria-label', on ? 'Pause' : 'Play'); },
   });
-  player.rate = +$('#rateSel').value;
   state.player = player;
+  player.rate = +(settings.playRate || 0.25);
+  player.stopAtCp = !!settings.cpStop;
   renderChipsAndSummary();
-  $('#rateSel').onchange = (e) => (player.rate = +e.target.value);
-  $('#playBtn').textContent = '▶';
-  $('#playBtn').onclick = () => {
-    if (player.playing) { player.stop(); $('#playBtn').textContent = '▶'; }
-    else { $('#playBtn').textContent = '❚❚'; player.play(); }
+
+  // Scrub bar: drag to move frame by frame; checkpoint dots jump straight there.
+  const syncScrub = () => {
+    scrub.min = player.start; scrub.max = player.end; scrub.step = 0.001;
+    const span = (player.end - player.start) || 1;
+    $('#cpMarks').innerHTML = state.A.checkpoints.map((c, i) => {
+      const worst = c.items.some((x) => x.status === 'work') ? 'work' : c.items.some((x) => x.status === 'ok') ? 'ok' : 'good';
+      return `<button data-i="${i}" style="left:${((player.cpTimes[i] - player.start) / span) * 100}%" aria-label="${c.title}"><i style="background:var(--${worst})"></i><span>${c.title}</span></button>`;
+    }).join('');
+    $('#cpMarks').querySelectorAll('button').forEach((b) => b.addEventListener('click', () => player.showCheckpoint(+b.dataset.i)));
   };
+  syncScrub();
+  state.syncScrub = syncScrub;
+  scrub.onpointerdown = () => { dragging = true; player.stop(); };
+  scrub.oninput = () => { player.stop(); player.seek(+scrub.value); setFill(+scrub.value); };
+  scrub.onchange = () => { dragging = false; const k = player.cpAt(+scrub.value); if (k >= 0) { player.cpShown = k; renderCp(k); } };
+  scrub.onpointerup = scrub.onpointercancel = () => { dragging = false; };
+
+  const toggle = () => (player.playing ? player.stop() : player.play());
+  $('#playBtn').onclick = toggle;
+  $('#playCanvas').onclick = () => { toggle(); $('#tapNote').classList.add('gone'); };
+  $('#tapNote').classList.remove('gone');
+  setTimeout(() => $('#tapNote').classList.add('gone'), 3500);
+  document.querySelectorAll('#rateSeg button').forEach((b) => {
+    b.classList.toggle('on', +b.dataset.r === player.rate);
+    b.onclick = () => {
+      player.setRate(+b.dataset.r); settings.playRate = +b.dataset.r; saveSettings(settings);
+      document.querySelectorAll('#rateSeg button').forEach((x) => x.classList.toggle('on', x === b));
+      if (!player.playing) player.play();
+    };
+  });
+  $('#cpStop').checked = player.stopAtCp;
+  $('#cpStop').onchange = (e) => { player.stopAtCp = e.target.checked; settings.cpStop = e.target.checked; saveSettings(settings); };
   $('#nudgeBack').onclick = () => nudge(-1);
   $('#nudgeFwd').onclick = () => nudge(1);
-  const focus = Math.max(0, A.checkpoints.findIndex((c) => c.key === A.summary.focus));
-  await player.showCheckpoint(focus);
 
   $('#exportBtn').disabled = !canExport();
   $('#exportBtn').onclick = doExport;
@@ -392,13 +492,19 @@ async function showResult(reopen = false) {
   $('#newBtn').textContent = state.sessionId ? '‹ Session' : 'New swing';
   $('#newBtn').onclick = () => { player.stop(); if (state.sessionId) renderSession(state.sessionId); else { screen('coach-start'); renderRecent(); } };
 
-  if (reopen) { await refreshCoachCard(false); return; }
-  // Save to history (+ video and tracking so it can be reopened), then update the coach profile
-  state.id = `s_${Date.now()}`; state.date = Date.now();
-  state.thumbs = await checkpointImages(360, false);
-  await putSwing(record()).catch(() => {});
-  await saveMedia();
-  await refreshCoachCard(true);
+  // The card shows your priority checkpoint; the swing loops from address to finish above it.
+  const focus = Math.max(0, A.checkpoints.findIndex((c) => c.key === A.summary.focus));
+  player.cpShown = focus; renderCp(focus);
+  if (!reopen) {
+    // Save to history (+ video and tracking so it can be reopened) before playback takes the video
+    state.id = `s_${Date.now()}`; state.date = Date.now();
+    state.thumbs = await checkpointImages(360, false);
+    await putSwing(record()).catch(() => {});
+    await saveMedia();
+  }
+  await player.seek(player.start);
+  player.play();
+  await refreshCoachCard(!reopen);
 }
 
 /** The "Coach check-in" card under the summary: this swing vs your current focus. */
@@ -487,19 +593,21 @@ async function nudge(d) {
   if (next === state.ph[key]) return;
   state.ph[key] = next;
   const A = computeA();
-  p.A = A; p.cpTimes = A.checkpoints.map((c) => state.fr[c.frame].t);
-  p.end = state.fr[Math.min(state.fr.length - 1, A.checkpoints[3].frame + 12)].t;
-  p.start = state.fr[Math.max(0, A.checkpoints[0].frame - 8)].t;
+  p.refresh(A);
   renderChipsAndSummary();
+  state.syncScrub?.();
   await p.showCheckpoint(k);
   state.ai = null; $('#aiOut').hidden = true;
   clearTimeout(saveTimer);
   saveTimer = setTimeout(async () => { state.thumbs = await checkpointImages(360, false); await putSwing(record()).catch(() => {}); await saveMedia(); refreshCoachCard(false); }, 1500);
 }
 
+function highlightCp(k) {
+  document.querySelectorAll('#cpChips button, #cpMarks button').forEach((b) => b.classList.toggle('on', +b.dataset.i === k));
+}
 function renderCp(k) {
   const c = state.A.checkpoints[k];
-  document.querySelectorAll('#cpChips button').forEach((b) => b.classList.toggle('on', +b.dataset.i === k));
+  highlightCp(k);
   $('#cpCard').innerHTML = cpHtml(c, k);
   $('#nudgeLabel').textContent = `Wrong frame? Nudge ${c.title.toLowerCase()}`;
 }
@@ -520,6 +628,9 @@ function record() {
 /** JPEGs of the 4 checkpoints with overlay (+ card), at a given width. */
 async function checkpointImages(width, card) {
   const { video, fr, A } = state;
+  const p = state.player && state.player.video === video ? state.player : null;
+  const wasPlaying = p?.playing;
+  p?.stop();
   const k = width / video.videoWidth;
   const c = document.createElement('canvas'); c.width = video.videoWidth; c.height = video.videoHeight;
   const ctx = c.getContext('2d');
@@ -533,7 +644,8 @@ async function checkpointImages(width, card) {
     octx.drawImage(c, 0, 0, out.width, out.height);
     imgs.push(out.toDataURL('image/jpeg', 0.8));
   }
-  if (state.player && state.player.video === state.video) await state.player.showCheckpoint(state.player.cpShown >= 0 ? state.player.cpShown : 0);
+  if (p && wasPlaying) p.play();
+  else if (p) await p.showCheckpoint(p.cpShown >= 0 ? p.cpShown : 0);
   return imgs;
 }
 
@@ -676,7 +788,7 @@ function fillSettings() {
   f.height.value = f.system.value === 'metric' ? Math.round(settings.heightIn * 2.54) : Math.round(settings.heightIn * 10) / 10;
   $('#hUnit').textContent = f.system.value === 'metric' ? 'cm' : 'in';
   renderInstall($('#installRow'), true);
-  renderAccount($('#accountRow'), { toast, onChange: () => { settings = getSettings(); renderRecent(); } });
+  renderAccount($('#accountRow'), { toast, onChange: afterAccountChange });
   f.handedness.value = settings.handedness; f.quality.value = settings.quality;
   f.keepVideos.checked = settings.keepVideos !== false;
   f.keys.value = settings.keys || '';
@@ -743,6 +855,22 @@ $('#importFile').addEventListener('change', async (e) => {
 $('#buildTag').textContent = `App version ${__BUILD__} UTC`;
 
 startSync();
+
+// Header avatar + first-login setup
+function renderHeaderAvatar() {
+  const p = localProfile();
+  const el = $('#hdrAvatar');
+  el.hidden = !(p.name || p.avatar);
+  el.innerHTML = avatarHtml(p, 'hav');
+}
+$('#hdrAvatar').onclick = () => showTab('settings');
+function afterAccountChange() {
+  settings = getSettings(); renderRecent(); renderHeaderAvatar();
+  maybeOnboard({ toast, onDone: () => { settings = getSettings(); fillSettings(); renderHeaderAvatar(); renderAccount($('#accountRow'), { toast, onChange: afterAccountChange }); } });
+}
+renderHeaderAvatar();
+setTimeout(afterAccountChange, 1200);
+
 window.addEventListener('golf-synced', () => { settings = getSettings(); });
 
 // ---------------- PWA ----------------
@@ -760,4 +888,4 @@ onNative('share.error', (m) => toast(m.text, 5000));
 if (isNative()) document.documentElement.classList.add('native');
 
 // Test hook: lets automated tests feed a video URL
-window.__golfTest = { open: async (url) => openVideo(await (await fetch(url)).blob()), session: async (url) => runSession(await (await fetch(url)).blob()) };
+window.__golfTest = { open: async (url) => openVideo(await (await fetch(url)).blob()), session: async (url) => runSession(await (await fetch(url)).blob()), state: () => state, onboard: () => openProfileEditor({ first: true, toast, onDone: () => { settings = getSettings(); renderHeaderAvatar(); } }), scan: async (url) => { const v = await loadVideo(await (await fetch(url)).blob()); document.body.appendChild(v); const r = await findSwings(v, {}); v.remove(); return { ...r, ratio: findSwings.lastRatio, dur: v.duration }; } };

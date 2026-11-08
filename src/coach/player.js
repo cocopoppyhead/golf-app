@@ -1,5 +1,6 @@
 import { seek } from './pose.js';
-// Plays the analysed swing slowly on a canvas, freezing at each checkpoint.
+// Plays the analysed swing (address → finish) on a canvas with the pose overlay.
+// Loops by default, can be scrubbed frame by frame, and can optionally freeze at each checkpoint.
 import { drawOverlay } from './render.js';
 
 export function nearestFrame(fr, t) {
@@ -9,61 +10,116 @@ export function nearestFrame(fr, t) {
   return lo;
 }
 
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+
 export class SwingPlayer {
-  constructor(canvas, video, fr, A, { onCheckpoint = () => {}, onEnd = () => {} } = {}) {
-    Object.assign(this, { canvas, video, fr, A, onCheckpoint, onEnd });
+  constructor(canvas, video, fr, A, { onCheckpoint = () => {}, onTime = () => {}, onState = () => {} } = {}) {
+    Object.assign(this, { canvas, video, fr, A, onCheckpoint, onTime, onState });
     canvas.width = video.videoWidth; canvas.height = video.videoHeight;
     this.ctx = canvas.getContext('2d');
-    this.rate = 0.25; this.hold = 2200; this.playing = false; this.cpShown = -1;
-    this.start = fr[Math.max(0, A.checkpoints[0].frame - 8)].t;
-    this.end = fr[Math.min(fr.length - 1, A.checkpoints[3].frame + 12)].t;
+    this.rate = 0.25; this.hold = 1600; this.loop = true; this.stopAtCp = false;
+    this.playing = false; this.cpShown = -1; this.run = 0;
+    this.refresh(A);
+  }
+
+  /** Recompute the play range and checkpoint times (after a nudge). */
+  refresh(A) {
+    const { fr } = this;
+    this.A = A;
+    this.start = fr[Math.max(0, A.checkpoints[0].frame - 6)].t;
+    this.end = fr[Math.min(fr.length - 1, A.checkpoints[3].frame + 10)].t;
     this.cpTimes = A.checkpoints.map((c) => fr[c.frame].t);
   }
 
+  /** Seek and draw. Rapid calls (scrubbing) collapse to the latest position. */
   async seek(t) {
-    await seek(this.video, t);
-    this.draw();
+    this.want = t;
+    if (this.seeking) return this.seeking;
+    this.seeking = (async () => {
+      while (this.want != null) {
+        const w = this.want; this.want = null;
+        await seek(this.video, w);
+        this.draw(); this.onTime(w);
+      }
+      this.seeking = null;
+    })();
+    return this.seeking;
+  }
+
+  /** Frame index of a checkpoint when the video sits on it, else -1. */
+  cpAt(t) {
+    const i = nearestFrame(this.fr, t);
+    return this.A.checkpoints.findIndex((c) => c.frame === i);
   }
 
   draw(cpIndex = -1) {
     const { ctx, video, fr, A } = this;
     ctx.drawImage(video, 0, 0, this.canvas.width, this.canvas.height);
     const i = nearestFrame(fr, video.currentTime);
-    const cp = cpIndex >= 0 ? A.checkpoints[cpIndex] : null;
-    drawOverlay(ctx, A, fr[cp ? cp.frame : i].lm, { cp, card: false, cpIndex });
+    const k = cpIndex >= 0 ? cpIndex : (this.playing ? -1 : this.cpAt(video.currentTime));
+    const cp = k >= 0 ? A.checkpoints[k] : null;
+    drawOverlay(ctx, A, fr[cp ? cp.frame : i].lm, { cp, card: false, cpIndex: k });
   }
 
   async showCheckpoint(k) {
     this.stop();
     await seek(this.video, this.cpTimes[k]);
-    this.cpShown = k; this.draw(k); this.onCheckpoint(k);
+    this.cpShown = k; this.draw(k); this.onCheckpoint(k, false); this.onTime(this.cpTimes[k]);
   }
 
   async play() {
     if (this.playing) return;
-    this.playing = true;
+    this.playing = true; this.onState(true);
+    const run = ++this.run;
     const v = this.video;
-    if (v.currentTime >= this.end - 0.02 || v.currentTime < this.start) await this.seek(this.start);
-    let next = this.cpTimes.findIndex((t) => t > v.currentTime + 0.001);
-    v.playbackRate = this.rate;
-    await v.play().catch(() => {});
+    const alive = () => this.playing && this.run === run;
+    if (v.currentTime >= this.end - 0.02 || v.currentTime < this.start - 0.02) await seek(v, this.start);
+    let last = this.lastCpBefore(v.currentTime);
+    const go = async () => {
+      try { v.playbackRate = this.rate; } catch { v.playbackRate = 0.25; }
+      await v.play().catch(() => {});
+    };
+    await go();
     const tick = async () => {
-      if (!this.playing) return;
-      if (next >= 0 && next < 4 && v.currentTime >= this.cpTimes[next]) {
-        v.pause();
-        await seek(v, this.cpTimes[next]);
-        this.draw(next); this.onCheckpoint(next);
-        const k = next; next = k + 1 < 4 ? k + 1 : -1;
-        await new Promise((r) => setTimeout(r, this.hold));
-        if (!this.playing) return;
-        await v.play().catch(() => {});
-      } else if (v.currentTime >= this.end) {
-        v.pause(); this.playing = false; this.draw(); this.onEnd(); return;
-      } else this.draw();
+      if (!alive()) return;
+      const t = v.currentTime;
+      const k = this.lastCpBefore(t);
+      if (k !== last && k >= 0) {
+        last = k;
+        if (this.stopAtCp) {
+          v.pause(); await seek(v, this.cpTimes[k]);
+          if (!alive()) return;
+          this.cpShown = k; this.draw(k); this.onCheckpoint(k, false); this.onTime(this.cpTimes[k]);
+          await wait(this.hold);
+          if (!alive()) return;
+          await go();
+        } else this.onCheckpoint(k, true);
+      }
+      if (t >= this.end || v.ended) {
+        v.pause(); this.draw(); this.onTime(this.end);
+        if (!this.loop) { this.playing = false; this.onState(false); return; }
+        await wait(700);
+        if (!alive()) return;
+        await seek(v, this.start); last = -1;
+        if (!alive()) return;
+        await go();
+      } else { this.draw(); this.onTime(t); }
       requestAnimationFrame(tick);
     };
     requestAnimationFrame(tick);
   }
 
-  stop() { this.playing = false; this.video.pause(); }
+  lastCpBefore(t) {
+    let k = -1;
+    this.cpTimes.forEach((x, i) => { if (t >= x - 0.004) k = i; });
+    return k;
+  }
+
+  setRate(r) { this.rate = r; if (this.playing) { try { this.video.playbackRate = r; } catch {} } }
+
+  stop() {
+    const was = this.playing;
+    this.playing = false; this.run++; this.video.pause();
+    if (was) this.onState(false);
+  }
 }

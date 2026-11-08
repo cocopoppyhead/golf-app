@@ -2,6 +2,7 @@
 import { currentUser, signInPassword, signUpPassword, signOut, getProfile, saveProfile } from './supabase.js';
 import { syncNow, onSyncStatus, claimDevice } from './sync.js';
 import { getSettings, saveSettings } from '../store.js';
+import { openProfileEditor, avatarHtml, localProfile } from '../onboarding.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const ago = (t) => { if (!t) return 'never'; const s = (Date.now() - t) / 1000; return s < 60 ? 'just now' : s < 3600 ? `${Math.round(s / 60)} min ago` : s < 86400 ? `${Math.round(s / 3600)} h ago` : new Date(t).toLocaleDateString(); };
@@ -13,10 +14,16 @@ export async function renderAccount(el, { toast = () => {}, onChange = () => {} 
   unsub?.();
   if (!user) return signedOut(el, { toast, onChange });
   const prof = (await getProfile(user.id).catch(() => null)) || {};
+  const p = { ...localProfile() };
+  if (prof.name && !p.name) p.name = prof.name;
+  if (prof.avatar && !p.avatar) p.avatar = prof.avatar;
+  const hcp = p.handicap ?? prof.handicap_index;
   el.innerHTML = `<div class="acct">
-    <div class="acct-h"><div class="av">${esc((prof.name || user.email)[0].toUpperCase())}</div>
-      <div><b>${esc(prof.name || 'Add your name')}</b><div class="mute small">${esc(user.email)}</div></div></div>
-    <div class="row" style="margin-top:10px"><input id="pName" placeholder="Your name" value="${esc(prof.name || '')}" /><input id="pHcp" inputmode="decimal" placeholder="Handicap index" value="${prof.handicap_index ?? ''}" style="flex:0 0 120px" /></div>
+    <div class="acct-h">${avatarHtml(p)}
+      <div style="flex:1;min-width:0"><b>${esc(p.name || 'Add your name')}</b>${p.nickname ? ` <span class="mute">“${esc(p.nickname)}”</span>` : ''}
+        <div class="mute small">${[hcp != null ? `HCP ${hcp}` : 'No handicap yet', p.hand === 'left' ? 'Left-handed' : 'Right-handed', p.homeCourse].filter(Boolean).map(esc).join(' · ')}</div>
+        <div class="mute small">${esc(user.email)}</div></div></div>
+    <button class="btn" type="button" id="editProf" style="width:100%;margin-top:10px">Edit profile</button>
     <p class="small" id="syncLine" style="margin:8px 0"></p>
     <div class="row"><button class="btn" type="button" id="syncBtn">Sync now</button><button class="btn" type="button" id="outBtn">Sign out</button></div>
   </div>`;
@@ -24,13 +31,7 @@ export async function renderAccount(el, { toast = () => {}, onChange = () => {} 
     const l = el.querySelector('#syncLine'); if (!l) return;
     l.innerHTML = s.state === 'syncing' ? '⟳ Syncing…' : s.state === 'error' ? `<span style="color:var(--work)">Sync problem: ${esc(s.error)}</span>` : `<span class="mute">☁︎ Backed up · last sync ${ago(s.last)}</span>`;
   });
-  let saveT = null;
-  const saveP = () => { clearTimeout(saveT); saveT = setTimeout(async () => {
-    const name = el.querySelector('#pName').value.trim(), h = parseFloat(el.querySelector('#pHcp').value);
-    try { await saveProfile(user.id, { name, handicap_index: Number.isFinite(h) ? h : null }); const s = getSettings(); s.name = name; saveSettings(s); el.querySelector('.acct-h b').textContent = name || 'Add your name'; } catch (e) { toast(e.message); }
-  }, 700); };
-  el.querySelector('#pName').addEventListener('input', saveP);
-  el.querySelector('#pHcp').addEventListener('input', saveP);
+  el.querySelector('#editProf').onclick = () => openProfileEditor({ prof, user, toast, onDone: () => { onChange(); renderAccount(el, { toast, onChange }); } });
   el.querySelector('#syncBtn').onclick = () => syncNow();
   el.querySelector('#outBtn').onclick = async () => { await signOut(); toast('Signed out. Your data stays on this phone.'); renderAccount(el, { toast, onChange }); };
 }

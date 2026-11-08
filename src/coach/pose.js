@@ -131,37 +131,91 @@ export async function extractPose(video, { quality = 'full', range = null, dense
  * hand movement that has the hands going above the shoulders becomes one swing window.
  * Returns [[t0, t1], ...] in time order.
  */
+/**
+ * Coarse scan of a whole clip. Finds every full swing and returns a window per swing that runs
+ * from just before address to just after the finish, plus a guess at the camera view.
+ * Returns { windows: [[t0, t1], ...], view: 'face' | 'dtl' | null }.
+ */
 export async function findSwings(video, { quality = 'full', onProgress = () => {} } = {}) {
   const lm = await getLandmarker(quality);
   const W = video.videoWidth, H = video.videoHeight, dur = video.duration;
+  const step = dur > 40 ? 1 / 6 : 1 / 8;
   const coarse = [];
-  for (let t = 0; t < dur; t += 1 / 8) {
+  for (let t = 0; t < dur; t += step) {
     await seek(video, t);
-    const r = lm.detectForVideo(video, tick(125));
+    const r = lm.detectForVideo(video, tick(Math.round(step * 1000)));
     const p = r.landmarks?.[0];
     coarse.push({ t, lm: p ? p.map((q) => ({ x: q.x * W, y: q.y * H, v: q.visibility ?? 1 })) : null });
-    onProgress(t / dur, 'Finding your swings…');
+    onProgress(Math.min(1, t / dur), 'Finding your swing…');
   }
   const ok = coarse.filter((f) => f.lm);
-  if (ok.length < 10) return [];
+  if (ok.length < 8) return { windows: [], view: null };
   const mid = (a, b) => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
   const hand = (f) => mid(f.lm[15], f.lm[16]);
   const shY = (f) => (f.lm[11].y + f.lm[12].y) / 2;
-  const spd = ok.map((f, i) => (i ? Math.hypot(hand(f).x - hand(ok[i - 1]).x, hand(f).y - hand(ok[i - 1]).y) / (f.t - ok[i - 1].t || 0.125) : 0));
-  const max = Math.max(...spd);
-  // candidate peaks: fast, local max, hands above shoulders within 1.5 s before (the top)
+  const hipY = (f) => (f.lm[23].y + f.lm[24].y) / 2;
+  const med = (a) => { const b = [...a].sort((x, y) => x - y); return b[b.length >> 1] ?? 0; };
+
+
+  const spd = ok.map((f, i) => (i ? Math.hypot(hand(f).x - hand(ok[i - 1]).x, hand(f).y - hand(ok[i - 1]).y) / (f.t - ok[i - 1].t || step) : 0));
+  const max = Math.max(...spd) || 1;
+  // Candidate downswings: a fast local max with the hands above the shoulders shortly before it
+  // (the top). 4 s look-back so slow-motion clips still qualify.
   const peaks = [];
   for (let i = 1; i < ok.length - 1; i++) {
     if (spd[i] < 0.35 * max || spd[i] < spd[i - 1] || spd[i] < spd[i + 1]) continue;
-    const hadTop = ok.some((f) => f.t < ok[i].t && f.t > ok[i].t - 1.5 && hand(f).y < shY(f));
+    const hadTop = ok.some((f) => f.t < ok[i].t && f.t > ok[i].t - 4 && hand(f).y < shY(f));
     if (!hadTop) continue;
-    if (peaks.length && ok[i].t - peaks[peaks.length - 1].t < 2.5) { if (spd[i] > peaks[peaks.length - 1].s) peaks[peaks.length - 1] = { t: ok[i].t, s: spd[i] }; continue; }
-    peaks.push({ t: ok[i].t, s: spd[i] });
+    if (peaks.length && ok[i].t - ok[peaks[peaks.length - 1].i].t < 2.5) { if (spd[i] > peaks[peaks.length - 1].s) peaks[peaks.length - 1] = { i, s: spd[i] }; continue; }
+    peaks.push({ i, s: spd[i] });
   }
+  if (!peaks.length) return { windows: [], view: guessView(ok) };
   // practice swings are usually slower: keep peaks at least half as fast as the fastest
-  const strong = peaks.filter((p) => p.s >= 0.5 * Math.max(...peaks.map((q) => q.s)));
-  return strong.map((p, k) => {
-    const prev = strong[k - 1]?.t ?? -Infinity, next = strong[k + 1]?.t ?? Infinity;
-    return [Math.max(0, p.t - 2.8, (prev + p.t) / 2), Math.min(dur, p.t + 2.0, (p.t + next) / 2)];
+  const top = Math.max(...peaks.map((q) => q.s));
+  const strong = peaks.filter((q) => q.s >= 0.5 * top);
+  const still = 0.1 * max;
+
+  const windows = strong.map(({ i }) => {
+    const tp = ok[i].t;
+    // Top of the backswing: highest hands in the 4 s before the fast part
+    let ti = i;
+    for (let j = i; j >= 0 && ok[j].t > tp - 4; j--) if (hand(ok[j]).y < hand(ok[ti]).y) ti = j;
+    // Address: the last still moment, hands down by the hips, before the takeaway
+    let addr = null;
+    for (let j = ti - 1; j >= 1 && ok[j].t > tp - 8; j--) {
+      const low = hand(ok[j]).y > (shY(ok[j]) + hipY(ok[j])) / 2;
+      if (low && spd[j] < still && spd[j - 1] < still * 1.5) { addr = ok[j].t; break; }
+    }
+    if (addr == null) addr = Math.max(0, ok[ti].t - 1.6);
+    // Finish: hands up and settled after impact
+    let fin = null;
+    for (let j = i + 1; j < ok.length && ok[j].t < tp + 4; j++) {
+      if (hand(ok[j]).y < shY(ok[j]) && spd[j] < still * 1.5) { fin = ok[j].t; break; }
+    }
+    if (fin == null) fin = Math.min(dur, tp + 1.4);
+    return [Math.max(0, addr - 0.5), Math.min(dur, fin + 0.7)];
   });
+  // don't let neighbouring swings overlap
+  for (let k = 1; k < windows.length; k++) {
+    if (windows[k][0] < windows[k - 1][1]) {
+      const m = (ok[strong[k - 1].i].t + ok[strong[k].i].t) / 2;
+      windows[k - 1][1] = Math.min(windows[k - 1][1], m); windows[k][0] = Math.max(windows[k][0], m);
+    }
+  }
+  // judge the view at address (shoulders square), not mid-swing when they're turned
+  const atAddr = ok.filter((f) => windows.some(([a]) => f.t >= a && f.t <= a + 1.2));
+  return { windows, view: guessView(atAddr.length >= 3 ? atAddr : ok) };
+}
+
+/** Face-on shows the shoulders and hips spread apart; from behind they overlap. */
+function guessView(frames) {
+  const mid = (a, b) => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
+  const vals = frames.map((f) => {
+    const s = mid(f.lm[11], f.lm[12]), h = mid(f.lm[23], f.lm[24]);
+    const torso = Math.hypot(s.x - h.x, s.y - h.y) || 1;
+    return (Math.abs(f.lm[11].x - f.lm[12].x) + Math.abs(f.lm[23].x - f.lm[24].x)) / torso;
+  }).sort((a, b) => a - b);
+  const r = vals[vals.length >> 1] ?? 0;
+  findSwings.lastRatio = r;
+  return r > 0.75 ? 'face' : r < 0.5 ? 'dtl' : null;
 }

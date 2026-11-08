@@ -10,6 +10,13 @@ create table if not exists public.profiles (
   handicap_index numeric,
   created_at timestamptz not null default now()
 );
+-- mini profile (added later; safe to re-run)
+alter table public.profiles add column if not exists nickname text;
+alter table public.profiles add column if not exists avatar text;          -- small square JPEG as a data URL
+alter table public.profiles add column if not exists home_course text;
+alter table public.profiles add column if not exists handed text check (handed in ('right','left'));
+alter table public.profiles add column if not exists height_in numeric;
+alter table public.profiles add column if not exists onboarded boolean not null default false;
 alter table public.profiles enable row level security;
 drop policy if exists "profiles readable by signed-in users" on public.profiles;
 create policy "profiles readable by signed-in users" on public.profiles for select to authenticated using (true);
