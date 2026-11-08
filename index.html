@@ -11,11 +11,11 @@
   <link rel="icon" href="icon.svg" type="image/svg+xml" />
   <link rel="apple-touch-icon" href="icon-192.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;800&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Inter:wght@400;500;700;800&display=swap" rel="stylesheet" />
 </head>
 <body>
   <header class="top">
-    <div class="brand"><span class="dot"></span>Golf<span class="mute">·</span><span id="tabTitle">Coach</span></div>
+    <div class="brand"><span class="dot"></span>Golf<span class="mute">·</span><span id="tabTitle">Swing</span></div>
   </header>
 
   <main>
@@ -23,18 +23,32 @@
     <section id="tab-coach" class="tab active">
       <div id="coach-start" class="screen">
         <div class="hero">
-          <h1>Swing check</h1>
-          <p>Film a face-on swing. The app tracks your body, finds address, top, impact and finish, and measures you against tour benchmarks. All on your phone.</p>
+          <div class="eyebrow">SWING COACH</div>
+          <h1 class="display">Check a swing</h1>
+          <p>Get your four checkpoints, the tour benchmarks and your biggest fix.</p>
         </div>
-        <label class="field-label">Club</label>
-        <div class="seg" id="clubSeg">
-          <button data-club="driver">Driver</button><button data-club="wood">Wood/Hybrid</button><button data-club="iron">Iron</button><button data-club="wedge">Wedge</button>
+        <div id="focusStrip" class="strip-note" hidden></div>
+        <div class="tiles">
+          <label class="tile" for="videoCapture">
+            <svg viewBox="0 0 24 24"><path d="M15 10l5-3v10l-5-3z"/><rect x="3" y="6" width="12" height="12" rx="2"/></svg>
+            <b>Record a swing</b><span>Use your camera</span>
+          </label>
+          <label class="tile" for="videoInput">
+            <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-9 9"/></svg>
+            <b>Upload a video</b><span>From your gallery</span>
+          </label>
         </div>
-        <label class="check learn"><input type="checkbox" id="learnBox" /> <span><b>Learning mode</b><br /><span class="mute small">Counts this swing toward your coach profile: tendencies, current focus, progress. Untick for test or messing-about swings.</span></span></label>
-        <label class="btn primary big" for="videoInput">Record or choose a swing video</label>
+        <input id="videoCapture" type="file" accept="video/*" capture="environment" hidden />
         <input id="videoInput" type="file" accept="video/*" hidden />
-        <details class="tips">
-          <summary>How to film it</summary>
+        <div class="clubrow">
+          <span class="mute small">Club</span>
+          <div class="seg" id="clubSeg">
+            <button data-club="driver">Driver</button><button data-club="wood">Wood</button><button data-club="iron">Iron</button><button data-club="wedge">Wedge</button>
+          </div>
+        </div>
+        <label class="check learn"><input type="checkbox" id="learnBox" /> <span><b>Learning mode</b><br /><span class="mute small">Counts toward your coach profile. Untick for test swings.</span></span></label>
+        <details class="tips rowcard">
+          <summary><span class="ic">💡</span><span><b>For the best results</b><br /><span class="mute small">How to film your swing</span></span><span class="chev">⌄</span></summary>
           <ul>
             <li><b>Face-on:</b> camera square to your chest, in line with the ball.</li>
             <li><b>Hip height</b>, 3–4 m away, phone upright (portrait). Tripod or lean it on your bag.</li>
@@ -43,6 +57,9 @@
             <li>One swing per clip. Good light, no one walking behind you.</li>
           </ul>
         </details>
+        <div class="sechead"><h2>Recent swings</h2><button class="link acc" id="seeAll">See all</button></div>
+        <div id="recentSwings"></div>
+        <p class="mute small center" style="margin-top:14px">Tracking runs on your phone. Videos stay on this device.</p>
       </div>
 
       <div id="coach-trim" class="screen" hidden>
@@ -119,6 +136,9 @@
       <div id="roundsRoot"></div>
     </section>
 
+    <!-- BAG -->
+    <section id="tab-bag" class="tab"><div id="bagRoot"></div></section>
+
     <!-- SETTINGS -->
     <section id="tab-settings" class="tab">
       <form id="settingsForm" class="card form">
@@ -133,6 +153,7 @@
         <label>Tracking quality
           <select name="quality"><option value="full">Standard (faster)</option><option value="heavy">High (slower, more accurate)</option></select>
         </label>
+        <label class="check"><input type="checkbox" name="keepVideos" /> <span>Keep swing videos on this phone<br /><span class="hint">So you can replay past analyses from the Swing page. Uses phone storage (roughly 10–50 MB per swing).</span></span></label>
         <hr />
         <label>Claude API key (for AI coach)
           <input name="apiKey" type="password" autocomplete="off" placeholder="sk-ant-…" />
@@ -151,10 +172,11 @@
   </main>
 
   <nav class="tabs">
-    <button data-tab="coach" class="active"><span>🏌️</span>Coach</button>
-    <button data-tab="history"><span>📈</span>Progress</button>
-    <button data-tab="rounds"><span>⛳</span>Rounds</button>
-    <button data-tab="settings"><span>⚙️</span>Settings</button>
+    <button data-tab="rounds"><svg viewBox="0 0 24 24"><path d="M6 21V3l11 4-11 4"/><path d="M3 21h18"/></svg>Rounds</button>
+    <button data-tab="history"><svg viewBox="0 0 24 24"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg>Progress</button>
+    <button data-tab="coach" class="cam active" aria-label="Swing coach"><span class="cambtn"><svg viewBox="0 0 24 24"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg></span>Swing</button>
+    <button data-tab="bag"><svg viewBox="0 0 24 24"><rect x="7" y="7" width="10" height="14" rx="3"/><path d="M9 7V3M12 7V2M15 7V4"/></svg>Bag</button>
+    <button data-tab="settings"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>Settings</button>
   </nav>
 
   <script type="module" src="/src/main.js"></script>

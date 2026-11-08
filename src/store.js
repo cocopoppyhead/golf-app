@@ -2,7 +2,7 @@
 
 const DEFAULTS = {
   heightIn: 70, units: 'in', handedness: 'auto', quality: 'full',
-  apiKey: '', model: 'claude-sonnet-5-5', golfer: '', club: 'iron',
+  apiKey: '', model: 'claude-sonnet-5-5', golfer: '', club: 'iron', keepVideos: true,
 };
 
 export function getSettings() {
@@ -16,13 +16,15 @@ export function saveSettings(s) {
 let dbp = null;
 function db() {
   if (!dbp) dbp = new Promise((res, rej) => {
-    const r = indexedDB.open('golf-app', 2);
+    const r = indexedDB.open('golf-app', 3);
     r.onupgradeneeded = () => {
       const d = r.result;
       if (!d.objectStoreNames.contains('swings')) d.createObjectStore('swings', { keyPath: 'id' });
       // future modules: rounds, shots, clubs
       if (!d.objectStoreNames.contains('rounds')) d.createObjectStore('rounds', { keyPath: 'id' });
       if (!d.objectStoreNames.contains('courses')) d.createObjectStore('courses', { keyPath: 'id' });
+      // swing video + tracking data, kept apart so lists stay fast
+      if (!d.objectStoreNames.contains('media')) d.createObjectStore('media', { keyPath: 'id' });
     };
     r.onsuccess = () => res(r.result);
     r.onerror = () => rej(r.error);
@@ -40,7 +42,10 @@ const tx = async (store, mode, fn) => {
 };
 
 export const putSwing = (s) => tx('swings', 'readwrite', (st) => st.put(s));
-export const deleteSwing = (id) => tx('swings', 'readwrite', (st) => st.delete(id));
+export const deleteSwing = async (id) => { await tx('swings', 'readwrite', (st) => st.delete(id)); await tx('media', 'readwrite', (st) => st.delete(id)).catch(() => {}); };
+export const putMedia = (m) => tx('media', 'readwrite', (st) => st.put(m));
+export const getMedia = (id) => tx('media', 'readonly', (st) => st.get(id));
+export const mediaKeys = () => tx('media', 'readonly', (st) => st.getAllKeys());
 export const getSwing = (id) => tx('swings', 'readonly', (st) => st.get(id));
 export async function listSwings() {
   const all = await tx('swings', 'readonly', (st) => st.getAll());

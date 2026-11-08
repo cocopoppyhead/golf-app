@@ -6,6 +6,8 @@ Live: https://cocopoppyhead.github.io/golf-app/
 
 ## Swing coach
 
+The raised camera button in the middle of the nav opens the Swing page: **Record a swing** (opens the camera) or **Upload a video** (gallery), club, learning mode, filming tips, and recent swings. Tap a recent swing to replay its full analysis (videos are kept on the phone; switch off in Settings).
+
 1. Film a face-on swing (portrait, hip height, 3–4 m away, whole body + ball in frame; slow-mo or 60 fps helps).
 2. Pick the club and the video, then **trim** to one swing (drag the start/end handles to cut walking in, practice swings and walking off). Pose tracking (MediaPipe Pose Landmarker) runs **on the phone**. No video is uploaded anywhere.
 3. Tap the ball.
@@ -36,6 +38,10 @@ Inches are scaled from your height (Settings), so they're approximate. Target di
 - **Stats**: fairways, greens, miss patterns, putts, 3-putts, scrambling, sand saves, scoring mix, strokes lost by cause/shot/strike. Per round and per-round average across recent rounds.
 - **Coach link**: on-course patterns (e.g. "tee shots miss right", "most shots lost to SWE") show in Progress next to swing tendencies and go to the AI coach. **AI round review** reads the round, recent rounds and your swing profile together. Untick "count toward my coach profile" for scrambles or fun rounds.
 
+## Bag
+
+Your clubs and carries (editable; seeded with the numbers from the rangefinder chat), gap warnings, and a "which club?" box. The laser will fill the distance in later.
+
 ## Code map
 
 ```
@@ -49,7 +55,8 @@ src/coach/ai.js       Claude API coaching (with coaching history)
 src/coach/profile.js  coach memory: tendencies, current focus, progress, notebook
 src/rounds/stats.js   round stats, on-course tendencies (pure)
 src/rounds/ui.js      courses, hole logger, tag sheet, scorecard import, summaries
-src/store.js          settings + IndexedDB (swings, rounds, courses)
+src/bag.js            clubs, carries, club picker
+src/store.js          settings + IndexedDB (swings, media, rounds, courses)
 ```
 
 ## Dev
