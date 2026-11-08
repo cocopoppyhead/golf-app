@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "@mediapipe/tasks-vision": "1.1.1",
+    "@supabase/supabase-js": "2.118.0",
     "mp4-muxer": "5.2.2"
   },
   "devDependencies": {

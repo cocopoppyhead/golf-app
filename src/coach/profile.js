@@ -32,7 +32,10 @@ export function getPlan() {
   try { return JSON.parse(localStorage.getItem(PLAN_KEY) || 'null') || { focus: null, done: [], notes: [] }; }
   catch { return { focus: null, done: [], notes: [] }; }
 }
-export function savePlan(p) { try { localStorage.setItem(PLAN_KEY, JSON.stringify(p)); } catch {} }
+export function savePlan(p, { fromSync = false } = {}) {
+  try { if (!fromSync) p.updatedAt = Date.now(); localStorage.setItem(PLAN_KEY, JSON.stringify(p)); } catch {}
+  if (!fromSync) window.dispatchEvent(new Event('golf-plan'));
+}
 
 /**
  * swings: saved records (newest first). Returns tendencies sorted by severity.

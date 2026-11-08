@@ -1,5 +1,14 @@
 // Local storage: settings in localStorage, swing history in IndexedDB. Nothing leaves the phone.
 
+// ---- change tracking for cloud sync ----
+const listeners = new Set();
+export const onLocalChange = (fn) => { listeners.add(fn); return () => listeners.delete(fn); };
+const changed = (kind) => listeners.forEach((fn) => { try { fn(kind); } catch {} });
+const stamp = (x, keepTime) => { if (x && !keepTime) x.updatedAt = Date.now(); return x; };
+export function tombstone(kind, id) {
+  try { const t = JSON.parse(localStorage.getItem('golf.deleted') || '[]'); t.push({ kind, id, at: Date.now() }); localStorage.setItem('golf.deleted', JSON.stringify(t)); } catch {}
+}
+
 const DEFAULTS = {
   heightIn: 70, system: 'imperial', handedness: 'auto', quality: 'full',
   apiKey: '', model: 'claude-sonnet-5-5', golfer: '', club: 'iron', keepVideos: true,
@@ -15,8 +24,9 @@ export function getSettings() {
   }
   catch { return { ...DEFAULTS }; }
 }
-export function saveSettings(s) {
-  try { localStorage.setItem('golf.settings', JSON.stringify(s)); } catch {}
+export function saveSettings(s, { fromSync = false } = {}) {
+  try { s.updatedAt = fromSync ? s.updatedAt : Date.now(); localStorage.setItem('golf.settings', JSON.stringify(s)); } catch {}
+  if (!fromSync) changed('settings');
 }
 
 let dbp = null;
@@ -48,8 +58,8 @@ const tx = async (store, mode, fn) => {
   });
 };
 
-export const putSwing = (s) => tx('swings', 'readwrite', (st) => st.put(s));
-export const deleteSwing = async (id) => { await tx('swings', 'readwrite', (st) => st.delete(id)); await tx('media', 'readwrite', (st) => st.delete(id)).catch(() => {}); };
+export const putSwing = (s, o = {}) => tx('swings', 'readwrite', (st) => st.put(stamp(s, o.fromSync))).then((r) => (o.fromSync || changed('swing'), r));
+export const deleteSwing = async (id, o = {}) => { if (!o.fromSync) { tombstone('swing', id); changed('swing'); } await tx('swings', 'readwrite', (st) => st.delete(id)); await tx('media', 'readwrite', (st) => st.delete(id)).catch(() => {}); };
 export const putMedia = (m) => tx('media', 'readwrite', (st) => st.put(m));
 export const getMedia = (id) => tx('media', 'readonly', (st) => st.get(id));
 export const mediaKeys = () => tx('media', 'readonly', (st) => st.getAllKeys());
@@ -59,24 +69,33 @@ export async function listSwings() {
   return (all || []).sort((a, b) => b.date - a.date);
 }
 
-export const putRound = (r) => tx('rounds', 'readwrite', (st) => st.put(r));
+export const putRound = (x, o = {}) => tx('rounds', 'readwrite', (st) => st.put(stamp(x, o.fromSync))).then((r) => (o.fromSync || changed('round'), r));
 export const getRound = (id) => tx('rounds', 'readonly', (st) => st.get(id));
-export const deleteRound = (id) => tx('rounds', 'readwrite', (st) => st.delete(id));
+export const deleteRound = (id, o = {}) => { if (!o.fromSync) { tombstone('round', id); changed('round'); } return tx('rounds', 'readwrite', (st) => st.delete(id)); };
 export async function listRounds() {
   const all = await tx('rounds', 'readonly', (st) => st.getAll());
   return (all || []).sort((a, b) => b.date - a.date);
 }
-export const putCourse = (c) => tx('courses', 'readwrite', (st) => st.put(c));
+export const putCourse = (x, o = {}) => tx('courses', 'readwrite', (st) => st.put(stamp(x, o.fromSync))).then((r) => (o.fromSync || changed('course'), r));
 export const getCourse = (id) => tx('courses', 'readonly', (st) => st.get(id));
-export const deleteCourse = (id) => tx('courses', 'readwrite', (st) => st.delete(id));
+export const deleteCourse = (id, o = {}) => { if (!o.fromSync) { tombstone('course', id); changed('course'); } return tx('courses', 'readwrite', (st) => st.delete(id)); };
 export async function listCourses() {
   const all = await tx('courses', 'readonly', (st) => st.getAll());
   return (all || []).sort((a, b) => (b.lastPlayed || 0) - (a.lastPlayed || 0) || a.name.localeCompare(b.name));
 }
 
-export const putShot = (s) => tx('shots', 'readwrite', (st) => st.put(s));
-export const deleteShot = (id) => tx('shots', 'readwrite', (st) => st.delete(id));
+export const putShot = (x, o = {}) => tx('shots', 'readwrite', (st) => st.put(stamp(x, o.fromSync))).then((r) => (o.fromSync || changed('shot'), r));
+export const deleteShot = (id, o = {}) => { if (!o.fromSync) { tombstone('shot', id); changed('shot'); } return tx('shots', 'readwrite', (st) => st.delete(id)); };
 export async function listShots() {
   const all = await tx('shots', 'readonly', (st) => st.getAll());
   return (all || []).sort((a, b) => b.date - a.date);
+}
+
+/** Wipe all local data (used when a different person signs in on this phone). Videos too. */
+export async function clearLocal() {
+  const d = await db();
+  for (const name of ['swings', 'media', 'rounds', 'courses', 'shots']) await new Promise((res) => { const t = d.transaction(name, 'readwrite'); t.objectStore(name).clear(); t.oncomplete = res; t.onerror = res; });
+  for (const k of ['golf.plan', 'golf.deleted']) localStorage.removeItem(k);
+  const keep = getSettings(); const fresh = { theme: keep.theme, system: keep.system, apiKey: keep.apiKey, model: keep.model, keepVideos: keep.keepVideos };
+  localStorage.setItem('golf.settings', JSON.stringify(fresh));
 }

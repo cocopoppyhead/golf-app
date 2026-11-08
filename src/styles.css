@@ -238,3 +238,5 @@ svg.target .pt { fill: var(--you); stroke: var(--bg); stroke-width: .8; } svg.ta
 .bad { color: var(--work); font-weight: 700; } .goodc { color: var(--good); font-weight: 700; }
 .keys h4 { margin: 12px 0 4px; font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--acc); } .keys ul { margin: 0; padding-left: 18px; } .keys li { margin: 4px 0; font-size: 14.5px; }
 .rulesbox { display: grid; gap: 8px; margin-top: 8px; font-weight: 500; }
+.acct { background: var(--panel2); border-radius: 12px; padding: 12px; margin-bottom: 16px; font-weight: 500; }
+.acct-h { display: flex; gap: 12px; align-items: center; } .acct .av { width: 42px; height: 42px; border-radius: 50%; background: var(--acc); color: var(--acc-ink); display: grid; place-items: center; font-weight: 800; font-size: 18px; flex: none; }

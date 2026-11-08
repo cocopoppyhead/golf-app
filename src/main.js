@@ -19,6 +19,9 @@ import { exportData, importData } from './backup.js';
 import { isNative, nativeSend, onNative, blobToBase64 } from './native.js';
 import { initRounds, roundsHome, recentRoundAggregate } from './rounds/ui.js';
 import { roundTendencies } from './rounds/stats.js';
+import { savePlan as savePlanX } from './coach/profile.js';
+import { renderAccount } from './cloud/account.js';
+import { startSync } from './cloud/sync.js';
 import { tendencies, focusProgress, updatePlan, checkIn, getPlan, setFocus, addCoachNote, coachContext, metricLabel, metricCue } from './coach/profile.js';
 
 const $ = (s) => document.querySelector(s);
@@ -572,7 +575,7 @@ async function doAi() {
       const valid = state.A.checkpoints.flatMap((c) => c.items.map((i) => `${c.key}:${i.name}`));
       const cur = getPlan().focus?.key;
       if (meta.focus && valid.includes(meta.focus) && meta.focus !== cur) {
-        const plan = setFocus(meta.focus); plan.focus.setBy = 'AI coach'; localStorage.setItem('golf.plan', JSON.stringify(plan));
+        const plan = setFocus(meta.focus); plan.focus.setBy = 'AI coach'; savePlanX(plan);
         extra = `<p class="event">Coach set your focus to: ${esc(metricLabel(meta.focus).toLowerCase())}.</p>`;
       }
     }
@@ -673,6 +676,7 @@ function fillSettings() {
   f.height.value = f.system.value === 'metric' ? Math.round(settings.heightIn * 2.54) : Math.round(settings.heightIn * 10) / 10;
   $('#hUnit').textContent = f.system.value === 'metric' ? 'cm' : 'in';
   renderInstall($('#installRow'), true);
+  renderAccount($('#accountRow'), { toast, onChange: () => { settings = getSettings(); renderRecent(); } });
   f.handedness.value = settings.handedness; f.quality.value = settings.quality;
   f.keepVideos.checked = settings.keepVideos !== false;
   f.keys.value = settings.keys || '';
@@ -736,6 +740,9 @@ $('#importFile').addEventListener('change', async (e) => {
 });
 
 $('#buildTag').textContent = `App version ${__BUILD__} UTC`;
+
+startSync();
+window.addEventListener('golf-synced', () => { settings = getSettings(); });
 
 // ---------------- PWA ----------------
 if ('serviceWorker' in navigator && location.protocol === 'https:') {
