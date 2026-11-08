@@ -73,12 +73,6 @@ export function findPhases(fr, { handedness = 'auto' } = {}) {
   let top = j;
   for (let i = k; i <= pk; i++) if (H[i].y < H[top].y) top = i;
 
-  // Impact: lowest hands after the top, before they rise above the shoulders again.
-  let rise = top + 1;
-  while (rise < n - 1 && !(rise > pk && high(rise))) rise++;
-  let impact = top + 1;
-  for (let i = top + 1; i <= rise; i++) if (H[i].y > H[impact].y) impact = i;
-
   // Address: from the takeaway, walk back to where the hands are still (under 6% of peak speed).
   let address = k;
   while (address > 0 && rel[address] > 0.06) address--;
@@ -86,6 +80,24 @@ export function findPhases(fr, { handedness = 'auto' } = {}) {
   let best = address;
   for (let i = Math.max(0, address - 8); i <= address; i++) if (low(i) && rel[i] < rel[best]) best = i;
   address = best;
+
+  // Impact: in the low part of the downswing, the frame where the hands are closest to
+  // where they were at address (more robust than "lowest hands", which motion blur upsets).
+  let rise = top + 1;
+  while (rise < n - 1 && !(rise > pk && high(rise))) rise++;
+  // Target side: at the top the hands sit over the trail shoulder, i.e. away from target.
+  let target;
+  if (handedness === 'auto') target = hands(fr[top].lm).x - shC(fr[address].lm).x > 0 ? -1 : 1;
+  else target = handedness === 'right' ? 1 : -1; // face-on, not mirrored: a right-hander's target is image-right
+  // at impact the hands are ~2 in ahead of their address spot (~12% of torso length)
+  const A0 = { x: H[address].x + target * 0.12 * T, y: H[address].y };
+  let impact = -1, bestD = Infinity;
+  for (let i = top + 1; i <= rise; i++) {
+    if (!low(i)) continue;
+    const d = Math.abs(H[i].x - A0.x) + 0.5 * Math.abs(H[i].y - A0.y);
+    if (d < bestD) { bestD = d; impact = i; }
+  }
+  if (impact < 0) { impact = top + 1; for (let i = top + 1; i <= rise; i++) if (H[i].y > H[impact].y) impact = i; }
 
   // Finish: after the hands rise past the shoulders, the first frame where they settle.
   let finish = -1;
@@ -95,10 +107,6 @@ export function findPhases(fr, { handedness = 'auto' } = {}) {
     for (let i = rise; i < n; i++) if (H[i].y < H[finish].y) finish = i;
   }
 
-  // Target side: at the top the hands sit over the trail shoulder, i.e. away from target.
-  let target;
-  if (handedness === 'auto') target = hands(fr[top].lm).x - shC(fr[address].lm).x > 0 ? -1 : 1;
-  else target = handedness === 'right' ? 1 : -1; // face-on, not mirrored: a right-hander's target is image-right
   return { address, top, impact, finish, target, peak: pk, torsoPx: T };
 }
 

@@ -45,29 +45,98 @@ setClub(settings.club);
 $('#videoInput').addEventListener('change', async (e) => {
   const file = e.target.files?.[0];
   e.target.value = '';
-  if (file) runAnalysis(file);
+  if (file) openVideo(file);
 });
 
-async function runAnalysis(file) {
+async function openVideo(file) {
   state?.player?.stop();
   if (state?.video) { URL.revokeObjectURL(state.video.src); state.video.remove(); }
-  screen('coach-busy');
-  const setP = (p, msg) => { $('#busyBar').style.width = `${Math.round(p * 100)}%`; if (msg) $('#busyMsg').textContent = msg; };
-  setP(0, 'Loading the pose model…');
+  state = null;
   try {
     const video = await loadVideo(file);
     // iOS needs the element in the DOM to decode frames reliably
     Object.assign(video.style, { position: 'fixed', left: '-9999px', width: '2px', height: '2px', opacity: 0 });
     document.body.appendChild(video);
-    const raw = await extractPose(video, { quality: settings.quality, onProgress: setP });
-    const fr = cleanTrack(raw.frames);
-    const ph = findPhases(fr, { handedness: settings.handedness });
-    state = { video, fr, ph, raw, club: settings.club, ball: null };
-    await askBall();
+    state = { video, club: settings.club, ball: null };
+    if (video.duration <= 4) return runAnalysis([0, video.duration]); // short clip: nothing to trim
+    await showTrim();
   } catch (err) {
     console.error(err);
     screen('coach-start');
-    toast(err.message || 'Something went wrong analysing that video.', 6000);
+    toast(err.message || 'Could not open that video.', 6000);
+  }
+}
+
+// ---------------- Coach: trim ----------------
+const fmtT = (t) => `${Math.floor(t / 60)}:${(t % 60).toFixed(1).padStart(4, '0')}`;
+async function showTrim() {
+  const { video } = state;
+  const dur = video.duration;
+  const c = $('#trimCanvas'); c.width = video.videoWidth; c.height = video.videoHeight;
+  const ctx = c.getContext('2d');
+  const a = $('#trimStart'), b = $('#trimEnd');
+  for (const el of [a, b]) { el.min = 0; el.max = dur; el.step = 0.05; }
+  a.value = 0; b.value = dur;
+  let previewing = false;
+  const show = async (t) => { await seekTo(video, t); ctx.drawImage(video, 0, 0); };
+  const update = () => {
+    const s = +a.value, e = +b.value;
+    $('#trimSel').style.left = `${(s / dur) * 100}%`;
+    $('#trimSel').style.right = `${100 - (e / dur) * 100}%`;
+    $('#trimInfo').textContent = `${fmtT(s)} → ${fmtT(e)} · ${(e - s).toFixed(1)} s selected`;
+  };
+  const MIN = 1.0;
+  a.oninput = () => { if (+a.value > +b.value - MIN) a.value = +b.value - MIN; update(); previewing = false; show(+a.value); };
+  b.oninput = () => { if (+b.value < +a.value + MIN) b.value = +a.value + MIN; update(); previewing = false; show(+b.value); };
+  update();
+  screen('coach-trim');
+  await show(0);
+
+  // Filmstrip so you can see where the swing is
+  const strip = $('#trimStrip'); strip.innerHTML = '';
+  const N = 8, th = document.createElement('canvas');
+  th.height = 72; th.width = Math.round((72 * video.videoWidth) / video.videoHeight);
+  const tctx = th.getContext('2d');
+  for (let i = 0; i < N; i++) {
+    await seekTo(video, (dur * (i + 0.5)) / N);
+    tctx.drawImage(video, 0, 0, th.width, th.height);
+    const img = new Image(); img.src = th.toDataURL('image/jpeg', 0.6); strip.appendChild(img);
+  }
+  await show(+a.value);
+
+  $('#trimPlay').onclick = async () => {
+    if (previewing) { previewing = false; return; }
+    previewing = true; $('#trimPlay').textContent = '■ Stop';
+    await seekTo(video, +a.value);
+    video.playbackRate = 1;
+    await video.play().catch(() => {});
+    const tick = () => {
+      if (!previewing || video.currentTime >= +b.value || video.ended) {
+        video.pause(); previewing = false; $('#trimPlay').textContent = '▶ Preview selection'; return;
+      }
+      ctx.drawImage(video, 0, 0); requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  };
+  $('#trimGo').onclick = () => { previewing = false; video.pause(); runAnalysis([+a.value, +b.value]); };
+  $('#trimAll').onclick = () => { previewing = false; video.pause(); runAnalysis([0, dur]); };
+}
+
+async function runAnalysis(range) {
+  const { video } = state;
+  screen('coach-busy');
+  const setP = (p, msg) => { $('#busyBar').style.width = `${Math.round(p * 100)}%`; if (msg) $('#busyMsg').textContent = msg; };
+  setP(0, 'Loading the pose model…');
+  try {
+    const raw = await extractPose(video, { quality: settings.quality, range, onProgress: setP });
+    const fr = cleanTrack(raw.frames);
+    const ph = findPhases(fr, { handedness: settings.handedness });
+    Object.assign(state, { fr, ph, raw, range, club: settings.club, ball: null });
+    await askBall();
+  } catch (err) {
+    console.error(err);
+    if (video.duration > 4) { await showTrim(); toast(`${err.message || 'Could not analyse that.'} Try trimming tighter around one swing.`, 7000); }
+    else { screen('coach-start'); toast(err.message || 'Something went wrong analysing that video.', 6000); }
   }
 }
 
@@ -101,23 +170,30 @@ async function askBall() {
 const seekTo = (v, t) => new Promise((r) => { v.onseeked = r; v.currentTime = t; });
 
 // ---------------- Coach: result ----------------
-async function showResult() {
-  const { video, fr, ph } = state;
+function computeA() {
   const heightIn = settings.units === 'cm' ? settings.heightIn / 2.54 : settings.heightIn;
-  const A = analyse(fr, ph, { club: state.club, heightIn, ball: state.ball });
-  state.A = A;
-  screen('coach-result');
-  $('#aiOut').hidden = true; $('#aiOut').innerHTML = '';
+  state.A = analyse(state.fr, state.ph, { club: state.club, heightIn, ball: state.ball });
+  return state.A;
+}
 
+function renderChipsAndSummary() {
+  const A = state.A;
   const chips = $('#cpChips');
   chips.innerHTML = A.checkpoints.map((c, i) => {
     const worst = c.items.some((x) => x.status === 'work') ? 'work' : c.items.some((x) => x.status === 'ok') ? 'ok' : 'good';
     return `<button data-i="${i}"><i style="background:var(--${worst})"></i>${c.title}</button>`;
   }).join('');
   chips.querySelectorAll('button').forEach((b) => b.addEventListener('click', () => state.player.showCheckpoint(+b.dataset.i)));
-
   const s = A.summary;
   $('#summary').innerHTML = `<h2>${esc(s.headline)}</h2><p>${esc(s.advice)}</p><span class="score">${s.score} checks on target</span>`;
+}
+
+async function showResult() {
+  const { video, fr } = state;
+  const A = computeA();
+  screen('coach-result');
+  $('#aiOut').hidden = true; $('#aiOut').innerHTML = '';
+  state.ai = null;
 
   const player = new SwingPlayer($('#playCanvas'), video, fr, A, {
     onCheckpoint: (k) => renderCp(k),
@@ -125,13 +201,16 @@ async function showResult() {
   });
   player.rate = +$('#rateSel').value;
   state.player = player;
+  renderChipsAndSummary();
   $('#rateSel').onchange = (e) => (player.rate = +e.target.value);
   $('#playBtn').textContent = '▶';
   $('#playBtn').onclick = () => {
     if (player.playing) { player.stop(); $('#playBtn').textContent = '▶'; }
     else { $('#playBtn').textContent = '❚❚'; player.play(); }
   };
-  const focus = Math.max(0, A.checkpoints.findIndex((c) => c.key === s.focus));
+  $('#nudgeBack').onclick = () => nudge(-1);
+  $('#nudgeFwd').onclick = () => nudge(1);
+  const focus = Math.max(0, A.checkpoints.findIndex((c) => c.key === A.summary.focus));
   await player.showCheckpoint(focus);
 
   $('#exportBtn').disabled = !canExport();
@@ -145,10 +224,34 @@ async function showResult() {
   await putSwing(record()).catch(() => {});
 }
 
+// Move the shown checkpoint one frame earlier/later, then re-measure everything.
+let saveTimer = null;
+async function nudge(d) {
+  const p = state.player;
+  const k = Math.max(0, p.cpShown);
+  const keys = ['address', 'top', 'impact', 'finish'];
+  const key = keys[k];
+  const lo = k > 0 ? state.ph[keys[k - 1]] + 1 : 0;
+  const hi = k < 3 ? state.ph[keys[k + 1]] - 1 : state.fr.length - 1;
+  const next = Math.min(hi, Math.max(lo, state.ph[key] + d));
+  if (next === state.ph[key]) return;
+  state.ph[key] = next;
+  const A = computeA();
+  p.A = A; p.cpTimes = A.checkpoints.map((c) => state.fr[c.frame].t);
+  p.end = state.fr[Math.min(state.fr.length - 1, A.checkpoints[3].frame + 12)].t;
+  p.start = state.fr[Math.max(0, A.checkpoints[0].frame - 8)].t;
+  renderChipsAndSummary();
+  await p.showCheckpoint(k);
+  state.ai = null; $('#aiOut').hidden = true;
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(async () => { state.thumbs = await checkpointImages(360, false); putSwing(record()).catch(() => {}); }, 1500);
+}
+
 function renderCp(k) {
   const c = state.A.checkpoints[k];
   document.querySelectorAll('#cpChips button').forEach((b) => b.classList.toggle('on', +b.dataset.i === k));
   $('#cpCard').innerHTML = cpHtml(c, k);
+  $('#nudgeLabel').textContent = `Wrong frame? Nudge ${c.title.toLowerCase()}`;
 }
 function cpHtml(c, k) {
   return `<h3>${c.title.toUpperCase()} <span>checkpoint ${k + 1}/4</span></h3>
@@ -292,4 +395,4 @@ if ('serviceWorker' in navigator && location.protocol === 'https:') {
 }
 
 // Test hook: lets automated tests feed a video URL
-window.__golfTest = { runAnalysis: async (url) => runAnalysis(await (await fetch(url)).blob()) };
+window.__golfTest = { open: async (url) => openVideo(await (await fetch(url)).blob()) };

@@ -60,7 +60,7 @@ function fingerprint(ctx, v) {
  * then a dense pass (up to 60 fps, deduped) around it.
  * Returns { frames: [{t, lm:[{x,y,v}]|null}], width, height, window:[t0,t1] }
  */
-export async function extractPose(video, { quality = 'full', onProgress = () => {} } = {}) {
+export async function extractPose(video, { quality = 'full', range = null, onProgress = () => {} } = {}) {
   const lm = await getLandmarker(quality);
   const W = video.videoWidth, H = video.videoHeight, dur = video.duration;
   const fp = document.createElement('canvas').getContext('2d', { willReadFrequently: true });
@@ -73,22 +73,25 @@ export async function extractPose(video, { quality = 'full', onProgress = () => 
     return p ? p.map((q) => ({ x: q.x * W, y: q.y * H, v: q.visibility ?? 1 })) : null;
   };
 
+  // Only look inside the part the golfer trimmed to (default: whole clip)
+  const r0 = Math.max(0, range?.[0] ?? 0), r1 = Math.min(dur, range?.[1] ?? dur);
+
   // Pass 1: coarse scan
-  let window = [0, dur];
-  if (dur > 4) {
+  let window = [r0, r1];
+  if (r1 - r0 > 4) {
     const coarse = [];
     const step = 1 / 8;
-    for (let t = 0; t < dur; t += step) {
+    for (let t = r0; t < r1; t += step) {
       coarse.push({ t, lm: await detectAt(t) });
-      onProgress(0.3 * (t / dur), 'Finding your swing…');
+      onProgress(0.3 * ((t - r0) / (r1 - r0)), 'Finding your swing…');
     }
     try {
       const valid = coarse.filter((f) => f.lm);
       const fr = cleanTrack(valid);
       const ph = findPhases(fr);
-      window = [Math.max(0, fr[ph.address].t - 0.8), Math.min(dur, fr[ph.finish].t + 0.8)];
+      window = [Math.max(r0, fr[ph.address].t - 0.8), Math.min(r1, fr[ph.finish].t + 0.8)];
     } catch {
-      window = [0, Math.min(dur, 8)];
+      window = [r0, Math.min(r1, r0 + 8)];
     }
   }
 

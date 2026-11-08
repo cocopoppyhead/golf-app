@@ -44,6 +44,23 @@
         </details>
       </div>
 
+      <div id="coach-trim" class="screen" hidden>
+        <p class="lead"><b>Trim to one swing.</b> Start just before you set up, end after your finish. Cut out walking in, practice swings and walking off.</p>
+        <div class="stage"><canvas id="trimCanvas"></canvas></div>
+        <div class="trim">
+          <div class="strip" id="trimStrip"></div>
+          <div class="sel" id="trimSel"></div>
+          <input type="range" id="trimStart" aria-label="Start" />
+          <input type="range" id="trimEnd" aria-label="End" />
+        </div>
+        <p class="mute small center" id="trimInfo"></p>
+        <button class="btn" id="trimPlay" style="width:100%">▶ Preview selection</button>
+        <div class="row" style="margin-top:8px">
+          <button class="btn" id="trimAll">Use whole video</button>
+          <button class="btn primary" id="trimGo">Analyse selection</button>
+        </div>
+      </div>
+
       <div id="coach-busy" class="screen" hidden>
         <div class="busy">
           <div class="spinner"></div>
@@ -69,6 +86,11 @@
           <button class="btn icon" id="playBtn" aria-label="Play">▶</button>
           <span class="mute small" style="flex:1">Plays slowly and pauses at each checkpoint</span>
           <select id="rateSel" aria-label="Speed"><option value="0.15">0.15×</option><option value="0.25" selected>0.25×</option><option value="0.5">0.5×</option><option value="1">1×</option></select>
+        </div>
+        <div class="nudge">
+          <button class="btn" id="nudgeBack" aria-label="One frame earlier">◀</button>
+          <span id="nudgeLabel" class="mute small">Wrong frame? Nudge it</span>
+          <button class="btn" id="nudgeFwd" aria-label="One frame later">▶</button>
         </div>
         <div id="cpCard" class="card cp"></div>
         <div id="summary" class="card summary"></div>

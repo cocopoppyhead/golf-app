@@ -7,9 +7,9 @@ Live: https://cocopoppyhead.github.io/golf-app/
 ## Swing coach
 
 1. Film a face-on swing (portrait, hip height, 3–4 m away, whole body + ball in frame; slow-mo or 60 fps helps).
-2. Pick the club and the video. Pose tracking (MediaPipe Pose Landmarker) runs **on the phone**. No video is uploaded anywhere.
+2. Pick the club and the video, then **trim** to one swing (drag the start/end handles to cut walking in, practice swings and walking off). Pose tracking (MediaPipe Pose Landmarker) runs **on the phone**. No video is uploaded anywhere.
 3. Tap the ball.
-4. You get the four checkpoints (address, top, impact, finish) with YOU vs TOUR PRO, pro marks on the video, and the biggest opportunity.
+4. You get the four checkpoints (address, top, impact, finish) with YOU vs TOUR PRO, pro marks on the video, and the biggest opportunity. If a checkpoint lands on the wrong frame, nudge it with ◀ ▶ and everything re-measures.
 5. Optional:
    - **AI coach** sends the measurements and four annotated frames to Claude, using your own API key, which is stored on the phone only.
    - **Save video** renders an annotated MP4 to share.

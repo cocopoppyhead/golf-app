@@ -7,7 +7,7 @@ import { drawOverlay, drawSummary } from '../src/coach/render.js';
 window.run = async (src, opts = {}) => {
   const v = await loadVideo(src);
   const log = [];
-  const raw = await extractPose(v, { quality: opts.quality || 'full', onProgress: (p, m) => { if (Math.random() < 0.02) log.push(m + ' ' + p.toFixed(2)); } });
+  const raw = await extractPose(v, { quality: opts.quality || 'full', range: opts.range, onProgress: (p, m) => { if (Math.random() < 0.02) log.push(m + ' ' + p.toFixed(2)); } });
   const fr = cleanTrack(raw.frames);
   const ph = findPhases(fr, {});
   const A = analyse(fr, ph, { club: 'iron', heightIn: 70 });
@@ -20,7 +20,7 @@ window.run = async (src, opts = {}) => {
     shots.push(c.toDataURL('image/jpeg', 0.85));
   }
   drawSummary(ctx, A); shots.push(c.toDataURL('image/jpeg', 0.85));
-  return { n: raw.frames.length, window: raw.window, times: ['address','top','impact','finish'].map(k => fr[ph[k]].t.toFixed(2)), ph: { ...ph }, cps: A.checkpoints.map(c => ({ k: c.key, items: c.items.map(i => `${i.name}: ${i.you} [${i.status}]`) })), summary: A.summary, scale: A.scale, shots, log };
+  const H = fr.map(f => ({t: +f.t.toFixed(3), hy: Math.round((f.lm[15].y+f.lm[16].y)/2), hx: Math.round((f.lm[15].x+f.lm[16].x)/2)})); return { H: H.slice(Math.max(0,ph.top-2), ph.finish), n: raw.frames.length, window: raw.window, times: ['address','top','impact','finish'].map(k => fr[ph[k]].t.toFixed(2)), ph: { ...ph }, cps: A.checkpoints.map(c => ({ k: c.key, items: c.items.map(i => `${i.name}: ${i.you} [${i.status}]`) })), summary: A.summary, scale: A.scale, shots, log };
 };
 window.ready = true;
 </script></body></html>
