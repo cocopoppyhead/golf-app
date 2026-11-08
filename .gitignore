@@ -3,3 +3,4 @@ dist
 .DS_Store
 test/*.webm
 test/*.mp4
+e2e/
