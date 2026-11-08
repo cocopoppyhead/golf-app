@@ -22,7 +22,7 @@ export function saveSettings(s) {
 let dbp = null;
 function db() {
   if (!dbp) dbp = new Promise((res, rej) => {
-    const r = indexedDB.open('golf-app', 3);
+    const r = indexedDB.open('golf-app', 4);
     r.onupgradeneeded = () => {
       const d = r.result;
       if (!d.objectStoreNames.contains('swings')) d.createObjectStore('swings', { keyPath: 'id' });
@@ -31,6 +31,7 @@ function db() {
       if (!d.objectStoreNames.contains('courses')) d.createObjectStore('courses', { keyPath: 'id' });
       // swing video + tracking data, kept apart so lists stay fast
       if (!d.objectStoreNames.contains('media')) d.createObjectStore('media', { keyPath: 'id' });
+      if (!d.objectStoreNames.contains('shots')) d.createObjectStore('shots', { keyPath: 'id' });
     };
     r.onsuccess = () => res(r.result);
     r.onerror = () => rej(r.error);
@@ -71,4 +72,11 @@ export const deleteCourse = (id) => tx('courses', 'readwrite', (st) => st.delete
 export async function listCourses() {
   const all = await tx('courses', 'readonly', (st) => st.getAll());
   return (all || []).sort((a, b) => (b.lastPlayed || 0) - (a.lastPlayed || 0) || a.name.localeCompare(b.name));
+}
+
+export const putShot = (s) => tx('shots', 'readwrite', (st) => st.put(s));
+export const deleteShot = (id) => tx('shots', 'readwrite', (st) => st.delete(id));
+export async function listShots() {
+  const all = await tx('shots', 'readonly', (st) => st.getAll());
+  return (all || []).sort((a, b) => b.date - a.date);
 }

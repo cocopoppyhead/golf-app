@@ -5,6 +5,7 @@ import { readCard, reviewRound, md } from '../coach/ai.js';
 import { coachContext, addCoachNote } from '../coach/profile.js';
 import { dist, toYards, du, duLong, PUTT_FT, puttLabel, puttUnit } from '../units.js';
 
+const DEBRIEF_TAGS = ['Driver into trouble', 'Risky shot choice', 'Approach misses', 'Short game', '3-putts', 'Lost focus', 'Back problem', 'Tired', 'Wind / conditions', 'Bad luck'];
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const uid = (p) => `${p}_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 const fmtD = (d) => new Date(d).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
@@ -54,8 +55,10 @@ async function aggStats(rounds) {
     r._stats = roundStats(r, c);
     list.push({ round: r, course: c, stats: r._stats });
   }
-  // also attach stats to rounds not in the aggregate (for the list)
-  return aggregate(list);
+  const A = aggregate(list);
+  if (A) A.debriefs = list.filter((x) => x.round.debrief?.notes || x.round.debrief?.tags?.length).slice(0, 5)
+    .map((x) => `${new Date(x.round.date).toDateString()} ${x.course.name} ${x.stats.score}: ${[...(x.round.debrief.tags || []), x.round.debrief.notes].filter(Boolean).join('; ')}`);
+  return A;
 }
 
 async function homeAction(act, id) {
@@ -194,6 +197,7 @@ function renderHole() {
       ${(h.tags || []).map((t, k) => `<div class="tagrow"><span>${esc([t.shot, t.cause, t.strike, t.result].filter(Boolean).join(' · '))} ${t.cost ? `<b>+${t.cost}</b>` : '<span class="mute">saved it</span>'}</span><button class="link" data-deltag="${k}">remove</button></div>`).join('')}
       ${needTag ? `<p class="mute small">${diff - tagCost} stroke${diff - tagCost > 1 ? 's' : ''} not explained yet.</p>` : ''}
       <button class="btn" data-addtag="1" style="width:100%">+ ${diff > 0 ? 'Tag the shot' : 'Tag a saved shot'}</button>
+      ${diff > 0 || h.note ? `<textarea class="hnote" data-note rows="2" placeholder="What happened? e.g. went for the green over water, should have laid up">${esc(h.note || '')}</textarea>` : ''}
     </div>
 
     <div class="row">
@@ -211,6 +215,7 @@ function renderHole() {
   root.querySelector('[data-bunker]')?.addEventListener('change', (e) => { commit(); h.bunker = e.target.checked; save(); renderHole(); });
   root.querySelector('[data-gir]').onclick = () => { commit(); h.gir = h.gir == null ? !g : null; save(); renderHole(); };
   root.querySelector('[data-learn]').onchange = (e) => { round.learning = e.target.checked; save(); };
+  root.querySelector('[data-note]')?.addEventListener('input', (e) => { h.note = e.target.value; clearTimeout(window.__noteT); window.__noteT = setTimeout(save, 500); });
   root.querySelectorAll('[data-deltag]').forEach((b) => b.onclick = () => { h.tags.splice(+b.dataset.deltag, 1); save(); renderHole(); });
   root.querySelector('[data-addtag]').onclick = () => { commit(); tagSheet(h, par, i, diff - tagCost); };
   root.querySelectorAll('[data-go]').forEach((b) => b.onclick = () => { commit(); save(); cur.hole = +b.dataset.go; renderHole(); });
@@ -356,6 +361,16 @@ async function renderSummary(r, c) {
       <tr><th>You</th>${half(9, 18)}<td><b>${S.back}</b></td></tr>` : ''}</table></div>
     </div>
     ${statsCard(S, `${S.score} (${toParStr(S.toPar)})`)}
+    <div class="card debrief"><h2>Debrief</h2>
+      <p class="mute small">What really decided this round? The coach reads this alongside the numbers.</p>
+      ${c.holes.map((ch, i) => ({ h: r.holes[i], ch, i })).filter(({ h, ch }) => h && h.score - ch.par >= 2).map(({ h, ch, i }) => `<div class="dhole"><b>Hole ${i + 1}: ${h.score} on a par ${ch.par}</b>${(h.tags || []).length ? `<span class="mute small"> · ${esc(h.tags.map((t) => [t.shot, t.cause, t.strike, t.result].filter(Boolean).join('/')).join(', '))}</span>` : ''}
+        <textarea data-hn="${i}" rows="2" placeholder="What happened on ${i + 1}?">${esc(h.note || '')}</textarea></div>`).join('')}
+      <div class="lbl">What cost you most today?</div>
+      <div class="dtags">${DEBRIEF_TAGS.map((t) => `<button class="${r.debrief?.tags?.includes(t) ? 'on' : ''}" data-dt="${esc(t)}">${esc(t)}</button>`).join('')}</div>
+      <div class="lbl">Notes</div>
+      <textarea id="debriefNotes" rows="4" placeholder="e.g. Two driver slices into water on 5 and 14. Went for 9 in two when I should have laid up. Putted well.">${esc(r.debrief?.notes || '')}</textarea>
+      <p class="mute small" id="dbSaved"></p>
+    </div>
     <div class="actions" style="grid-template-columns:1fr 1fr">
       <button class="btn primary" data-x="ai">AI round review</button>
       <button class="btn" data-x="edit">Edit holes</button>
@@ -364,6 +379,17 @@ async function renderSummary(r, c) {
     <label class="card check"><input type="checkbox" data-learn ${r.learning !== false ? 'checked' : ''}/> Count toward my coach profile (untick for scrambles, fun rounds)</label>
     <button class="btn" data-x="del" style="width:100%;color:var(--work)">Delete round</button>`;
   root.querySelector('[data-learn]').onchange = (e) => { r.learning = e.target.checked; putRound(r); };
+  // debrief autosave
+  let dbT = null;
+  const saveDb = () => { clearTimeout(dbT); dbT = setTimeout(async () => { await putRound(r); const el = root.querySelector('#dbSaved'); if (el) el.textContent = 'Saved'; }, 600); };
+  r.debrief ||= { notes: '', tags: [] };
+  root.querySelector('#debriefNotes').addEventListener('input', (e) => { r.debrief.notes = e.target.value; saveDb(); });
+  root.querySelectorAll('[data-hn]').forEach((t) => t.addEventListener('input', (e) => { r.holes[+t.dataset.hn].note = e.target.value; saveDb(); }));
+  root.querySelectorAll('[data-dt]').forEach((b) => (b.onclick = () => {
+    const t = b.dataset.dt, i = r.debrief.tags.indexOf(t);
+    if (i >= 0) r.debrief.tags.splice(i, 1); else r.debrief.tags.push(t);
+    b.classList.toggle('on'); saveDb();
+  }));
   root.querySelectorAll('[data-x]').forEach((b) => b.onclick = async () => {
     const x = b.dataset.x;
     if (x === 'back') return roundsHome();
@@ -377,8 +403,8 @@ async function renderSummary(r, c) {
         const recent = (await listRounds()).filter((x) => x.finished && x.id !== r.id && x.learning !== false).slice(0, 8);
         const A = await aggStats(recent);
         const swings = await listSwings().catch(() => []);
-        const holeLog = r.holes.map((h, i) => h ? `H${i + 1} par ${c.holes[i].par}: ${h.score} (${h.putts ?? '?'} putts${h.tee ? `, tee ${h.tee}` : ''}${h.miss ? `, missed green ${h.miss}` : ''}${h.bunker ? ', bunker' : ''}${(h.tags || []).length ? `, tags: ${h.tags.map((t) => [t.shot, t.cause, t.strike, t.result].filter(Boolean).join('/') + (t.cost ? ` +${t.cost}` : ' saved')).join('; ')}` : ''})` : null).filter(Boolean).join('\n');
-        const roundText = `${c.name}${c.tees ? ` (${c.tees})` : ''}: ${S.score} (${toParStr(S.toPar)}). ${roundSummaryText(aggregate([{ round: r, course: c, stats: S }]))}\nHole by hole:\n${holeLog}`;
+        const holeLog = r.holes.map((h, i) => h ? `H${i + 1} par ${c.holes[i].par}: ${h.score} (${h.putts ?? '?'} putts${h.tee ? `, tee ${h.tee}` : ''}${h.miss ? `, missed green ${h.miss}` : ''}${h.bunker ? ', bunker' : ''}${(h.tags || []).length ? `, tags: ${h.tags.map((t) => [t.shot, t.cause, t.strike, t.result].filter(Boolean).join('/') + (t.cost ? ` +${t.cost}` : ' saved')).join('; ')}` : ''}${h.note ? `, golfer's note: "${h.note}"` : ''})` : null).filter(Boolean).join('\n');
+        const roundText = `${c.name}${c.tees ? ` (${c.tees})` : ''}: ${S.score} (${toParStr(S.toPar)}). ${roundSummaryText(aggregate([{ round: r, course: c, stats: S }]))}\nHole by hole:\n${holeLog}${r.debrief?.tags?.length || r.debrief?.notes ? `\nGolfer's debrief: ${[...(r.debrief.tags || []), r.debrief.notes].filter(Boolean).join('; ')}` : ''}`;
         const { text, meta } = await reviewRound({ apiKey: s.apiKey, model: s.model, roundText, recentText: A ? roundSummaryText(A) : '', history: coachContext(swings, recent.length ? A : null), golfer: s.golfer });
         r.ai = text; await putRound(r);
         if (meta?.note && r.learning !== false) addCoachNote(`[round] ${String(meta.note).slice(0, 280)}`);

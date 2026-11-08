@@ -140,10 +140,20 @@ export function analyse(fr, ph, { club = 'iron', heightIn = 70, ball } = {}) {
   };
 
   const checkpoints = [address, top, impact, finish];
-  return { scale: S, sides: sd, base, target: t, club, checkpoints, summary: summarise(checkpoints) };
+  return { view: 'face', scale: S, sides: sd, base, target: t, club, checkpoints, summary: summarise(checkpoints) };
 }
 
 export const PRIORITY_COPY = {
+  // down-the-line
+  'address:Posture': 'hinge from the hips so your arms hang under your shoulders',
+  'address:Knee flex': 'set athletic knee flex, not straight and not squatting',
+  'top:Spine angle': 'keep your spine angle as you turn back',
+  'top:Head height': 'keep your head level going back',
+  'impact:Early extension': 'keep your backside back through impact instead of thrusting your hips at the ball',
+  'impact:Spine angle': 'stay in your posture through the ball',
+  'impact:Head height': 'keep your head height steady through impact',
+  'finish:Balance': 'finish tall and balanced on your lead side',
+  // face-on
   'impact:Head': 'Keep your head at its address spot through impact',
   'impact:Spine tilt': 'hold your spine tilt away from target',
   'impact:Hips': 'get your hips moving toward the target before your arms swing down',
@@ -159,7 +169,7 @@ export const PRIORITY_COPY = {
   'finish:Body': 'rotate all the way through so your chest faces the target',
 };
 
-function summarise(cps) {
+export function summarise(cps, view = 'face') {
   const pts = { work: 2, ok: 1, good: 0 };
   const weight = { address: 1, top: 1.1, impact: 1.5, finish: 0.8 };
   let worst = null, worstScore = -1;
@@ -171,14 +181,19 @@ function summarise(cps) {
   const fine = worst.items.filter((i) => i.status === 'good').map((i) => i.name.toLowerCase());
   const total = cps.reduce((a, c) => a + c.items.length, 0);
   const goods = cps.reduce((a, c) => a + c.items.filter((i) => i.status === 'good').length, 0);
+  // Swing score out of 10: good = full marks, ok = half, weighted toward impact
+  let num = 0, den = 0;
+  for (const c of cps) for (const it of c.items) { const w = weight[c.key] || 1; den += w; num += w * (it.status === 'good' ? 1 : it.status === 'ok' ? 0.5 : 0); }
+  const score10 = Math.round((100 * num) / (den || 1)) / 10;
   if (!issues.length) {
-    return { focus: null, headline: 'Solid swing on every checkpoint', advice: 'Every measurement is inside the tour range. Film a down-the-line clip next time to check plane and posture.', score: `${goods}/${total}` };
+    return { focus: null, headline: 'Solid swing on every checkpoint', advice: `Every measurement is inside the tour range.${view === 'face' ? ' Film a down-the-line clip next time to check posture and early extension.' : ' Film face-on next time to check head and hip movement.'}`, score: `${goods}/${total}`, score10, priority: null };
   }
+  const priority = { cp: worst.key, name: issues[0].name, key: `${worst.key}:${issues[0].name}` };
   const phrases = issues.slice(0, 2).map((i) => PRIORITY_COPY[`${worst.key}:${i.name}`] || `work on your ${i.name.toLowerCase()}`);
   let advice = phrases.join(' and ');
   advice = advice[0].toUpperCase() + advice.slice(1) + '.';
   if (fine.length) advice += ` Your ${fine.join(' and ')} ${fine.length > 1 ? 'are' : 'is'} already doing ${fine.length > 1 ? 'their' : 'its'} job.`;
-  return { focus: worst.key, headline: `Biggest opportunity: ${worst.title}`, advice, score: `${goods}/${total}` };
+  return { focus: worst.key, headline: `Biggest opportunity: ${worst.title}`, advice, score: `${goods}/${total}`, score10, priority };
 }
 
 export { median };

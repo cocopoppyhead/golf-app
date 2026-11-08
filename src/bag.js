@@ -1,7 +1,8 @@
 // Bag: your clubs with full and ¾ carries, "which club?" from a distance, and the Bushnell laser.
 // Carries are entered by hand for now. Logged laser shots (tagged full / ¾ / mishit) will refine them,
 // so mishits never drag your numbers down.
-import { getSettings, saveSettings } from './store.js';
+import { getSettings, saveSettings, listShots } from './store.js';
+import { saveShotSheet, renderClubPage, trueDistance } from './shots.js';
 import { dist as D, toYards, du, duLong } from './units.js';
 import { isNative } from './native.js';
 import { connectLaser, disconnectLaser, onLaser, laserConnected, laserName, laserLog, laserSupported, isIOS } from './laser.js';
@@ -41,16 +42,30 @@ export function pickClub(bag, yards) {
 
 let unsub = null;
 
-export function renderBag(root) {
+/** Your numbers, with learned (true) distances replacing typed ones once there are 5+ good shots. */
+function effectiveBag(bag, shots) {
+  return bag.map((c) => {
+    const e = { ...c, learned: {} };
+    for (const [k, sw] of [['carry', 'full'], ['three', '¾'], ['half', '½']]) {
+      const t = trueDistance(shots, c.club, sw);
+      if (t && t.n >= 5) { e[k] = t.avg; e.learned[k] = t.n; }
+    }
+    return e;
+  });
+}
+
+export async function renderBag(root) {
   const S = getSettings();
   let bag = getBag().map((c) => ({ three: null, half: null, ...c }));
+  let shots = await listShots().catch(() => []);
   let dist = '', shot = null, status = laserConnected() ? `Connected to ${laserName()}` : '';
   const comp = () => getSettings().competition === true;
 
   const draw = () => {
     const n = parseFloat(dist);
     const ny = toYards(n);
-    const pick = ny && !comp() ? pickClub(bag, ny) : null;
+    const eff = effectiveBag(bag, shots);
+    const pick = ny && !comp() ? pickClub(eff, ny) : null;
     const sw = (s) => (s === 'full' ? '' : ` ${s}`);
     const sorted = bag.filter((c) => c.carry).sort((a, b) => b.carry - a.carry);
     const gaps = sorted.slice(1).map((c, k) => ({ a: sorted[k], b: c, gap: sorted[k].carry - c.carry })).filter((g) => g.gap >= 18);
@@ -63,8 +78,9 @@ export function renderBag(root) {
         ${comp() ? '<p class="mute small">Competition mode: distance only, no club advice (Rules of Golf).</p>'
           : pick?.gap ? `<div class="pickbox"><div class="big" style="font-size:22px">No club for ${n} ${du()} yet</div><div class="mute small">Nothing between ${esc(pick.gap.below.club)} (${D(pick.gap.below.carry)} ${du()}) and ${esc(pick.gap.above.club)} (${D(pick.gap.above.carry)} ${du()}). Add carries or ¾ / ½ numbers below.</div></div>`
           : pick ? `<div class="pickbox"><div class="big">${esc(pick.best.club)}${pick.best.swing !== 'full' ? ` <span style="font-size:20px">${pick.best.swing}</span>` : ''}</div>
-            <div class="mute small">carries ${D(pick.best.carry)} ${du()}${Math.round(D(Math.abs(pick.off))) ? ` · ${D(Math.abs(pick.off))} ${du()} ${pick.off > 0 ? 'long' : 'short'}` : ''}${pick.second ? ` · or ${esc(pick.second.club)}${sw(pick.second.swing)} (${D(pick.second.carry)} ${du()})` : ''}</div></div>`
+            <div class="mute small">${eff.find((c) => c.club === pick.best.club)?.learned[pick.best.swing === 'full' ? 'carry' : pick.best.swing === '¾' ? 'three' : 'half'] ? 'your true distance ' : 'carries '}${D(pick.best.carry)} ${du()}${Math.round(D(Math.abs(pick.off))) ? ` · ${D(Math.abs(pick.off))} ${du()} ${pick.off > 0 ? 'long' : 'short'}` : ''}${pick.second ? ` · or ${esc(pick.second.club)}${sw(pick.second.swing)} (${D(pick.second.carry)} ${du()})` : ''}</div></div>`
           : '<p class="mute small">Type a distance, or lock on with the laser.</p>'}
+        ${ny ? `<button class="btn primary big" id="saveShot" style="margin-top:10px">Hit it? Save shot</button>` : ''}
       </div>
 
       <div class="card">
@@ -81,8 +97,8 @@ export function renderBag(root) {
       <div class="card form">
         <h2>Your carries</h2>
         <p class="mute small">${duLong()[0].toUpperCase() + duLong().slice(1)}, carry not total. Your best guess for now. Shots you log with the laser, tagged full, ¾, ½ or mishit, will refine these, and mishits won't count.</p>
-        <div class="bagrows"><span class="mute small">Club</span><span class="mute small">Full</span><span class="mute small">¾</span><span class="mute small">½</span><span></span>
-          ${bag.map((c, i) => `<input data-cl="${i}" value="${esc(c.club)}" /><input data-cy="${i}" inputmode="numeric" placeholder="–" value="${D(c.carry) ?? ''}" /><input data-th="${i}" inputmode="numeric" placeholder="–" value="${D(c.three) ?? ''}" /><input data-hf="${i}" inputmode="numeric" placeholder="–" value="${D(c.half) ?? ''}" /><button class="link" data-rm="${i}">✕</button>`).join('')}</div>
+        <div class="bagrows"><span class="mute small">Club</span><span class="mute small">Full</span><span class="mute small">¾</span><span class="mute small">½</span><span></span><span></span>
+          ${bag.map((c, i) => `<input data-cl="${i}" value="${esc(c.club)}" /><input data-cy="${i}" inputmode="numeric" placeholder="–" value="${D(c.carry) ?? ''}" /><input data-th="${i}" inputmode="numeric" placeholder="–" value="${D(c.three) ?? ''}" /><input data-hf="${i}" inputmode="numeric" placeholder="–" value="${D(c.half) ?? ''}" /><button class="link" data-rm="${i}">✕</button><button class="link go" data-open="${i}" aria-label="Club page">›</button>${eff[i] && Object.keys(eff[i].learned).length ? `<span class="learned">true distance: ${[['carry', 'full'], ['three', '¾'], ['half', '½']].filter(([k]) => eff[i].learned[k]).map(([k, l]) => `${l} ${D(eff[i][k])}`).join(' · ')}</span>` : ''}`).join('')}</div>
         <button class="btn" id="addClub" style="width:100%;margin-top:8px">+ Club</button>
         ${gaps.length ? `<p class="small" style="color:var(--ok);margin-top:10px">Gap${gaps.length > 1 ? 's' : ''}: ${gaps.map((g) => `${esc(g.a.club)} → ${esc(g.b.club)} (${D(g.gap)} ${du()})`).join(', ')}</p>` : ''}
         <button class="btn primary big" id="saveBag" style="margin-top:10px">Save bag</button>
@@ -97,6 +113,16 @@ export function renderBag(root) {
     };
     const din = root.querySelector('#distIn');
     din.addEventListener('input', () => { sync(); dist = din.value; shot = null; draw(); const d = root.querySelector('#distIn'); d.focus(); d.setSelectionRange(d.value.length, d.value.length); });
+    root.querySelector('#saveShot')?.addEventListener('click', () => {
+      sync();
+      saveShotSheet({ club: pick?.best?.club || bag[0]?.club, target: ny, laser: shot, clubs: bag.map((c) => c.club).filter(Boolean),
+        onSaved: async (s) => { shots = await listShots(); root.dispatchEvent(new CustomEvent('toast', { detail: `Saved: ${s.club} ${D(s.result)} ${du()}`, bubbles: true })); draw(); } });
+    });
+    root.querySelectorAll('[data-open]').forEach((b) => (b.onclick = () => {
+      sync(); saveBag(bag);
+      const c = bag[+b.dataset.open];
+      renderClubPage(root, c.club, { carry: c.carry, onBack: () => renderBag(root), onUseCarry: (y) => { c.carry = y; saveBag(bag); renderBag(root); } });
+    }));
     root.querySelector('#compBox').onchange = (e) => { const s = getSettings(); s.competition = e.target.checked; saveSettings(s); sync(); draw(); };
     root.querySelectorAll('[data-rm]').forEach((b) => (b.onclick = () => { sync(); bag.splice(+b.dataset.rm, 1); draw(); }));
     root.querySelector('#addClub').onclick = () => { sync(); bag.push({ club: '', carry: null, three: null, half: null }); draw(); };
