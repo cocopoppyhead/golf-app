@@ -10,6 +10,7 @@ import { getSettings, saveSettings, putSwing, listSwings, getSwing, deleteSwing,
 import { renderBag } from './bag.js';
 import { isMetric } from './units.js';
 import { renderInstall } from './install.js';
+import { isNative, nativeSend, onNative, blobToBase64 } from './native.js';
 import { initRounds, roundsHome, recentRoundAggregate } from './rounds/ui.js';
 import { roundTendencies } from './rounds/stats.js';
 import { tendencies, focusProgress, updatePlan, checkIn, getPlan, setFocus, addCoachNote, coachContext, metricLabel, metricCue } from './coach/profile.js';
@@ -388,7 +389,10 @@ async function doExport() {
     const blob = await exportMp4(state.video, state.fr, state.A, { onProgress: (p) => (btn.textContent = `Saving ${Math.round(p * 100)}%`) });
     const name = `swing-${new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-')}.mp4`;
     const file = new File([blob], name, { type: 'video/mp4' });
-    if (navigator.canShare?.({ files: [file] })) {
+    if (isNative()) {
+      btn.textContent = 'Opening share…';
+      nativeSend({ type: 'share.file', name, mime: 'video/mp4', b64: await blobToBase64(blob) });
+    } else if (navigator.canShare?.({ files: [file] })) {
       await navigator.share({ files: [file], title: 'Swing analysis' }).catch(() => {});
     } else {
       const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; a.click();
@@ -555,6 +559,8 @@ if ('serviceWorker' in navigator && location.protocol === 'https:') {
 
 renderRecent();
 renderInstall($('#installBanner'));
+onNative('share.error', (m) => toast(m.text, 5000));
+if (isNative()) document.documentElement.classList.add('native');
 
 // Test hook: lets automated tests feed a video URL
 window.__golfTest = { open: async (url) => openVideo(await (await fetch(url)).blob()) };

@@ -38,6 +38,10 @@ Inches are scaled from your height (Settings), so they're approximate. Target di
 - **Stats**: fairways, greens, miss patterns, putts, 3-putts, scrambling, sand saves, scoring mix, strokes lost by cause/shot/strike. Per round and per-round average across recent rounds.
 - **Coach link**: on-course patterns (e.g. "tee shots miss right", "most shots lost to SWE") show in Progress next to swing tendencies and go to the AI coach. **AI round review** reads the round, recent rounds and your swing profile together. Untick "count toward my coach profile" for scrambles or fun rounds.
 
+## Native app (Expo)
+
+`native/` is an Expo SDK 58 shell that runs the live web app in a WebView and adds native Bluetooth (laser on iPhone and Android) and video sharing. Build with EAS — see `native/README.md`.
+
 ## Install
 
 It's an installable app (PWA): Android Chrome → **Install app** (shows in the app drawer, full screen, laser works); iPhone Safari → Share → **Add to Home Screen** (full screen, no laser — Apple blocks Bluetooth for web apps). The Swing page and Settings show an install button with the steps.

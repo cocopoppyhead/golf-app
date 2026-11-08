@@ -5,7 +5,7 @@ const listeners = new Set();
 window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); deferred = e; listeners.forEach((f) => f()); });
 window.addEventListener('appinstalled', () => { deferred = null; listeners.forEach((f) => f()); });
 
-export const isInstalled = () => window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+export const isInstalled = () => !!window.GolfNative || window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
 export const isIOS = () => /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 const dismissed = () => { try { return localStorage.getItem('golf.installDismissed') === '1'; } catch { return false; } };
 

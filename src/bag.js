@@ -3,6 +3,7 @@
 // so mishits never drag your numbers down.
 import { getSettings, saveSettings } from './store.js';
 import { dist as D, toYards, du, duLong } from './units.js';
+import { isNative } from './native.js';
 import { connectLaser, disconnectLaser, onLaser, laserConnected, laserName, laserLog, laserSupported, isIOS } from './laser.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -69,11 +70,11 @@ export function renderBag(root) {
       <div class="card">
         <h2>Bushnell laser</h2>
         ${laserSupported() ? `
-          <p class="mute small">Turn Bluetooth on in the laser's menu, set it to <b>yards</b>, close the Bushnell Golf app, fire the laser once to wake it, then connect.</p>
+          <p class="mute small">Turn Bluetooth on in the laser's menu, set it to <b>yards</b>, close the Bushnell Golf app${isNative() ? '' : ', fire the laser once to wake it'}, then connect${isNative() ? ' and fire the laser once' : ''}.</p>
           <button class="btn ${laserConnected() ? '' : 'primary'}" id="laserBtn" style="width:100%">${laserConnected() ? 'Disconnect' : 'Connect laser'}</button>
           ${status ? `<p class="small" style="margin:8px 0 0">${esc(status)}</p>` : ''}
           <details style="margin-top:8px"><summary class="small mute">Diagnostics log</summary><pre class="log">${esc(laserLog() || 'Nothing yet.')}</pre><button class="btn" id="copyLog" style="width:100%">Copy log</button></details>`
-        : `<p class="mute small">${isIOS() ? 'iPhone browsers don\'t support Bluetooth, so the laser can\'t connect here. On iPhone, open this app in the free <b>Bluefy</b> browser for laser rounds. A proper iPhone app version is planned.' : 'This browser has no Bluetooth. Use Chrome.'}</p>`}
+        : `<p class="mute small">${isIOS() ? 'iPhone browsers don\'t support Bluetooth. Use the Golf Coach iPhone app (TestFlight) for the laser, or the free <b>Bluefy</b> browser.' : 'This browser has no Bluetooth. Use Chrome, or the Golf Coach Android app.'}</p>`}
         <p class="mute small" style="margin-top:8px">Unproven on the Pro X3 (your friend's app was tested on the X3+). The first connect is the test: if it says the signal wasn't found, copy the log and send it over.</p>
       </div>
 
