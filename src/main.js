@@ -1,5 +1,5 @@
 import './styles.css';
-import { loadVideo, extractPose, findSwings } from './coach/pose.js';
+import { loadVideo, extractPose, findSwings, seek as seekSafe } from './coach/pose.js';
 import { openRecorder } from './coach/recorder.js';
 import { cleanTrack, findPhases } from './coach/phases.js';
 import { analyse } from './coach/metrics.js';
@@ -12,7 +12,10 @@ import { getSettings, saveSettings, putSwing, listSwings, getSwing, deleteSwing,
 import { renderBag } from './bag.js';
 import { isMetric } from './units.js';
 import { drillFor, drillHtml } from './coach/drills.js';
+import { keysHtml, getKeysText } from './keys.js';
+import { RULES, DEFAULT_RULES } from './rounds/tiger.js';
 import { renderInstall } from './install.js';
+import { exportData, importData } from './backup.js';
 import { isNative, nativeSend, onNative, blobToBase64 } from './native.js';
 import { initRounds, roundsHome, recentRoundAggregate } from './rounds/ui.js';
 import { roundTendencies } from './rounds/stats.js';
@@ -74,7 +77,14 @@ $('#seeAll').onclick = () => showTab('history');
 document.addEventListener('toast', (e) => toast(e.detail));
 
 // Recent swings on the camera page; tap to reopen the full analysis if the video is kept.
+function renderKeys() {
+  const t = getKeysText();
+  $('#keysCard').hidden = !t.trim();
+  $('#keysBody').innerHTML = keysHtml(t);
+}
+
 async function renderRecent() {
+  renderKeys();
   const [all, keys] = await Promise.all([listSwings().catch(() => []), mediaKeys().catch(() => [])]);
   const has = new Set(keys);
   const plan = getPlan();
@@ -324,7 +334,7 @@ async function askBall(resolve = null) {
   screen('coach-ball');
 }
 
-const seekTo = (v, t) => new Promise((r) => { v.onseeked = r; v.currentTime = t; });
+const seekTo = (v, t) => seekSafe(v, t);
 
 // ---------------- Coach: result ----------------
 function computeA() {
@@ -554,7 +564,7 @@ async function doAi() {
     const images = await checkpointImages(560, true);
     const swings = (await listSwings().catch(() => [])).filter((s) => s.id !== state.id);
     const history = state.learning ? coachContext(swings, await recentRoundAggregate()) : '';
-    const { text, meta } = await getCoaching({ apiKey: settings.apiKey, model: settings.model, A: state.A, images, golfer: settings.golfer, history });
+    const { text, meta } = await getCoaching({ apiKey: settings.apiKey, model: settings.model, A: state.A, images, golfer: [settings.golfer, settings.keys ? `Their own swing keys/notes (use their language): ${settings.keys.replace(/\n+/g, ' | ')}` : ''].filter(Boolean).join('. '), history });
     state.ai = text;
     let extra = '';
     if (state.learning && meta) {
@@ -658,12 +668,16 @@ async function showDetail(id) {
 // ---------------- Settings ----------------
 function fillSettings() {
   const f = $('#settingsForm');
+  f.theme.value = settings.theme || 'dark';
   f.system.value = settings.system || 'imperial';
   f.height.value = f.system.value === 'metric' ? Math.round(settings.heightIn * 2.54) : Math.round(settings.heightIn * 10) / 10;
   $('#hUnit').textContent = f.system.value === 'metric' ? 'cm' : 'in';
   renderInstall($('#installRow'), true);
   f.handedness.value = settings.handedness; f.quality.value = settings.quality;
   f.keepVideos.checked = settings.keepVideos !== false;
+  f.keys.value = settings.keys || '';
+  const on = new Set(settings.roundRules || DEFAULT_RULES);
+  $('#rulesBoxes').innerHTML = Object.entries(RULES).map(([id, r]) => `<label class="check small"><input type="checkbox" data-rule="${id}" ${on.has(id) ? 'checked' : ''}/> ${esc(r.label)}</label>`).join('');
   f.apiKey.value = settings.apiKey; f.model.value = settings.model; f.golfer.value = settings.golfer;
   $('#savedMsg').hidden = true;
 }
@@ -679,19 +693,46 @@ $('#settingsForm').addEventListener('submit', (e) => {
   const h = parseFloat(f.height.value);
   settings = {
     ...settings,
-    system: f.system.value, heightIn: isNaN(h) ? settings.heightIn : f.system.value === 'metric' ? h / 2.54 : h,
+    theme: f.theme.value, system: f.system.value, heightIn: isNaN(h) ? settings.heightIn : f.system.value === 'metric' ? h / 2.54 : h,
     handedness: f.handedness.value, quality: f.quality.value, keepVideos: f.keepVideos.checked,
+    keys: f.keys.value, roundRules: [...document.querySelectorAll('[data-rule]')].filter((x) => x.checked).map((x) => x.dataset.rule),
     apiKey: f.apiKey.value.trim(), model: f.model.value.trim() || 'claude-sonnet-5-5', golfer: f.golfer.value.trim(),
   };
   saveSettings(settings);
+  applyTheme();
   $('#savedMsg').hidden = false;
 });
+
+// ---------------- Theme ----------------
+export function applyTheme(t = settings.theme || 'dark') {
+  const mq = matchMedia('(prefers-color-scheme: light)');
+  const real = t === 'system' ? (mq.matches ? 'light' : 'dark') : t;
+  document.documentElement.dataset.theme = real;
+  document.querySelector('meta[name=theme-color]')?.setAttribute('content', real === 'light' ? '#f3f5f9' : '#0b1120');
+  mq.onchange = () => (settings.theme === 'system' ? applyTheme('system') : null);
+}
+applyTheme();
 
 // ---------------- Rounds ----------------
 initRounds($('#roundsRoot'), {
   settings: () => settings,
   toast,
   saveSetting: (k, v) => { settings[k] = v; saveSettings(settings); },
+});
+
+$('#exportBtn2').onclick = async () => {
+  const blob = await exportData();
+  const name = `golf-coach-backup-${new Date().toISOString().slice(0, 10)}.json`;
+  if (isNative()) return nativeSend({ type: 'share.file', name, mime: 'application/json', b64: await blobToBase64(blob) });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; a.click();
+};
+$('#importFile').addEventListener('change', async (e) => {
+  const f = e.target.files?.[0]; e.target.value = ''; if (!f) return;
+  try {
+    const r = await importData(await f.text());
+    settings = getSettings(); fillSettings(); applyTheme(); renderRecent();
+    toast(`Imported: ${r.settings.join(', ') || 'no settings'}${r.records ? ` + ${r.records} records` : ''}`, 5000);
+  } catch (err) { toast(err.message, 5000); }
 });
 
 // ---------------- PWA ----------------

@@ -4,6 +4,7 @@ import { putRound, getRound, deleteRound, listRounds, putCourse, getCourse, list
 import { readCard, reviewRound, md } from '../coach/ai.js';
 import { coachContext, addCoachNote } from '../coach/profile.js';
 import { dist, toYards, du, duLong, PUTT_FT, puttLabel, puttUnit } from '../units.js';
+import { checkRules, rulesCard, DEFAULT_RULES } from './tiger.js';
 
 const DEBRIEF_TAGS = ['Driver into trouble', 'Risky shot choice', 'Approach misses', 'Short game', '3-putts', 'Lost focus', 'Back problem', 'Tired', 'Wind / conditions', 'Bad luck'];
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -361,6 +362,7 @@ async function renderSummary(r, c) {
       <tr><th>You</th>${half(9, 18)}<td><b>${S.back}</b></td></tr>` : ''}</table></div>
     </div>
     ${statsCard(S, `${S.score} (${toParStr(S.toPar)})`)}
+    ${rulesCard(checkRules(r, c, ctx.settings().roundRules || DEFAULT_RULES), esc)}
     <div class="card debrief"><h2>Debrief</h2>
       <p class="mute small">What really decided this round? The coach reads this alongside the numbers.</p>
       ${c.holes.map((ch, i) => ({ h: r.holes[i], ch, i })).filter(({ h, ch }) => h && h.score - ch.par >= 2).map(({ h, ch, i }) => `<div class="dhole"><b>Hole ${i + 1}: ${h.score} on a par ${ch.par}</b>${(h.tags || []).length ? `<span class="mute small"> · ${esc(h.tags.map((t) => [t.shot, t.cause, t.strike, t.result].filter(Boolean).join('/')).join(', '))}</span>` : ''}
@@ -404,7 +406,7 @@ async function renderSummary(r, c) {
         const A = await aggStats(recent);
         const swings = await listSwings().catch(() => []);
         const holeLog = r.holes.map((h, i) => h ? `H${i + 1} par ${c.holes[i].par}: ${h.score} (${h.putts ?? '?'} putts${h.tee ? `, tee ${h.tee}` : ''}${h.miss ? `, missed green ${h.miss}` : ''}${h.bunker ? ', bunker' : ''}${(h.tags || []).length ? `, tags: ${h.tags.map((t) => [t.shot, t.cause, t.strike, t.result].filter(Boolean).join('/') + (t.cost ? ` +${t.cost}` : ' saved')).join('; ')}` : ''}${h.note ? `, golfer's note: "${h.note}"` : ''})` : null).filter(Boolean).join('\n');
-        const roundText = `${c.name}${c.tees ? ` (${c.tees})` : ''}: ${S.score} (${toParStr(S.toPar)}). ${roundSummaryText(aggregate([{ round: r, course: c, stats: S }]))}\nHole by hole:\n${holeLog}${r.debrief?.tags?.length || r.debrief?.notes ? `\nGolfer's debrief: ${[...(r.debrief.tags || []), r.debrief.notes].filter(Boolean).join('; ')}` : ''}`;
+        const roundText = `${c.name}${c.tees ? ` (${c.tees})` : ''}: ${S.score} (${toParStr(S.toPar)}). ${roundSummaryText(aggregate([{ round: r, course: c, stats: S }]))}\nRules the golfer plays by: ${checkRules(r, c, ctx.settings().roundRules || DEFAULT_RULES).map((x) => `${x.label}: ${x.holes.length ? `broken on ${x.holes.join(',')}` : 'kept'}`).join('; ')}.\nHole by hole:\n${holeLog}${r.debrief?.tags?.length || r.debrief?.notes ? `\nGolfer's debrief: ${[...(r.debrief.tags || []), r.debrief.notes].filter(Boolean).join('; ')}` : ''}`;
         const { text, meta } = await reviewRound({ apiKey: s.apiKey, model: s.model, roundText, recentText: A ? roundSummaryText(A) : '', history: coachContext(swings, recent.length ? A : null), golfer: s.golfer });
         r.ai = text; await putRound(r);
         if (meta?.note && r.learning !== false) addCoachNote(`[round] ${String(meta.note).slice(0, 280)}`);

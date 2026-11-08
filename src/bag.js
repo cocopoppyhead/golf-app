@@ -8,11 +8,11 @@ import { isNative } from './native.js';
 import { connectLaser, disconnectLaser, onLaser, laserConnected, laserName, laserLog, laserSupported, isIOS } from './laser.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-// Starting numbers from the rangefinder chat (approximate). Driver: new club, carry 250+.
-const DEFAULT_BAG = [
-  ['Driver', 255, null], ['3 wood', 225, null], ['3 hybrid', null, null], ['4 hybrid', null, null], ['5 iron', null, null], ['6 iron', null, null],
-  ['7 iron', null, null], ['8 iron', null, null], ['9 iron', null, null], ['PW', 133, null], ['52°', 108, 105], ['56°', 103, null], ['60°', 95, null],
-].map(([club, carry, three]) => ({ club, carry, three, half: null }));
+// New golfers start with a standard bag and no numbers. Personal numbers come from
+// typing them in, importing a data file (Settings), or learning from saved shots.
+const DEFAULT_BAG = ['Driver', '3 wood', '3 hybrid', '4 hybrid', '5 iron', '6 iron', '7 iron', '8 iron', '9 iron', 'PW', '52°', '56°', '60°']
+  .map((club) => ({ club, carry: null, total: null, three: null, threeTotal: null, half: null, halfTotal: null }));
+const COLS = { carry: ['carry', 'three', 'half'], total: ['total', 'threeTotal', 'halfTotal'] };
 
 export function getBag() {
   const s = getSettings();
@@ -56,7 +56,8 @@ function effectiveBag(bag, shots) {
 
 export async function renderBag(root) {
   const S = getSettings();
-  let bag = getBag().map((c) => ({ three: null, half: null, ...c }));
+  let bag = getBag().map((c) => ({ total: null, three: null, threeTotal: null, half: null, halfTotal: null, ...c }));
+  let mode = 'carry';
   let shots = await listShots().catch(() => []);
   let dist = '', shot = null, status = laserConnected() ? `Connected to ${laserName()}` : '';
   const comp = () => getSettings().competition === true;
@@ -95,10 +96,11 @@ export async function renderBag(root) {
       </div>
 
       <div class="card form">
-        <h2>Your carries</h2>
-        <p class="mute small">${duLong()[0].toUpperCase() + duLong().slice(1)}, carry not total. Your best guess for now. Shots you log with the laser, tagged full, ¾, ½ or mishit, will refine these, and mishits won't count.</p>
+        <div class="sechead" style="margin:0 0 6px"><h2 style="margin:0">Your distances</h2>
+          <div class="seg seg2 mini"><button data-mode="carry" class="${mode === 'carry' ? 'on' : ''}">Carry</button><button data-mode="total" class="${mode === 'total' ? 'on' : ''}">Total</button></div></div>
+        <p class="mute small">${duLong()[0].toUpperCase() + duLong().slice(1)}. Club suggestions use carry. Your best guess for now. Shots you log with the laser, tagged full, ¾, ½ or mishit, will refine these, and mishits won't count.</p>
         <div class="bagrows"><span class="mute small">Club</span><span class="mute small">Full</span><span class="mute small">¾</span><span class="mute small">½</span><span></span><span></span>
-          ${bag.map((c, i) => `<input data-cl="${i}" value="${esc(c.club)}" /><input data-cy="${i}" inputmode="numeric" placeholder="–" value="${D(c.carry) ?? ''}" /><input data-th="${i}" inputmode="numeric" placeholder="–" value="${D(c.three) ?? ''}" /><input data-hf="${i}" inputmode="numeric" placeholder="–" value="${D(c.half) ?? ''}" /><button class="link" data-rm="${i}">✕</button><button class="link go" data-open="${i}" aria-label="Club page">›</button>${eff[i] && Object.keys(eff[i].learned).length ? `<span class="learned">true distance: ${[['carry', 'full'], ['three', '¾'], ['half', '½']].filter(([k]) => eff[i].learned[k]).map(([k, l]) => `${l} ${D(eff[i][k])}`).join(' · ')}</span>` : ''}`).join('')}</div>
+          ${bag.map((c, i) => `<input data-cl="${i}" value="${esc(c.club)}" /><input data-cy="${i}" inputmode="numeric" placeholder="–" value="${D(c[COLS[mode][0]]) ?? ''}" /><input data-th="${i}" inputmode="numeric" placeholder="–" value="${D(c[COLS[mode][1]]) ?? ''}" /><input data-hf="${i}" inputmode="numeric" placeholder="–" value="${D(c[COLS[mode][2]]) ?? ''}" /><button class="link" data-rm="${i}">✕</button><button class="link go" data-open="${i}" aria-label="Club page">›</button>${eff[i] && Object.keys(eff[i].learned).length ? `<span class="learned">true distance: ${[['carry', 'full'], ['three', '¾'], ['half', '½']].filter(([k]) => eff[i].learned[k]).map(([k, l]) => `${l} ${D(eff[i][k])}`).join(' · ')}</span>` : ''}`).join('')}</div>
         <button class="btn" id="addClub" style="width:100%;margin-top:8px">+ Club</button>
         ${gaps.length ? `<p class="small" style="color:var(--ok);margin-top:10px">Gap${gaps.length > 1 ? 's' : ''}: ${gaps.map((g) => `${esc(g.a.club)} → ${esc(g.b.club)} (${D(g.gap)} ${du()})`).join(', ')}</p>` : ''}
         <button class="btn primary big" id="saveBag" style="margin-top:10px">Save bag</button>
@@ -106,10 +108,10 @@ export async function renderBag(root) {
 
     const sync = () => {
       root.querySelectorAll('[data-cl]').forEach((el) => (bag[+el.dataset.cl].club = el.value.trim()));
-      const read = (el, key) => { const c = bag[+el.dataset[key === 'carry' ? 'cy' : key === 'three' ? 'th' : 'hf']]; if (String(D(c[key]) ?? '') !== el.value) c[key] = toYards(el.value); };
-      root.querySelectorAll('[data-cy]').forEach((el) => read(el, 'carry'));
-      root.querySelectorAll('[data-th]').forEach((el) => read(el, 'three'));
-      root.querySelectorAll('[data-hf]').forEach((el) => read(el, 'half'));
+      const read = (el, attr, key) => { const c = bag[+el.dataset[attr]]; if (String(D(c[key]) ?? '') !== el.value) c[key] = toYards(el.value); };
+      root.querySelectorAll('[data-cy]').forEach((el) => read(el, 'cy', COLS[mode][0]));
+      root.querySelectorAll('[data-th]').forEach((el) => read(el, 'th', COLS[mode][1]));
+      root.querySelectorAll('[data-hf]').forEach((el) => read(el, 'hf', COLS[mode][2]));
     };
     const din = root.querySelector('#distIn');
     din.addEventListener('input', () => { sync(); dist = din.value; shot = null; draw(); const d = root.querySelector('#distIn'); d.focus(); d.setSelectionRange(d.value.length, d.value.length); });
@@ -123,9 +125,10 @@ export async function renderBag(root) {
       const c = bag[+b.dataset.open];
       renderClubPage(root, c.club, { carry: c.carry, onBack: () => renderBag(root), onUseCarry: (y) => { c.carry = y; saveBag(bag); renderBag(root); } });
     }));
+    root.querySelectorAll('[data-mode]').forEach((b) => (b.onclick = () => { sync(); mode = b.dataset.mode; draw(); }));
     root.querySelector('#compBox').onchange = (e) => { const s = getSettings(); s.competition = e.target.checked; saveSettings(s); sync(); draw(); };
     root.querySelectorAll('[data-rm]').forEach((b) => (b.onclick = () => { sync(); bag.splice(+b.dataset.rm, 1); draw(); }));
-    root.querySelector('#addClub').onclick = () => { sync(); bag.push({ club: '', carry: null, three: null, half: null }); draw(); };
+    root.querySelector('#addClub').onclick = () => { sync(); bag.push({ club: '', carry: null, total: null, three: null, threeTotal: null, half: null, halfTotal: null }); draw(); };
     root.querySelector('#saveBag').onclick = () => { sync(); bag = bag.filter((c) => c.club); saveBag(bag); draw(); root.dispatchEvent(new CustomEvent('toast', { detail: 'Bag saved', bubbles: true })); };
     root.querySelector('#copyLog')?.addEventListener('click', () => navigator.clipboard?.writeText(laserLog()).then(() => root.dispatchEvent(new CustomEvent('toast', { detail: 'Log copied', bubbles: true }))));
     root.querySelector('#laserBtn')?.addEventListener('click', async () => {

@@ -47,11 +47,15 @@ export function loadVideo(file) {
   });
 }
 
-function seek(v, t) {
+export function seek(v, t) {
   return new Promise((resolve) => {
-    const done = () => { v.removeEventListener('seeked', done); resolve(); };
+    const target = Math.max(0, Math.min(t, v.duration - 0.001));
+    let timer = null;
+    const done = () => { clearTimeout(timer); v.removeEventListener('seeked', done); resolve(); };
     v.addEventListener('seeked', done);
-    v.currentTime = Math.min(t, v.duration - 0.001);
+    // Some browsers never fire 'seeked' when the time doesn't change (or on odd files): don't hang.
+    timer = setTimeout(done, Math.abs(v.currentTime - target) < 1e-3 ? 50 : 1500);
+    v.currentTime = target;
   });
 }
 
