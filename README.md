@@ -38,6 +38,17 @@ Inches are scaled from your height (Settings), so they're approximate. Target di
 - **Stats**: fairways, greens, miss patterns, putts, 3-putts, scrambling, sand saves, scoring mix, strokes lost by cause/shot/strike. Per round and per-round average across recent rounds.
 - **Coach link**: on-course patterns (e.g. "tee shots miss right", "most shots lost to SWE") show in Progress next to swing tendencies and go to the AI coach. **AI round review** reads the round, recent rounds and your swing profile together. Untick "count toward my coach profile" for scrambles or fun rounds.
 
+## Also in the app
+
+- **Swing score /10** with one priority and a built-in drill for every fault; streaks; confetti when a focus is fixed.
+- **From behind (down-the-line)**: posture, knee flex, spine angle kept, head height, early extension, finish balance.
+- **Range mode**: record 3–4+ swings in one clip; the app splits, reviews each and gives a session recap (can read it out).
+- **Save shot**: after a club suggestion, log where it finished (±), swing (full/¾/½/mishit), direction, contact, shape. **Club pages** show true distance (last 10, outliers and mishits dropped), accuracy, shape and strike map; the Bag switches to true distances at 5+ shots.
+- **Round rules** (Tiger 5s + extras) checked after every round; **round debrief** (hole notes, tags, notes) read by the coach.
+- **My swing keys** (Settings): your own notes, shown on the Swing page and used by the AI coach.
+- **Themes**: dark, light, or match the phone. **Export / import** all data (not videos) as JSON.
+- **Supabase** schema for login, sync, shared courses, friends and leagues: `supabase/schema.sql` (app wiring next).
+
 ## Native app (Expo)
 
 `native/` is an Expo SDK 58 shell that runs the live web app in a WebView and adds native Bluetooth (laser on iPhone and Android) and video sharing. Build with EAS — see `native/README.md`.

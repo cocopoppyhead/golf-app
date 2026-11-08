@@ -153,5 +153,5 @@ export function coachContext(swings, roundAgg = null) {
 export function roundSignals(A) {
   if (!A) return '';
   const t = roundTendencies(A);
-  return roundSummaryText(A) + (t.length ? ` Patterns: ${t.slice(0, 4).map((x) => `${x.text} (${x.detail})`).join('; ')}.` : '');
+  return roundSummaryText(A) + (t.length ? ` Patterns: ${t.slice(0, 4).map((x) => `${x.text} (${x.detail})`).join('; ')}.` : '') + (A.debriefs?.length ? ` Golfer's own round debriefs: ${A.debriefs.join(' | ')}` : '');
 }

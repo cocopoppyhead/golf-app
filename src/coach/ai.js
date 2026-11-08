@@ -79,7 +79,7 @@ export async function getCoaching({ apiKey, model, A, images, golfer = '', histo
     ...images.map((d) => ({ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: d.split(',')[1] } })),
     {
       type: 'text',
-      text: `Club: ${A.club}. View: face-on. ${golfer ? `About the golfer: ${golfer}.` : ''}
+      text: `Club: ${A.club}. View: ${A.view === 'dtl' ? 'down-the-line (from behind)' : 'face-on'}. ${golfer ? `About the golfer: ${golfer}.` : ''}
 App's own summary: ${A.summary.headline} — ${A.summary.advice}
 Measurements (status good/ok/work vs general tour ranges):
 ${JSON.stringify(metrics, null, 1)}

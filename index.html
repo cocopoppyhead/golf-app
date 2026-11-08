@@ -4,6 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#0b1120" />
+  <script>try{var t=(JSON.parse(localStorage.getItem("golf.settings")||"{}").theme)||"dark";if(t==="system")t=matchMedia("(prefers-color-scheme: light)").matches?"light":"dark";document.documentElement.dataset.theme=t;}catch(e){}</script>
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <title>Golf Coach</title>
@@ -39,8 +40,17 @@
             <b>Upload a video</b><span>From your gallery</span>
           </label>
         </div>
+        <button class="tile wide" id="rangeTile">
+          <svg viewBox="0 0 24 24"><rect x="2" y="7" width="5" height="10" rx="1"/><rect x="9.5" y="7" width="5" height="10" rx="1"/><rect x="17" y="7" width="5" height="10" rx="1"/></svg>
+          <div><b>Range mode</b><span>Several swings in a row. The app splits and reviews each.</span></div>
+        </button>
+        <input id="rangeInput" type="file" accept="video/*" hidden />
         <input id="videoCapture" type="file" accept="video/*" capture="environment" hidden />
         <input id="videoInput" type="file" accept="video/*" hidden />
+        <div class="clubrow">
+          <span class="mute small">View</span>
+          <div class="seg seg2" id="viewSeg"><button data-view="face">Face-on</button><button data-view="dtl">From behind</button></div>
+        </div>
         <div class="clubrow">
           <span class="mute small">Club</span>
           <div class="seg" id="clubSeg">
@@ -48,9 +58,19 @@
           </div>
         </div>
         <label class="check learn"><input type="checkbox" id="learnBox" /> <span><b>Learning mode</b><br /><span class="mute small">Counts toward your coach profile. Untick for test swings.</span></span></label>
+        <details class="tips rowcard" id="keysCard" hidden>
+          <summary><span class="ic">📓</span><span><b>My swing keys</b><br /><span class="mute small">Your own notes. Edit in Settings.</span></span><span class="chev">⌄</span></summary>
+          <div class="keys" id="keysBody" style="padding:0 16px 14px"></div>
+        </details>
         <details class="tips rowcard">
           <summary><span class="ic">💡</span><span><b>For the best results</b><br /><span class="mute small">How to film your swing</span></span><span class="chev">⌄</span></summary>
-          <ul>
+          <ul data-tips="dtl" hidden>
+            <li><b>From behind (down the line):</b> stand behind your hands, camera pointing at the target, in line with your hands (not the ball).</li>
+            <li><b>Hip height</b>, 3–4 m back, phone upright. Whole body and club at the top in frame.</li>
+            <li>Shows posture, knee flex, early extension, spine angle and head height.</li>
+            <li>Slow-mo or 60 fps if you can. One swing per clip, or use Range mode for several.</li>
+          </ul>
+          <ul data-tips="face">
             <li><b>Face-on:</b> camera square to your chest, in line with the ball.</li>
             <li><b>Hip height</b>, 3–4 m away, phone upright (portrait). Tripod or lean it on your bag.</li>
             <li>Whole body, the ball and a bit of space above the club at the top in frame.</li>
@@ -79,6 +99,8 @@
           <button class="btn primary" id="trimGo">Analyse selection</button>
         </div>
       </div>
+
+      <div id="coach-session" class="screen" hidden></div>
 
       <div id="coach-busy" class="screen" hidden>
         <div class="busy">
@@ -144,6 +166,9 @@
     <section id="tab-settings" class="tab">
       <form id="settingsForm" class="card form">
         <div id="installRow"></div>
+        <label>Theme
+          <select name="theme"><option value="dark">Dark</option><option value="light">Light</option><option value="system">Match my phone</option></select>
+        </label>
         <label>Units
           <select name="system"><option value="imperial">Yards · inches</option><option value="metric">Metres · cm</option></select>
           <span class="hint">Golf distances and body measurements. Your laser can stay in yards; the app converts.</span>
@@ -168,10 +193,22 @@
         <label>Model
           <input name="model" autocomplete="off" />
         </label>
+        <label>My swing keys
+          <textarea name="keys" rows="10" placeholder="# Set-up&#10;- Hinge hips, not upright&#10;# Swing&#10;- Slow takeaway"></textarea>
+          <span class="hint"># starts a section, - starts a key. Shown on the Swing page and used by the AI coach.</span>
+        </label>
+        <label>Round rules (checked after every round)
+          <div id="rulesBoxes" class="rulesbox"></div>
+        </label>
         <label>About you (sent with AI reviews)
           <textarea name="golfer" rows="3" placeholder="e.g. 5 handicap. Miss: block right with irons. Working on: staying centred."></textarea>
         </label>
         <button class="btn primary" type="submit">Save</button>
+        <hr />
+        <div class="lbl">Your data</div>
+        <p class="mute small">Back up everything (not videos) to a file, or load a data file, e.g. your yardages and notes.</p>
+        <div class="row"><button class="btn" type="button" id="exportBtn2">Export</button><label class="btn" for="importFile">Import</label></div>
+        <input type="file" id="importFile" accept="application/json,.json" hidden />
         <p id="savedMsg" class="mute small center" hidden>Saved</p>
       </form>
     </section>

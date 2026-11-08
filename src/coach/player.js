@@ -1,3 +1,4 @@
+import { seek } from './pose.js';
 // Plays the analysed swing slowly on a canvas, freezing at each checkpoint.
 import { drawOverlay } from './render.js';
 
@@ -20,7 +21,7 @@ export class SwingPlayer {
   }
 
   async seek(t) {
-    await new Promise((r) => { this.video.onseeked = r; this.video.currentTime = t; });
+    await seek(this.video, t);
     this.draw();
   }
 
@@ -34,7 +35,7 @@ export class SwingPlayer {
 
   async showCheckpoint(k) {
     this.stop();
-    await new Promise((r) => { this.video.onseeked = r; this.video.currentTime = this.cpTimes[k]; });
+    await seek(this.video, this.cpTimes[k]);
     this.cpShown = k; this.draw(k); this.onCheckpoint(k);
   }
 
@@ -50,7 +51,7 @@ export class SwingPlayer {
       if (!this.playing) return;
       if (next >= 0 && next < 4 && v.currentTime >= this.cpTimes[next]) {
         v.pause();
-        await new Promise((r) => { v.onseeked = r; v.currentTime = this.cpTimes[next]; });
+        await seek(v, this.cpTimes[next]);
         this.draw(next); this.onCheckpoint(next);
         const k = next; next = k + 1 < 4 ? k + 1 : -1;
         await new Promise((r) => setTimeout(r, this.hold));

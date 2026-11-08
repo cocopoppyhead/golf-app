@@ -41,10 +41,12 @@ export function drawOverlay(ctx, A, lm, { cp = null, card = false, cpIndex = 0 }
   ctx.save();
   ctx.lineCap = 'round'; ctx.lineJoin = 'round';
 
-  // Ball line
-  ctx.setLineDash([u * 0.6, u * 0.5]); ctx.strokeStyle = 'rgba(255,255,255,0.85)'; ctx.lineWidth = u * 0.14;
-  ctx.beginPath(); ctx.moveTo(b.ball.x, 0); ctx.lineTo(b.ball.x, b.ball.y); ctx.stroke(); ctx.setLineDash([]);
-  pill(ctx, 'BALL', b.ball.x, Math.min(H - u * 4.2, b.ball.y + u * 1.6), u);
+  // Ball line (face-on only)
+  if (b.ball) {
+    ctx.setLineDash([u * 0.6, u * 0.5]); ctx.strokeStyle = 'rgba(255,255,255,0.85)'; ctx.lineWidth = u * 0.14;
+    ctx.beginPath(); ctx.moveTo(b.ball.x, 0); ctx.lineTo(b.ball.x, b.ball.y); ctx.stroke(); ctx.setLineDash([]);
+    pill(ctx, 'BALL', b.ball.x, Math.min(H - u * 4.2, b.ball.y + u * 1.6), u);
+  }
 
   // Head box (from address); turns orange when the head leaves it
   const hc = headC(lm), bx = b.box;
@@ -73,12 +75,13 @@ export function drawOverlay(ctx, A, lm, { cp = null, card = false, cpIndex = 0 }
   // Bottom bar: live head and hip shift
   const hs = (hc.x - b.head.x) * t * S, ps = (hp.x - b.hip.x) * t * S;
   const word = (v) => (Math.abs(v) < 0.3 ? '' : v > 0 ? ' toward target' : ' away from target');
+  const lines = A.live ? A.live(lm) : [`Head shift: ${len(hs)}${word(hs)}`, `Hip shift: ${len(ps)}${word(ps)}`];
   const barH = u * 3.2;
   ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(0, H - barH, W, barH);
   ctx.textBaseline = 'middle'; ctx.textAlign = 'left'; ctx.fillStyle = '#fff';
   ctx.font = `500 ${Math.round(u * 1.0)}px Inter, system-ui, sans-serif`;
-  ctx.fillText(`Head shift: ${len(hs)}${word(hs)}`, u * 0.7, H - barH * 0.68);
-  ctx.fillText(`Hip shift: ${len(ps)}${word(ps)}`, u * 0.7, H - barH * 0.3);
+  ctx.fillText(lines[0], u * 0.7, H - barH * 0.68);
+  ctx.fillText(lines[1], u * 0.7, H - barH * 0.3);
   ctx.textAlign = 'right';
   ctx.fillStyle = inBox ? COLORS.boxOk : COLORS.boxOut; ctx.fillText('Head box', W - u * 0.7, H - barH * 0.68);
   ctx.fillStyle = COLORS.spine; ctx.font = `500 ${Math.round(u * 0.85)}px Inter, system-ui, sans-serif`;
@@ -94,6 +97,10 @@ function drawMark(ctx, m, u, H) {
     const y0 = H * 0.3, y1 = H * 0.86;
     ctx.beginPath(); ctx.moveTo(m.x, y0); ctx.lineTo(m.x, y1); ctx.stroke(); ctx.setLineDash([]);
     pill(ctx, m.label, m.x, y0 - u * 1.1, u, { fg: COLORS.pro, size: 0.95 });
+  } else if (m.type === 'hline') {
+    const x0 = m.x0 ?? ctx.canvas.width * 0.15, x1 = m.x1 ?? ctx.canvas.width * 0.85;
+    ctx.beginPath(); ctx.moveTo(x0, m.y); ctx.lineTo(x1, m.y); ctx.stroke(); ctx.setLineDash([]);
+    pill(ctx, m.label, (x0 + x1) / 2, m.y - u * 1.1, u, { fg: COLORS.pro, size: 0.95 });
   } else if (m.type === 'circle') {
     ctx.setLineDash([]); ctx.lineWidth = u * 0.24;
     ctx.beginPath(); ctx.arc(m.x, m.y, m.r, 0, Math.PI * 2); ctx.stroke();

@@ -1,6 +1,7 @@
 // Renders the annotated swing to an MP4 on the device (WebCodecs + mp4-muxer).
 import { Muxer, ArrayBufferTarget } from 'mp4-muxer';
 import { drawOverlay, drawSummary } from './render.js';
+import { seek } from './pose.js';
 
 const even = (n) => Math.max(2, Math.round(n / 2) * 2);
 
@@ -37,13 +38,13 @@ export async function exportMp4(video, fr, A, { slow = 3, holdSec = 2.5, summary
     ts += durSec; n++;
     if (enc.encodeQueueSize > 8) await new Promise((r) => setTimeout(r, 20));
   };
-  const seek = (t) => new Promise((r) => { video.onseeked = r; video.currentTime = t; });
+  const seekV = (t) => seek(video, t);
 
   const cpByFrame = new Map(A.checkpoints.map((c, i) => [c.frame, i]));
   const i0 = Math.max(0, A.checkpoints[0].frame - 8), i1 = Math.min(fr.length - 1, A.checkpoints[3].frame + 12);
   for (let i = i0; i <= i1; i++) {
     if (err) throw err;
-    await seek(fr[i].t);
+    await seekV(fr[i].t);
     ctx.drawImage(video, 0, 0, W, H);
     ctx.save(); ctx.scale(k, k);
     const ci = cpByFrame.has(i) ? cpByFrame.get(i) : -1;
