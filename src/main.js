@@ -7,6 +7,7 @@ import { SwingPlayer } from './coach/player.js';
 import { exportMp4, canExport } from './coach/export.js';
 import { getCoaching, md } from './coach/ai.js';
 import { getSettings, saveSettings, putSwing, listSwings, getSwing, deleteSwing } from './store.js';
+import { tendencies, focusProgress, updatePlan, checkIn, getPlan, setFocus, addCoachNote, coachContext, metricLabel, metricCue } from './coach/profile.js';
 
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -14,7 +15,7 @@ let settings = getSettings();
 let state = null; // current analysis session
 
 // ---------------- Tabs ----------------
-const TITLES = { coach: 'Coach', history: 'History', rounds: 'Rounds', settings: 'Settings' };
+const TITLES = { coach: 'Coach', history: 'Progress', rounds: 'Rounds', settings: 'Settings' };
 document.querySelectorAll('nav.tabs button').forEach((b) => b.addEventListener('click', () => showTab(b.dataset.tab)));
 function showTab(name) {
   document.querySelectorAll('nav.tabs button').forEach((b) => b.classList.toggle('active', b.dataset.tab === name));
@@ -41,6 +42,8 @@ function setClub(c) {
 }
 document.querySelectorAll('#clubSeg button').forEach((b) => b.addEventListener('click', () => setClub(b.dataset.club)));
 setClub(settings.club);
+$('#learnBox').checked = settings.learning !== false;
+$('#learnBox').addEventListener('change', (e) => { settings.learning = e.target.checked; saveSettings(settings); });
 
 $('#videoInput').addEventListener('change', async (e) => {
   const file = e.target.files?.[0];
@@ -57,7 +60,7 @@ async function openVideo(file) {
     // iOS needs the element in the DOM to decode frames reliably
     Object.assign(video.style, { position: 'fixed', left: '-9999px', width: '2px', height: '2px', opacity: 0 });
     document.body.appendChild(video);
-    state = { video, club: settings.club, ball: null };
+    state = { video, club: settings.club, ball: null, learning: settings.learning !== false };
     if (video.duration <= 4) return runAnalysis([0, video.duration]); // short clip: nothing to trim
     await showTrim();
   } catch (err) {
@@ -218,10 +221,45 @@ async function showResult() {
   $('#aiBtn').onclick = doAi;
   $('#newBtn').onclick = () => { player.stop(); screen('coach-start'); };
 
-  // Save to history
-  state.id = `s_${Date.now()}`;
+  // Save to history, then update the coach profile
+  state.id = `s_${Date.now()}`; state.date = Date.now();
   state.thumbs = await checkpointImages(360, false);
   await putSwing(record()).catch(() => {});
+  await refreshCoachCard(true);
+}
+
+/** The "Coach check-in" card under the summary: this swing vs your current focus. */
+async function refreshCoachCard(runPlan) {
+  const el = $('#coachCheck');
+  if (!state.learning) {
+    el.innerHTML = `<h3>Test swing</h3><p class="mute">Not counted toward your profile.</p><button class="btn" id="countBtn">Count this swing</button>`;
+    $('#countBtn').onclick = async () => { state.learning = true; await putSwing(record()).catch(() => {}); refreshCoachCard(true); };
+    return;
+  }
+  const swings = await listSwings().catch(() => []);
+  const res = runPlan ? updatePlan(swings, record()) : { plan: getPlan(), check: checkIn(record()), tendencies: tendencies(swings) };
+  const { plan, check, event } = res;
+  const t = res.tendencies;
+  let html = `<h3>Coach check-in</h3>`;
+  if (event) html += `<p class="event">${esc(event)}</p>`;
+  if (plan.focus && check) {
+    const p = focusProgress(swings, plan);
+    html += `<div class="focus"><span class="tag">FOCUS</span> ${esc(plan.focus.label)}</div>
+      <p class="cue">${esc(plan.focus.cue)}.</p>
+      <p><b style="color:var(--${check.status})">${check.verdict}</b> on this swing: ${esc(check.text.split(': ').slice(1).join(': '))}</p>
+      ${dots(p)}`;
+  } else if (!plan.focus) {
+    const need = Math.max(0, 3 - t.swings);
+    html += `<p class="mute">${need ? `${need} more learning swing${need > 1 ? 's' : ''} and I'll start spotting your tendencies and set a focus.` : 'No recurring fault across your recent swings. Nice.'}</p>`;
+  }
+  el.innerHTML = html;
+}
+
+function dots(p) {
+  if (!p?.values.length) return '';
+  const last = p.values.slice(-10);
+  return `<div class="dots">${last.map((v) => `<i title="${esc(v.you)}" style="background:var(--${v.status})"></i>`).join('')}</div>
+    <p class="mute small">${p.good} of last ${p.lastN} on target · counts as fixed at 4 of 5</p>`;
 }
 
 // Move the shown checkpoint one frame earlier/later, then re-measure everything.
@@ -244,7 +282,7 @@ async function nudge(d) {
   await p.showCheckpoint(k);
   state.ai = null; $('#aiOut').hidden = true;
   clearTimeout(saveTimer);
-  saveTimer = setTimeout(async () => { state.thumbs = await checkpointImages(360, false); putSwing(record()).catch(() => {}); }, 1500);
+  saveTimer = setTimeout(async () => { state.thumbs = await checkpointImages(360, false); await putSwing(record()).catch(() => {}); refreshCoachCard(false); }, 1500);
 }
 
 function renderCp(k) {
@@ -262,7 +300,7 @@ function cpHtml(c, k) {
 function record() {
   const A = state.A;
   return {
-    id: state.id, date: Date.now(), club: A.club, summary: A.summary, thumbs: state.thumbs, ai: state.ai || null,
+    id: state.id, date: state.date || Date.now(), learning: state.learning !== false, club: A.club, summary: A.summary, thumbs: state.thumbs, ai: state.ai || null,
     checkpoints: A.checkpoints.map((c) => ({ key: c.key, title: c.title, items: c.items.map(({ name, you, pro, status, value }) => ({ name, you, pro, status, value })) })),
   };
 }
@@ -312,10 +350,23 @@ async function doAi() {
   $('#aiBtn').disabled = true;
   try {
     const images = await checkpointImages(560, true);
-    const text = await getCoaching({ apiKey: settings.apiKey, model: settings.model, A: state.A, images, golfer: settings.golfer });
+    const swings = (await listSwings().catch(() => [])).filter((s) => s.id !== state.id);
+    const history = state.learning ? coachContext(swings) : '';
+    const { text, meta } = await getCoaching({ apiKey: settings.apiKey, model: settings.model, A: state.A, images, golfer: settings.golfer, history });
     state.ai = text;
-    out.innerHTML = md(text);
+    let extra = '';
+    if (state.learning && meta) {
+      if (meta.note) addCoachNote(String(meta.note).slice(0, 300));
+      const valid = state.A.checkpoints.flatMap((c) => c.items.map((i) => `${c.key}:${i.name}`));
+      const cur = getPlan().focus?.key;
+      if (meta.focus && valid.includes(meta.focus) && meta.focus !== cur) {
+        const plan = setFocus(meta.focus); plan.focus.setBy = 'AI coach'; localStorage.setItem('golf.plan', JSON.stringify(plan));
+        extra = `<p class="event">Coach set your focus to: ${esc(metricLabel(meta.focus).toLowerCase())}.</p>`;
+      }
+    }
+    out.innerHTML = md(text) + extra;
     await putSwing(record()).catch(() => {});
+    if (state.learning) refreshCoachCard(false);
   } catch (e) { out.innerHTML = `<p style="color:var(--work)">${esc(e.message)}</p>`; }
   $('#aiBtn').disabled = false;
 }
@@ -324,9 +375,42 @@ async function doAi() {
 const fmtDate = (d) => new Date(d).toLocaleString(undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 const val = (s, cp, name) => s.checkpoints.find((c) => c.key === cp)?.items.find((i) => i.name === name)?.value;
 
+async function renderCoachPanel(all) {
+  const el = $('#coachPanel');
+  const plan = getPlan();
+  const t = tendencies(all);
+  const p = focusProgress(all, plan);
+  const keys = [...new Set(all.flatMap((s) => s.checkpoints.flatMap((c) => c.items.map((i) => `${c.key}:${i.name}`))))];
+  let html = `<h2>Your coach</h2>`;
+  if (plan.focus) {
+    html += `<div class="focus"><span class="tag">CURRENT FOCUS</span> ${esc(plan.focus.label)}</div>
+      <p class="cue">${esc(plan.focus.cue)}.</p>
+      <p class="mute small">Set ${plan.focus.setBy === 'auto' ? 'automatically' : `by ${esc(plan.focus.setBy)}`} on ${new Date(plan.focus.since).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })} · ${p?.count || 0} swing${(p?.count || 0) === 1 ? '' : 's'} since</p>${dots(p)}`;
+  } else html += `<p class="mute">No focus yet. ${t.swings < 3 ? `Analyse ${3 - t.swings} more swing${3 - t.swings > 1 ? 's' : ''} in learning mode.` : 'No recurring fault found.'}</p>`;
+  if (keys.length) {
+    html += `<label class="small mute" style="display:block;margin-top:10px">Change focus
+      <select id="focusSel"><option value="">Auto (let the coach pick)</option>${keys.map((k) => `<option value="${k}" ${plan.focus?.key === k ? 'selected' : ''}>${esc(metricLabel(k))}</option>`).join('')}</select></label>`;
+  }
+  if (t.list.length) {
+    html += `<h3 style="margin-top:16px">Tendencies <span class="mute small">last ${t.swings} learning swings</span></h3>` + t.list.slice(0, 6).map((x) => `
+      <div class="tend"><div><b>${esc(x.label)}</b><div class="mute small">${esc(x.cue)}</div></div>
+      <div class="r"><div class="meter"><div style="width:${Math.round(x.rate * 100)}%"></div></div><span class="small">${x.misses}/${x.n} · ${x.trend === 'improving' ? '↑ improving' : x.trend === 'worse' ? '↓ worse' : '→ steady'}</span></div></div>`).join('');
+  }
+  if (plan.done.length) html += `<h3 style="margin-top:16px">Fixed</h3>` + plan.done.slice(0, 5).map((d) => `<p class="small">✓ ${esc(d.label)} <span class="mute">${new Date(d.finished).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}</span></p>`).join('');
+  if (plan.notes.length) html += `<h3 style="margin-top:16px">Coach's notebook</h3>` + plan.notes.slice(0, 4).map((n) => `<p class="small"><span class="mute">${new Date(n.date).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}</span> ${esc(n.note)}</p>`).join('');
+  html += `<p class="mute small" style="margin-top:12px">Rounds and scorecards will feed this profile too, once that module is built.</p>`;
+  el.innerHTML = html;
+  $('#focusSel')?.addEventListener('change', (e) => {
+    if (e.target.value) setFocus(e.target.value);
+    else { setFocus(null); updatePlan(all, null); }
+    renderCoachPanel(all);
+  });
+}
+
 async function renderHistory() {
-  $('#historyDetail').hidden = true; $('#historyList').hidden = false; $('#trend').hidden = false;
+  $('#historyDetail').hidden = true; $('#historyList').hidden = false; $('#trend').hidden = false; $('#coachPanel').hidden = false;
   const all = await listSwings().catch(() => []);
+  renderCoachPanel(all);
   if (!all.length) {
     $('#trend').innerHTML = '<h2>No swings yet</h2><p class="mute">Analyse a swing in Coach and it lands here, so you can track the numbers over time.</p>';
     $('#historyList').innerHTML = '';
@@ -341,7 +425,7 @@ async function renderHistory() {
   $('#historyList').innerHTML = all.map((s) => `
     <div class="hist" data-id="${s.id}">
       <img src="${s.thumbs?.[2] || ''}" alt="" />
-      <div><div class="t">${esc(s.summary.headline)}</div><div class="s">${fmtDate(s.date)} · ${esc(s.club)} · ${esc(s.summary.score)} on target${s.ai ? ' · AI reviewed' : ''}</div></div>
+      <div><div class="t">${esc(s.summary.headline)}</div><div class="s">${fmtDate(s.date)} · ${esc(s.club)} · ${esc(s.summary.score)} on target${s.ai ? ' · AI reviewed' : ''}${s.learning === false ? ' · test swing' : ''}</div></div>
       <div class="mute">›</div>
     </div>`).join('');
   document.querySelectorAll('.hist').forEach((el) => el.addEventListener('click', () => showDetail(el.dataset.id)));
@@ -350,14 +434,16 @@ async function renderHistory() {
 async function showDetail(id) {
   const s = await getSwing(id);
   if (!s) return;
-  $('#historyList').hidden = true; $('#trend').hidden = true;
+  $('#historyList').hidden = true; $('#trend').hidden = true; $('#coachPanel').hidden = true;
   const d = $('#historyDetail'); d.hidden = false;
   d.innerHTML = `<button class="btn" id="backBtn">‹ Back</button>
     <div class="card summary"><h2>${esc(s.summary.headline)}</h2><p>${esc(s.summary.advice)}</p><span class="score">${esc(s.summary.score)} checks on target</span><p class="mute small">${fmtDate(s.date)} · ${esc(s.club)}</p></div>
     <div class="thumbs">${(s.thumbs || []).map((t) => `<img src="${t}" alt="" />`).join('')}</div>
     ${s.checkpoints.map((c, k) => `<div class="card cp">${cpHtml(c, k)}</div>`).join('')}
     ${s.ai ? `<div class="card ai">${md(s.ai)}</div>` : ''}
+    <label class="card check"><input type="checkbox" id="detLearn" ${s.learning !== false ? 'checked' : ''}/> Count toward my coach profile (learning mode)</label>
     <button class="btn" id="delBtn" style="width:100%;color:var(--work)">Delete this swing</button>`;
+  $('#detLearn').onchange = async (e) => { s.learning = e.target.checked; await putSwing(s); };
   $('#backBtn').onclick = renderHistory;
   $('#delBtn').onclick = async () => { await deleteSwing(id); renderHistory(); };
   window.scrollTo(0, 0);

@@ -13,7 +13,8 @@ Live: https://cocopoppyhead.github.io/golf-app/
 5. Optional:
    - **AI coach** sends the measurements and four annotated frames to Claude, using your own API key, which is stored on the phone only.
    - **Save video** renders an annotated MP4 to share.
-6. Every swing is saved to **History** (on the phone, IndexedDB) with a trend table.
+6. **Learning mode** (tickbox, on by default): swings that count build your coach profile. It finds recurring faults (tendencies), sets one work-in-progress focus, checks every new swing against it, and marks it fixed at 4 of 5 on target. The AI coach gets this history and its own notebook, so reviews follow on from the last one. Untick for test swings. Rounds will feed the same profile.
+7. Every swing is saved to **Progress** (on the phone, IndexedDB) with a trend table.
 
 ### What it measures (face-on)
 
@@ -35,7 +36,8 @@ src/coach/metrics.js  measurements + tour benchmarks + summary
 src/coach/render.js   overlay drawing (skeleton, head box, ball line, pro marks, cards)
 src/coach/player.js   slow playback with checkpoint freezes
 src/coach/export.js   MP4 export (WebCodecs + mp4-muxer)
-src/coach/ai.js       Claude API coaching
+src/coach/ai.js       Claude API coaching (with coaching history)
+src/coach/profile.js  coach memory: tendencies, current focus, progress, notebook
 src/store.js          settings + IndexedDB history (has a `rounds` store ready for module 2)
 ```
 

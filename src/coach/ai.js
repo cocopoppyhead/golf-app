@@ -12,9 +12,18 @@ Format in Markdown:
 **Drills:** 2 drills, each one line with reps.
 **Feel:** one swing thought.
 **Film next:** what angle/club to film next time to confirm.
-Keep it under 220 words.`;
+Keep it under 220 words.
 
-export async function getCoaching({ apiKey, model, A, images, golfer = '' }) {
+You are this golfer's ongoing coach, not a one-off reviewer. When a coaching history is given:
+- Judge this swing against the current work-in-progress focus first: is the fix taking hold? Say so plainly with the numbers.
+- Don't jump to a new fault every swing. Only change focus if the current one is fixed, or another fault clearly matters more.
+- Connect patterns (e.g. a recurring head move and a recurring miss) when the data supports it.
+After the review, end with one fenced json block, nothing after it:
+\`\`\`json
+{"focus": "<one key from the allowed list, or null to keep the current focus>", "note": "<one line for your coaching notebook: what you saw and what you asked for>"}
+\`\`\``;
+
+export async function getCoaching({ apiKey, model, A, images, golfer = '', history = '' }) {
   if (!apiKey) throw new Error('Add your Claude API key in Settings first.');
   const metrics = A.checkpoints.map((c) => ({
     checkpoint: c.title,
@@ -27,7 +36,9 @@ export async function getCoaching({ apiKey, model, A, images, golfer = '' }) {
       text: `Club: ${A.club}. View: face-on. ${golfer ? `About the golfer: ${golfer}.` : ''}
 App's own summary: ${A.summary.headline} — ${A.summary.advice}
 Measurements (status good/ok/work vs general tour ranges):
-${JSON.stringify(metrics, null, 1)}`,
+${JSON.stringify(metrics, null, 1)}
+${history ? `\nCOACHING HISTORY\n${history}` : '\nNo coaching history yet: this is the first reviewed swing.'}
+Allowed focus keys: ${A.checkpoints.flatMap((c) => c.items.map((i) => `${c.key}:${i.name}`)).join(', ')}`,
     },
   ];
   const res = await fetch('https://api.anthropic.com/v1/messages', {
@@ -42,7 +53,12 @@ ${JSON.stringify(metrics, null, 1)}`,
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data?.error?.message || `Claude API error ${res.status}`);
-  return data.content.filter((b) => b.type === 'text').map((b) => b.text).join('\n');
+  const full = data.content.filter((b) => b.type === 'text').map((b) => b.text).join('\n');
+  // Pull the trailing json block (focus + notebook line) out of the visible text
+  let meta = null, text = full;
+  const m = full.match(/```json\s*([\s\S]*?)```\s*$/);
+  if (m) { try { meta = JSON.parse(m[1]); } catch {} text = full.slice(0, m.index).trim(); }
+  return { text, meta };
 }
 
 /** Tiny Markdown → HTML (bold, italics, lists, paragraphs). Escapes everything first. */

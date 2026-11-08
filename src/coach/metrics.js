@@ -142,7 +142,7 @@ export function analyse(fr, ph, { club = 'iron', heightIn = 70, ball } = {}) {
   return { scale: S, sides: sd, base, target: t, club, checkpoints, summary: summarise(checkpoints) };
 }
 
-const PRIORITY_COPY = {
+export const PRIORITY_COPY = {
   'impact:Head': 'Keep your head at its address spot through impact',
   'impact:Spine tilt': 'hold your spine tilt away from target',
   'impact:Hips': 'get your hips moving toward the target before your arms swing down',

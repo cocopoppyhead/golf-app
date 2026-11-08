@@ -82,3 +82,16 @@ nav.tabs button.active { color: var(--ink); } nav.tabs button.active span { filt
 .trim input[type=range]::-moz-range-thumb { pointer-events: auto; width: 26px; height: 72px; border-radius: 8px; background: var(--acc); border: 2px solid #04220f; }
 .trim input[type=range]::-moz-range-track { background: none; }
 .nudge { display: flex; align-items: center; gap: 8px; } .nudge .btn { padding: 8px 16px; } .nudge span { flex: 1; text-align: center; }
+
+.check { display: flex; gap: 10px; align-items: flex-start; font-weight: 500; }
+.check input { width: 22px; height: 22px; flex: none; margin-top: 2px; accent-color: var(--acc); }
+.learn { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); padding: 12px 14px; margin-bottom: 12px; }
+.coachcheck h3 { margin: 0 0 8px; font-size: 16px; } .coachcheck h2 { margin-bottom: 10px; }
+.coachcheck p { margin: 6px 0; }
+.focus { font-weight: 800; font-size: 16px; }
+.tag { font-size: 10.5px; letter-spacing: .08em; background: var(--acc); color: var(--acc-ink); border-radius: 6px; padding: 2px 6px; margin-right: 6px; vertical-align: 2px; }
+.cue { color: #c9d1e0; }
+.event { background: var(--panel2); border-left: 3px solid var(--acc); padding: 8px 10px; border-radius: 6px; }
+.dots { display: flex; gap: 5px; margin-top: 8px; } .dots i { width: 14px; height: 14px; border-radius: 50%; display: inline-block; }
+.tend { display: grid; grid-template-columns: 1fr 120px; gap: 10px; padding: 8px 0; border-top: 1px solid var(--line); align-items: center; }
+.tend .r { text-align: right; } .meter { height: 6px; background: var(--panel2); border-radius: 6px; overflow: hidden; margin-bottom: 4px; } .meter div { height: 100%; background: var(--work); }

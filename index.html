@@ -30,6 +30,7 @@
         <div class="seg" id="clubSeg">
           <button data-club="driver">Driver</button><button data-club="wood">Wood/Hybrid</button><button data-club="iron">Iron</button><button data-club="wedge">Wedge</button>
         </div>
+        <label class="check learn"><input type="checkbox" id="learnBox" /> <span><b>Learning mode</b><br /><span class="mute small">Counts this swing toward your coach profile: tendencies, current focus, progress. Untick for test or messing-about swings.</span></span></label>
         <label class="btn primary big" for="videoInput">Record or choose a swing video</label>
         <input id="videoInput" type="file" accept="video/*" hidden />
         <details class="tips">
@@ -94,6 +95,7 @@
         </div>
         <div id="cpCard" class="card cp"></div>
         <div id="summary" class="card summary"></div>
+        <div id="coachCheck" class="card coachcheck"></div>
         <div class="actions">
           <button class="btn primary" id="aiBtn">AI coach</button>
           <button class="btn" id="exportBtn">Save video</button>
@@ -106,6 +108,7 @@
 
     <!-- HISTORY -->
     <section id="tab-history" class="tab">
+      <div id="coachPanel" class="card coachcheck"></div>
       <div id="trend" class="card"></div>
       <div id="historyList"></div>
       <div id="historyDetail" hidden></div>
@@ -158,7 +161,7 @@
 
   <nav class="tabs">
     <button data-tab="coach" class="active"><span>🏌️</span>Coach</button>
-    <button data-tab="history"><span>📈</span>History</button>
+    <button data-tab="history"><span>📈</span>Progress</button>
     <button data-tab="rounds"><span>⛳</span>Rounds</button>
     <button data-tab="settings"><span>⚙️</span>Settings</button>
   </nav>
