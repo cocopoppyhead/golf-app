@@ -1,13 +1,15 @@
-// Bag: your clubs and carry distances, plus a quick "which club?" from a distance.
-// The laser module will feed the distance in automatically; for now you type it.
+// Bag: your clubs with full and ¾ carries, "which club?" from a distance, and the Bushnell laser.
+// Carries are entered by hand for now. Logged laser shots (tagged full / ¾ / mishit) will refine them,
+// so mishits never drag your numbers down.
 import { getSettings, saveSettings } from './store.js';
+import { connectLaser, disconnectLaser, onLaser, laserConnected, laserName, laserLog, laserSupported, isIOS } from './laser.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-// Starting numbers Conor gave in the rangefinder chat; blanks are for him to fill.
+// Starting numbers from the rangefinder chat (approximate). Driver: new club, carry 250+.
 const DEFAULT_BAG = [
-  ['Driver', 290], ['3 wood', 225], ['3 hybrid', null], ['4 hybrid', null], ['5 iron', null], ['6 iron', null],
-  ['7 iron', null], ['8 iron', null], ['9 iron', null], ['PW', 133], ['52°', 108], ['56°', 103], ['60°', 95],
-].map(([club, carry]) => ({ club, carry }));
+  ['Driver', 255, null], ['3 wood', 225, null], ['3 hybrid', null, null], ['4 hybrid', null, null], ['5 iron', null, null], ['6 iron', null, null],
+  ['7 iron', null, null], ['8 iron', null, null], ['9 iron', null, null], ['PW', 133, null], ['52°', 108, 105], ['56°', 103, null], ['60°', 95, null],
+].map(([club, carry, three]) => ({ club, carry, three }));
 
 export function getBag() {
   const s = getSettings();
@@ -15,46 +17,99 @@ export function getBag() {
 }
 function saveBag(bag) { const s = getSettings(); s.bag = bag; saveSettings(s); }
 
-/** Club whose carry is the closest at or just above the distance; also the one below. */
+/** Best option for a distance across full and ¾ swings. */
 export function pickClub(bag, yards) {
-  const clubs = bag.filter((c) => Number.isFinite(c.carry) && c.carry > 0).sort((a, b) => a.carry - b.carry);
-  if (!clubs.length) return null;
-  const up = clubs.find((c) => c.carry >= yards) || clubs[clubs.length - 1];
-  const down = [...clubs].reverse().find((c) => c.carry < yards) || null;
-  return { club: up, alt: down, gapUp: up.carry - yards, gapDown: down ? yards - down.carry : null };
+  const opts = [];
+  for (const c of bag) {
+    if (c.carry > 0) opts.push({ club: c.club, carry: c.carry, swing: 'full' });
+    if (c.three > 0) opts.push({ club: c.club, carry: c.three, swing: '¾' });
+  }
+  if (!opts.length) return null;
+  opts.sort((a, b) => Math.abs(a.carry - yards) - Math.abs(b.carry - yards) || (a.swing === 'full' ? -1 : 1));
+  const best = opts[0];
+  const full = bag.filter((c) => c.carry > 0).sort((a, b) => a.carry - b.carry);
+  const above = full.find((c) => c.carry >= yards), below = [...full].reverse().find((c) => c.carry < yards);
+  const gap = Math.abs(best.carry - yards) > 12 && above && below ? { below, above } : null;
+  // alternative: nearest option on the other side of the number, if it's close enough to matter
+  const other = opts.filter((o) => (best.carry >= yards ? o.carry < yards : o.carry >= yards));
+  const second = other.find((o) => Math.abs(o.carry - yards) <= 12) || null;
+  return { best, second, gap, off: best.carry - yards };
 }
 
+let unsub = null;
+
 export function renderBag(root) {
-  let bag = getBag().map((c) => ({ ...c }));
-  const draw = (dist = '') => {
+  const S = getSettings();
+  let bag = getBag().map((c) => ({ three: null, ...c }));
+  let dist = '', shot = null, status = laserConnected() ? `Connected to ${laserName()}` : '';
+  const comp = () => getSettings().competition === true;
+
+  const draw = () => {
     const n = parseFloat(dist);
-    const pick = Number.isFinite(n) ? pickClub(bag, n) : null;
-    const sorted = bag.map((c, i) => ({ ...c, i })).filter((c) => c.carry).sort((a, b) => b.carry - a.carry);
+    const pick = Number.isFinite(n) && !comp() ? pickClub(bag, n) : null;
+    const sorted = bag.filter((c) => c.carry).sort((a, b) => b.carry - a.carry);
     const gaps = sorted.slice(1).map((c, k) => ({ a: sorted[k], b: c, gap: sorted[k].carry - c.carry })).filter((g) => g.gap >= 18);
     root.innerHTML = `
       <div class="card">
-        <h2>Which club?</h2>
-        <div class="row"><input id="distIn" inputmode="numeric" placeholder="Distance in yards" value="${esc(dist)}" /></div>
-        ${pick && pick.alt && pick.gapUp > 20 ? `<div class="pickbox"><div class="big" style="font-size:22px">No club for ${n} y yet</div><div class="mute small">Nothing between ${esc(pick.alt.club)} (${pick.alt.carry} y) and ${esc(pick.club.club)} (${pick.club.carry} y). Fill in your carries below.</div></div>` : pick ? `<div class="pickbox"><div class="big">${esc(pick.club.club)}</div><div class="mute small">carries ${pick.club.carry} y${pick.gapUp > 0 ? ` · ${pick.gapUp} y long at full` : ''}${pick.alt ? ` · or a hard ${esc(pick.alt.club)} (${pick.alt.carry} y)` : ''}</div></div>` : '<p class="mute small">Type a distance. With the laser connected (coming), it fills in when you lock on.</p>'}
-        <p class="mute small">Uses your carries below. Wind, temperature and slope adjustments come with the laser module.</p>
+        <div class="sechead" style="margin:0 0 8px"><h2 style="margin:0">Which club?</h2>
+          <label class="check small"><input type="checkbox" id="compBox" ${comp() ? 'checked' : ''}/> Competition</label></div>
+        <input id="distIn" inputmode="numeric" placeholder="Distance in yards" value="${esc(dist)}" />
+        ${shot ? `<p class="small mute" style="margin:6px 0 0">Laser: ${shot.raw.toFixed(0)} y · slope ${shot.slope.toFixed(1)}% · plays ${shot.playsAs.toFixed(0)} y${comp() ? '' : ' · using plays-as'}</p>` : ''}
+        ${comp() ? '<p class="mute small">Competition mode: distance only, no club advice (Rules of Golf).</p>'
+          : pick?.gap ? `<div class="pickbox"><div class="big" style="font-size:22px">No club for ${n} y yet</div><div class="mute small">Nothing between ${esc(pick.gap.below.club)} (${pick.gap.below.carry} y) and ${esc(pick.gap.above.club)} (${pick.gap.above.carry} y). Add carries or ¾ numbers below.</div></div>`
+          : pick ? `<div class="pickbox"><div class="big">${esc(pick.best.club)}${pick.best.swing === '¾' ? ' <span style="font-size:20px">¾</span>' : ''}</div>
+            <div class="mute small">carries ${pick.best.carry} y${pick.off ? ` · ${Math.abs(pick.off)} y ${pick.off > 0 ? 'long' : 'short'}` : ''}${pick.second ? ` · or ${esc(pick.second.club)}${pick.second.swing === '¾' ? ' ¾' : ''} (${pick.second.carry} y)` : ''}</div></div>`
+          : '<p class="mute small">Type a distance, or lock on with the laser.</p>'}
       </div>
+
+      <div class="card">
+        <h2>Bushnell laser</h2>
+        ${laserSupported() ? `
+          <p class="mute small">Turn Bluetooth on in the laser's menu, set it to <b>yards</b>, close the Bushnell Golf app, fire the laser once to wake it, then connect.</p>
+          <button class="btn ${laserConnected() ? '' : 'primary'}" id="laserBtn" style="width:100%">${laserConnected() ? 'Disconnect' : 'Connect laser'}</button>
+          ${status ? `<p class="small" style="margin:8px 0 0">${esc(status)}</p>` : ''}
+          <details style="margin-top:8px"><summary class="small mute">Diagnostics log</summary><pre class="log">${esc(laserLog() || 'Nothing yet.')}</pre><button class="btn" id="copyLog" style="width:100%">Copy log</button></details>`
+        : `<p class="mute small">${isIOS() ? 'iPhone browsers don\'t support Bluetooth, so the laser can\'t connect here. On iPhone, open this app in the free <b>Bluefy</b> browser for laser rounds. A proper iPhone app version is planned.' : 'This browser has no Bluetooth. Use Chrome.'}</p>`}
+        <p class="mute small" style="margin-top:8px">Unproven on the Pro X3 (your friend's app was tested on the X3+). The first connect is the test: if it says the signal wasn't found, copy the log and send it over.</p>
+      </div>
+
       <div class="card form">
         <h2>Your carries</h2>
-        <p class="mute small">Carry, not total. Start with your best guess; logged shots will refine these later.</p>
-        <div class="bagrows">${bag.map((c, i) => `<input data-cl="${i}" value="${esc(c.club)}" /><input data-cy="${i}" inputmode="numeric" placeholder="yds" value="${c.carry ?? ''}" /><button class="link" data-rm="${i}">✕</button>`).join('')}</div>
+        <p class="mute small">Yards, carry not total. Your best guess for now. Shots you log with the laser, tagged full, ¾ or mishit, will refine these, and mishits won't count.</p>
+        <div class="bagrows"><span class="mute small">Club</span><span class="mute small">Full</span><span class="mute small">¾</span><span></span>
+          ${bag.map((c, i) => `<input data-cl="${i}" value="${esc(c.club)}" /><input data-cy="${i}" inputmode="numeric" placeholder="–" value="${c.carry ?? ''}" /><input data-th="${i}" inputmode="numeric" placeholder="–" value="${c.three ?? ''}" /><button class="link" data-rm="${i}">✕</button>`).join('')}</div>
         <button class="btn" id="addClub" style="width:100%;margin-top:8px">+ Club</button>
         ${gaps.length ? `<p class="small" style="color:var(--ok);margin-top:10px">Gap${gaps.length > 1 ? 's' : ''}: ${gaps.map((g) => `${esc(g.a.club)} → ${esc(g.b.club)} (${g.gap} y)`).join(', ')}</p>` : ''}
         <button class="btn primary big" id="saveBag" style="margin-top:10px">Save bag</button>
       </div>`;
+
     const sync = () => {
       root.querySelectorAll('[data-cl]').forEach((el) => (bag[+el.dataset.cl].club = el.value.trim()));
       root.querySelectorAll('[data-cy]').forEach((el) => (bag[+el.dataset.cy].carry = parseFloat(el.value) || null));
+      root.querySelectorAll('[data-th]').forEach((el) => (bag[+el.dataset.th].three = parseFloat(el.value) || null));
     };
     const din = root.querySelector('#distIn');
-    din.addEventListener('input', () => { sync(); draw(din.value); const d = root.querySelector('#distIn'); d.focus(); d.setSelectionRange(d.value.length, d.value.length); });
-    root.querySelectorAll('[data-rm]').forEach((b) => (b.onclick = () => { sync(); bag.splice(+b.dataset.rm, 1); draw(din.value); }));
-    root.querySelector('#addClub').onclick = () => { sync(); bag.push({ club: '', carry: null }); draw(din.value); };
-    root.querySelector('#saveBag').onclick = () => { sync(); bag = bag.filter((c) => c.club); saveBag(bag); draw(din.value); root.dispatchEvent(new CustomEvent('toast', { detail: 'Bag saved', bubbles: true })); };
+    din.addEventListener('input', () => { sync(); dist = din.value; shot = null; draw(); const d = root.querySelector('#distIn'); d.focus(); d.setSelectionRange(d.value.length, d.value.length); });
+    root.querySelector('#compBox').onchange = (e) => { const s = getSettings(); s.competition = e.target.checked; saveSettings(s); sync(); draw(); };
+    root.querySelectorAll('[data-rm]').forEach((b) => (b.onclick = () => { sync(); bag.splice(+b.dataset.rm, 1); draw(); }));
+    root.querySelector('#addClub').onclick = () => { sync(); bag.push({ club: '', carry: null, three: null }); draw(); };
+    root.querySelector('#saveBag').onclick = () => { sync(); bag = bag.filter((c) => c.club); saveBag(bag); draw(); root.dispatchEvent(new CustomEvent('toast', { detail: 'Bag saved', bubbles: true })); };
+    root.querySelector('#copyLog')?.addEventListener('click', () => navigator.clipboard?.writeText(laserLog()).then(() => root.dispatchEvent(new CustomEvent('toast', { detail: 'Log copied', bubbles: true }))));
+    root.querySelector('#laserBtn')?.addEventListener('click', async () => {
+      sync();
+      if (laserConnected()) { disconnectLaser(); status = 'Disconnected'; return draw(); }
+      try { await connectLaser((m) => { status = m; draw(); }); } catch (e) { status = e.message; }
+      draw();
+    });
   };
+
+  unsub?.();
+  unsub = onLaser((r) => {
+    if (!r) { status = 'Disconnected'; return draw(); }
+    if (!root.isConnected) return;
+    shot = r;
+    dist = String(Math.round(getSettings().competition ? r.raw : r.playsAs || r.raw));
+    draw();
+  });
   draw();
 }

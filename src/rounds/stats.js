@@ -9,9 +9,9 @@
 // Conor's codes. Labels only where the meaning is unambiguous.
 export const CODES = {
   shot: [['DRV', 'Driver'], ['TEE', 'Tee shot'], ['IRN', 'Iron 150+'], ['APP', 'Approach <150'], ['CHP', 'Chip/pitch'], ['BNK', 'Bunker'], ['PT', 'Putt']],
-  cause: [['TAC', 'Tactical'], ['SWE', 'Swing error'], ['FOC', 'Focus'], ['BAC', '']],
+  cause: [['TAC', 'Tactical'], ['SWE', 'Swing error'], ['FOC', 'Focus'], ['BAC', 'Back problem']],
   strike: [['HK', 'Hook'], ['PL', 'Pull'], ['SL', 'Slice'], ['PU', 'Push'], ['THN', 'Thin'], ['FAT', 'Fat'], ['TOE', 'Toe'], ['HEL', 'Heel']],
-  result: [['BNK', 'Bunker'], ['OBS', ''], ['WDS', 'Trees'], ['RGH', 'Rough'], ['SS', ''], ['LNG', 'Long'], ['SHT', 'Short']],
+  result: [['BNK', 'Bunker'], ['OBS', 'Out of bounds'], ['WDS', 'Trees'], ['RGH', 'Rough'], ['SS', 'Short sided'], ['LNG', 'Long'], ['SHT', 'Short']],
 };
 export const TEE_ZONES = [['LT', 'Trouble'], ['LR', 'Rough'], ['FW', 'Fairway'], ['RR', 'Rough'], ['RT', 'Trouble']];
 export const MISS = [['S', 'Short'], ['LF', 'Left'], ['R', 'Right'], ['L', 'Long']];

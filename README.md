@@ -40,7 +40,7 @@ Inches are scaled from your height (Settings), so they're approximate. Target di
 
 ## Bag
 
-Your clubs and carries (editable; seeded with the numbers from the rangefinder chat), gap warnings, and a "which club?" box. The laser will fill the distance in later.
+Your clubs with **full and ¾ carries** (editable; seeded with approximate numbers), gap warnings, and a "which club?" box that picks across full and ¾ swings. **Bushnell laser**: Connect (Chrome on Android) and each lock-on fills the distance (plays-as/slope-adjusted) and suggests a club. **Competition mode** shows distance only. iPhone browsers have no Bluetooth: use Bluefy for now; a native iPhone build is planned.
 
 ## Code map
 
@@ -55,7 +55,8 @@ src/coach/ai.js       Claude API coaching (with coaching history)
 src/coach/profile.js  coach memory: tendencies, current focus, progress, notebook
 src/rounds/stats.js   round stats, on-course tendencies (pure)
 src/rounds/ui.js      courses, hole logger, tag sheet, scorecard import, summaries
-src/bag.js            clubs, carries, club picker
+src/bag.js            clubs, full/¾ carries, club picker, competition mode
+src/laser.js          Bushnell Pro X3(+) Web Bluetooth connect + packet decode + diagnostics log
 src/store.js          settings + IndexedDB (swings, media, rounds, courses)
 ```
 
