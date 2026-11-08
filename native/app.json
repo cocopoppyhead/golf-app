@@ -28,7 +28,10 @@
         "android.permission.CAMERA",
         "android.permission.RECORD_AUDIO",
         "android.permission.READ_MEDIA_VIDEO",
-        "android.permission.READ_MEDIA_IMAGES"
+        "android.permission.READ_MEDIA_IMAGES",
+        "android.permission.BLUETOOTH",
+        "android.permission.BLUETOOTH_ADMIN",
+        "android.permission.BLUETOOTH_CONNECT"
       ]
     },
     "plugins": [
@@ -52,6 +55,12 @@
       ]
     ],
     "scheme": "golfcoach",
-    "backgroundColor": "#0b1120"
+    "backgroundColor": "#0b1120",
+    "extra": {
+      "eas": {
+        "projectId": "30ebbb6e-b46b-465c-8dcd-6b568c0b8cef"
+      }
+    },
+    "owner": "conor21m"
   }
 }

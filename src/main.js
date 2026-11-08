@@ -735,9 +735,15 @@ $('#importFile').addEventListener('change', async (e) => {
   } catch (err) { toast(err.message, 5000); }
 });
 
+$('#buildTag').textContent = `App version ${__BUILD__} UTC`;
+
 // ---------------- PWA ----------------
 if ('serviceWorker' in navigator && location.protocol === 'https:') {
-  navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`).catch(() => {});
+  navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`).then((reg) => {
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) reg.update().catch(() => {}); });
+  }).catch(() => {});
+  let reloaded = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => { if (!reloaded && !state) { reloaded = true; location.reload(); } });
 }
 
 renderRecent();
