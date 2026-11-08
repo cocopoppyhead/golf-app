@@ -38,9 +38,15 @@ Inches are scaled from your height (Settings), so they're approximate. Target di
 - **Stats**: fairways, greens, miss patterns, putts, 3-putts, scrambling, sand saves, scoring mix, strokes lost by cause/shot/strike. Per round and per-round average across recent rounds.
 - **Coach link**: on-course patterns (e.g. "tee shots miss right", "most shots lost to SWE") show in Progress next to swing tendencies and go to the AI coach. **AI round review** reads the round, recent rounds and your swing profile together. Untick "count toward my coach profile" for scrambles or fun rounds.
 
+## Install
+
+It's an installable app (PWA): Android Chrome → **Install app** (shows in the app drawer, full screen, laser works); iPhone Safari → Share → **Add to Home Screen** (full screen, no laser — Apple blocks Bluetooth for web apps). The Swing page and Settings show an install button with the steps.
+
+**Units**: Settings → Yards · inches or Metres · cm. Everything is stored in yards/inches and converted for display.
+
 ## Bag
 
-Your clubs with **full and ¾ carries** (editable; seeded with approximate numbers), gap warnings, and a "which club?" box that picks across full and ¾ swings. **Bushnell laser**: Connect (Chrome on Android) and each lock-on fills the distance (plays-as/slope-adjusted) and suggests a club. **Competition mode** shows distance only. iPhone browsers have no Bluetooth: use Bluefy for now; a native iPhone build is planned.
+Your clubs with **full, ¾ and ½ carries** (editable; seeded with approximate numbers), gap warnings, and a "which club?" box that picks across full and ¾ swings. **Bushnell laser**: Connect (Chrome on Android) and each lock-on fills the distance (plays-as/slope-adjusted) and suggests a club. **Competition mode** shows distance only. iPhone browsers have no Bluetooth: use Bluefy for now; a native iPhone build is planned.
 
 ## Code map
 
@@ -56,6 +62,8 @@ src/coach/profile.js  coach memory: tendencies, current focus, progress, noteboo
 src/rounds/stats.js   round stats, on-course tendencies (pure)
 src/rounds/ui.js      courses, hole logger, tag sheet, scorecard import, summaries
 src/bag.js            clubs, full/¾ carries, club picker, competition mode
+src/units.js          yards/metres + inches/cm conversion
+src/install.js        install prompt / iPhone steps
 src/laser.js          Bushnell Pro X3(+) Web Bluetooth connect + packet decode + diagnostics log
 src/store.js          settings + IndexedDB (swings, media, rounds, courses)
 ```

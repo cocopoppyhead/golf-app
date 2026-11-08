@@ -3,7 +3,8 @@
 import { L, hands, hipC, shC, headC, median } from './phases.js';
 
 const deg = (r) => (r * 180) / Math.PI;
-const fmtIn = (v) => `${Math.abs(v).toFixed(1)} in`;
+import { len, lenRange } from '../units.js';
+const fmtIn = (v) => len(v);
 const dir = (v, eps = 0.3) => (Math.abs(v) < eps ? 'no shift' : v > 0 ? 'toward target' : 'away from target');
 
 // Benchmarks by club. tilt = spine tilt away from target at address (deg).
@@ -96,7 +97,7 @@ export function analyse(fr, ph, { club = 'iron', heightIn = 70, ball } = {}) {
   const top = {
     key: 'top', title: 'Top', frame: ph.top,
     items: [
-      { name: 'Head', you: `${fmtIn(headTop)} ${dir(headTop)}`, pro: 'Small shift back (0–3 in), stays in the box', status: headTop > 1 ? 'work' : headTop < -4.5 ? 'work' : headTop < -3 ? 'ok' : 'good', value: headTop },
+      { name: 'Head', you: `${fmtIn(headTop)} ${dir(headTop)}`, pro: `Small shift back (${lenRange(0, 3)}), stays in the box`, status: headTop > 1 ? 'work' : headTop < -4.5 ? 'work' : headTop < -3 ? 'ok' : 'good', value: headTop },
       { name: 'Hips', you: trailHipPast > 0.5 ? `Slid ${fmtIn(trailHipPast)} past trail foot` : `${fmtIn(hipTop)} ${dir(hipTop)}, inside trail foot`, pro: 'Turn without sliding past trail foot', status: trailHipPast > 1.5 ? 'work' : trailHipPast > 0.5 ? 'ok' : hipTop > 1.5 ? 'ok' : 'good', value: hipTop },
       { name: 'Spine tilt', you: `${Math.round(tiltTop)}° ${tiltTop >= 0 ? 'away from' : 'toward'} target`, pro: 'Tilted away from target', status: tiltTop < -2 ? 'work' : tiltTop < 2 ? 'ok' : 'good', value: tiltTop },
     ],
@@ -112,7 +113,7 @@ export function analyse(fr, ph, { club = 'iron', heightIn = 70, ball } = {}) {
   const impact = {
     key: 'impact', title: 'Impact', frame: ph.impact,
     items: [
-      { name: 'Hips', you: `${fmtIn(hipImp)} ${dir(hipImp)}`, pro: 'Shifted toward target (1–6 in)', status: hipImp < 0 ? 'work' : hipImp < 1 ? 'ok' : hipImp > 8 ? 'ok' : 'good', value: hipImp },
+      { name: 'Hips', you: `${fmtIn(hipImp)} ${dir(hipImp)}`, pro: `Shifted toward target (${lenRange(1, 6)})`, status: hipImp < 0 ? 'work' : hipImp < 1 ? 'ok' : hipImp > 8 ? 'ok' : 'good', value: hipImp },
       { name: 'Head', you: `${fmtIn(headImp)} ${dir(headImp)}${headVsBall > 0 ? ', ahead of the ball' : headVsBall > -1.5 ? ', over the ball' : ', behind the ball'}`, pro: 'Behind ball, near address spot', status: headImp > 3.5 || headVsBall > 1 ? 'work' : headImp > 2 || headVsBall > -1.5 ? 'ok' : 'good', value: headImp },
       { name: 'Spine tilt', you: `${Math.round(tiltImp)}° (address was ${Math.round(base.tilt)}°)`, pro: 'Equal or more tilt than address', status: tiltImp < base.tilt - 6 ? 'work' : tiltImp < base.tilt - 2 ? 'ok' : 'good', value: tiltImp },
       { name: 'Hands', you: handsAhead >= 0 ? `${fmtIn(handsAhead)} ahead of ball` : `${fmtIn(handsAhead)} behind ball`, pro: club === 'driver' ? 'Level with or just ahead of ball' : 'Ahead of ball (shaft leaning forward)', status: grade(handsAhead, B.hands, 1.5), value: handsAhead },

@@ -3,6 +3,7 @@ import { CODES, TEE_ZONES, MISS, isGir, roundStats, aggregate, roundTendencies, 
 import { putRound, getRound, deleteRound, listRounds, putCourse, getCourse, listCourses, deleteCourse, listSwings } from '../store.js';
 import { readCard, reviewRound, md } from '../coach/ai.js';
 import { coachContext, addCoachNote } from '../coach/profile.js';
+import { dist, toYards, du, duLong, PUTT_FT, puttLabel, puttUnit } from '../units.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const uid = (p) => `${p}_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
@@ -86,9 +87,9 @@ async function editCourse(id) {
         <label>Course name<input id="cName" value="${esc(c.name)}" placeholder="e.g. Emirates Majlis" /></label>
         <label>Tees<input id="cTees" value="${esc(c.tees)}" placeholder="e.g. Blue" /></label>
         <div class="row" style="margin-bottom:8px"><button class="btn ${c.holes.length === 18 ? 'primary' : ''}" data-x="h18">18 holes</button><button class="btn ${c.holes.length === 9 ? 'primary' : ''}" data-x="h9">9 holes</button></div>
-        <p class="mute small">Tap a par to cycle 3 → 4 → 5. Stroke index and yards are optional.</p>
-        <div class="cgrid"><span>Hole</span><span>Par</span><span>SI</span><span>Yards</span>
-          ${c.holes.map((h, i) => `<span class="hn">${i + 1}</span><button class="par p${h.par}" data-par="${i}">${h.par}</button><input inputmode="numeric" data-si="${i}" value="${h.si ?? ''}" /><input inputmode="numeric" data-yd="${i}" value="${h.yds ?? ''}" />`).join('')}
+        <p class="mute small">Tap a par to cycle 3 → 4 → 5. Stroke index and ${duLong()} are optional.</p>
+        <div class="cgrid"><span>Hole</span><span>Par</span><span>SI</span><span>${duLong()}</span>
+          ${c.holes.map((h, i) => `<span class="hn">${i + 1}</span><button class="par p${h.par}" data-par="${i}">${h.par}</button><input inputmode="numeric" data-si="${i}" value="${h.si ?? ''}" /><input inputmode="numeric" data-yd="${i}" value="${dist(h.yds) ?? ''}" />`).join('')}
         </div>
         <p class="mute small" id="parTot">Par ${c.holes.reduce((a, h) => a + h.par, 0)}</p>
         <button class="btn primary big" data-x="save">Save course</button>
@@ -97,7 +98,7 @@ async function editCourse(id) {
     const sync = () => {
       c.name = root.querySelector('#cName').value.trim(); c.tees = root.querySelector('#cTees').value.trim();
       root.querySelectorAll('[data-si]').forEach((el) => (c.holes[+el.dataset.si].si = +el.value || null));
-      root.querySelectorAll('[data-yd]').forEach((el) => (c.holes[+el.dataset.yd].yds = +el.value || null));
+      root.querySelectorAll('[data-yd]').forEach((el) => (c.holes[+el.dataset.yd].yds = toYards(el.value)));
     };
     root.querySelectorAll('[data-par]').forEach((b) => b.addEventListener('click', () => {
       const h = c.holes[+b.dataset.par]; h.par = h.par >= 5 ? 3 : h.par + 1;
@@ -164,7 +165,7 @@ function renderHole() {
   root.innerHTML = `
     <div class="holebar">
       <button class="btn icon" data-h="prev" ${i === 0 ? 'disabled' : ''}>‹</button>
-      <div class="hinfo"><div class="hnum">Hole ${i + 1}</div><div class="mute small">Par ${par}${ch.si ? ` · SI ${ch.si}` : ''}${ch.yds ? ` · ${ch.yds} y` : ''}</div></div>
+      <div class="hinfo"><div class="hnum">Hole ${i + 1}</div><div class="mute small">Par ${par}${ch.si ? ` · SI ${ch.si}` : ''}${ch.yds ? ` · ${dist(ch.yds)} ${du()}` : ''}</div></div>
       <button class="btn icon" data-h="next">›</button>
     </div>
     <div class="holedots">${round.holes.map((x, k) => `<i class="${k === i ? 'on' : ''} ${x && x.score != null ? (x.score < course.holes[k].par ? 'b' : x.score === course.holes[k].par ? 'p' : 'o') : ''}" data-go="${k}"></i>`).join('')}</div>
@@ -175,7 +176,7 @@ function renderHole() {
       <div class="stepper big"><button data-sc="-1">−</button><span class="${diff < 0 ? 'under' : diff > 0 ? 'over' : ''}">${score}</span><button data-sc="1">+</button></div>
       <div class="lbl">Putts</div>
       <div class="seg5">${[0, 1, 2, 3, 4].map((n) => `<button class="${putts === n ? 'on' : ''}" data-pt="${n}">${n}${n === 4 ? '+' : ''}</button>`).join('')}</div>
-      ${putts >= 1 ? `<div class="lbl">1st putt <span class="mute">(feet, optional)</span></div><div class="seg5 sm">${[3, 6, 10, 20, 30, 50].map((n) => `<button class="${h.firstPutt === n ? 'on' : ''}" data-fp="${n}">${n === 50 ? '40+' : n}</button>`).join('')}</div>` : ''}
+      ${putts >= 1 ? `<div class="lbl">1st putt <span class="mute">(${puttUnit()}, optional)</span></div><div class="seg5 sm">${PUTT_FT.map((n) => `<button class="${h.firstPutt === n ? 'on' : ''}" data-fp="${n}">${puttLabel(n)}</button>`).join('')}</div>` : ''}
     </div>
 
     ${par >= 4 ? `<div class="card"><div class="lbl">Tee shot</div>

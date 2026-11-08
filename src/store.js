@@ -1,12 +1,18 @@
 // Local storage: settings in localStorage, swing history in IndexedDB. Nothing leaves the phone.
 
 const DEFAULTS = {
-  heightIn: 70, units: 'in', handedness: 'auto', quality: 'full',
+  heightIn: 70, system: 'imperial', handedness: 'auto', quality: 'full',
   apiKey: '', model: 'claude-sonnet-5-5', golfer: '', club: 'iron', keepVideos: true,
 };
 
 export function getSettings() {
-  try { return { ...DEFAULTS, ...JSON.parse(localStorage.getItem('golf.settings') || '{}') }; }
+  try {
+    const s = { ...DEFAULTS, ...JSON.parse(localStorage.getItem('golf.settings') || '{}') };
+    // old format: height stored in cm with units:'cm'
+    if (s.units === 'cm') { s.heightIn = s.heightIn / 2.54; s.system = 'metric'; }
+    delete s.units;
+    return s;
+  }
   catch { return { ...DEFAULTS }; }
 }
 export function saveSettings(s) {

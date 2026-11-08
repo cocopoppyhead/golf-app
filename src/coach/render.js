@@ -1,5 +1,6 @@
 // Draws the analysis overlay onto a canvas for one video frame.
 import { L, hands, hipC, shC, headC } from './phases.js';
+import { len } from '../units.js';
 
 export const COLORS = {
   limb: '#ffd23f', joint: '#ff4b3e', spine: '#3ec8ff', head: '#3ec8ff',
@@ -76,8 +77,8 @@ export function drawOverlay(ctx, A, lm, { cp = null, card = false, cpIndex = 0 }
   ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(0, H - barH, W, barH);
   ctx.textBaseline = 'middle'; ctx.textAlign = 'left'; ctx.fillStyle = '#fff';
   ctx.font = `500 ${Math.round(u * 1.0)}px Inter, system-ui, sans-serif`;
-  ctx.fillText(`Head shift: ${Math.abs(hs).toFixed(1)} in${word(hs)}`, u * 0.7, H - barH * 0.68);
-  ctx.fillText(`Hip shift: ${Math.abs(ps).toFixed(1)} in${word(ps)}`, u * 0.7, H - barH * 0.3);
+  ctx.fillText(`Head shift: ${len(hs)}${word(hs)}`, u * 0.7, H - barH * 0.68);
+  ctx.fillText(`Hip shift: ${len(ps)}${word(ps)}`, u * 0.7, H - barH * 0.3);
   ctx.textAlign = 'right';
   ctx.fillStyle = inBox ? COLORS.boxOk : COLORS.boxOut; ctx.fillText('Head box', W - u * 0.7, H - barH * 0.68);
   ctx.fillStyle = COLORS.spine; ctx.font = `500 ${Math.round(u * 0.85)}px Inter, system-ui, sans-serif`;

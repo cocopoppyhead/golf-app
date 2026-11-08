@@ -1,14 +1,23 @@
 {
+  "id": "./",
   "name": "Golf Coach",
   "short_name": "Golf",
+  "description": "Swing coach, round stats and your bag, with Bushnell laser support. Learns your game over time.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
+  "orientation": "portrait",
   "background_color": "#0b1120",
   "theme_color": "#0b1120",
+  "categories": ["sports", "health", "fitness"],
   "icons": [
-    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
-    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" },
-    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml" }
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "screenshots": [
+    { "src": "shot-swing.png", "sizes": "780x1688", "type": "image/png", "form_factor": "narrow", "label": "Check a swing" },
+    { "src": "shot-round.png", "sizes": "780x1688", "type": "image/png", "form_factor": "narrow", "label": "Round stats" },
+    { "src": "shot-bag.png", "sizes": "780x1688", "type": "image/png", "form_factor": "narrow", "label": "Your bag and laser" }
   ]
 }

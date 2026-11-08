@@ -22,6 +22,7 @@
     <!-- COACH -->
     <section id="tab-coach" class="tab active">
       <div id="coach-start" class="screen">
+        <div id="installBanner"></div>
         <div class="hero">
           <div class="eyebrow">SWING COACH</div>
           <h1 class="display">Check a swing</h1>
@@ -142,9 +143,14 @@
     <!-- SETTINGS -->
     <section id="tab-settings" class="tab">
       <form id="settingsForm" class="card form">
+        <div id="installRow"></div>
+        <label>Units
+          <select name="system"><option value="imperial">Yards · inches</option><option value="metric">Metres · cm</option></select>
+          <span class="hint">Golf distances and body measurements. Your laser can stay in yards; the app converts.</span>
+        </label>
         <label>Your height
-          <div class="row"><input name="height" inputmode="decimal" /><select name="units"><option value="in">in</option><option value="cm">cm</option></select></div>
-          <span class="hint">Used to turn pixels into inches. Wrong height = wrong inches.</span>
+          <div class="row"><input name="height" inputmode="decimal" /><span class="unit" id="hUnit">in</span></div>
+          <span class="hint">Used to scale the swing measurements. Wrong height = wrong numbers.</span>
         </label>
         <label>Golfer
           <select name="handedness"><option value="auto">Detect automatically</option><option value="right">Right-handed</option><option value="left">Left-handed</option></select>

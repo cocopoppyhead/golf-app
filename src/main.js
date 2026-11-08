@@ -8,6 +8,8 @@ import { exportMp4, canExport } from './coach/export.js';
 import { getCoaching, md } from './coach/ai.js';
 import { getSettings, saveSettings, putSwing, listSwings, getSwing, deleteSwing, putMedia, getMedia, mediaKeys } from './store.js';
 import { renderBag } from './bag.js';
+import { isMetric } from './units.js';
+import { renderInstall } from './install.js';
 import { initRounds, roundsHome, recentRoundAggregate } from './rounds/ui.js';
 import { roundTendencies } from './rounds/stats.js';
 import { tendencies, focusProgress, updatePlan, checkIn, getPlan, setFocus, addCoachNote, coachContext, metricLabel, metricCue } from './coach/profile.js';
@@ -219,7 +221,7 @@ const seekTo = (v, t) => new Promise((r) => { v.onseeked = r; v.currentTime = t;
 
 // ---------------- Coach: result ----------------
 function computeA() {
-  const heightIn = settings.units === 'cm' ? settings.heightIn / 2.54 : settings.heightIn;
+  const heightIn = settings.heightIn;
   state.A = analyse(state.fr, state.ph, { club: state.club, heightIn, ball: state.ball });
   return state.A;
 }
@@ -475,11 +477,11 @@ async function renderHistory() {
     return;
   }
   const rows = all.slice(0, 8).map((s) => {
-    const f = (v, d = 1) => (v == null ? '–' : (+v).toFixed(d));
+    const f = (v, d = 1) => (v == null ? '–' : d === 1 && isMetric() ? Math.round(v * 2.54) : (+v).toFixed(d));
     return `<tr><td>${new Date(s.date).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}</td><td>${f(val(s, 'top', 'Head'))}</td><td>${f(val(s, 'impact', 'Head'))}</td><td>${f(val(s, 'impact', 'Hips'))}</td><td>${f(val(s, 'impact', 'Spine tilt'), 0)}°</td></tr>`;
   }).join('');
   $('#trend').innerHTML = `<h2>Trend</h2><div class="trend"><table><tr><th></th><th>Head @top</th><th>Head @impact</th><th>Hips @impact</th><th>Tilt @impact</th></tr>${rows}</table></div>
-  <p class="mute small">Inches; + = toward target. Tour: head ≤ 0 at impact, hips +1 to +6.</p>`;
+  <p class="mute small">${isMetric() ? 'cm' : 'Inches'}; + = toward target. Tour: head ≤ 0 at impact, hips ${isMetric() ? '+3 to +15' : '+1 to +6'}.</p>`;
   $('#historyList').innerHTML = all.map((s) => `
     <div class="hist" data-id="${s.id}">
       <img src="${s.thumbs?.[2] || ''}" alt="" />
@@ -510,15 +512,20 @@ async function showDetail(id) {
 // ---------------- Settings ----------------
 function fillSettings() {
   const f = $('#settingsForm');
-  f.height.value = settings.heightIn; f.units.value = settings.units;
+  f.system.value = settings.system || 'imperial';
+  f.height.value = f.system.value === 'metric' ? Math.round(settings.heightIn * 2.54) : Math.round(settings.heightIn * 10) / 10;
+  $('#hUnit').textContent = f.system.value === 'metric' ? 'cm' : 'in';
+  renderInstall($('#installRow'), true);
   f.handedness.value = settings.handedness; f.quality.value = settings.quality;
   f.keepVideos.checked = settings.keepVideos !== false;
   f.apiKey.value = settings.apiKey; f.model.value = settings.model; f.golfer.value = settings.golfer;
   $('#savedMsg').hidden = true;
 }
-$('#settingsForm').units.addEventListener('change', (e) => {
+$('#settingsForm').system.addEventListener('change', (e) => {
   const f = $('#settingsForm'); const h = parseFloat(f.height.value);
-  if (!isNaN(h)) f.height.value = e.target.value === 'cm' ? Math.round(h * 2.54) : Math.round((h / 2.54) * 10) / 10;
+  const m = e.target.value === 'metric';
+  if (!isNaN(h)) f.height.value = m ? Math.round(h * 2.54) : Math.round((h / 2.54) * 10) / 10;
+  $('#hUnit').textContent = m ? 'cm' : 'in';
 });
 $('#settingsForm').addEventListener('submit', (e) => {
   e.preventDefault();
@@ -526,7 +533,7 @@ $('#settingsForm').addEventListener('submit', (e) => {
   const h = parseFloat(f.height.value);
   settings = {
     ...settings,
-    heightIn: isNaN(h) ? settings.heightIn : h, units: f.units.value,
+    system: f.system.value, heightIn: isNaN(h) ? settings.heightIn : f.system.value === 'metric' ? h / 2.54 : h,
     handedness: f.handedness.value, quality: f.quality.value, keepVideos: f.keepVideos.checked,
     apiKey: f.apiKey.value.trim(), model: f.model.value.trim() || 'claude-sonnet-5-5', golfer: f.golfer.value.trim(),
   };
@@ -547,6 +554,7 @@ if ('serviceWorker' in navigator && location.protocol === 'https:') {
 }
 
 renderRecent();
+renderInstall($('#installBanner'));
 
 // Test hook: lets automated tests feed a video URL
 window.__golfTest = { open: async (url) => openVideo(await (await fetch(url)).blob()) };
