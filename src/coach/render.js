@@ -34,7 +34,7 @@ function roundRect(ctx, x, y, w, h, r) {
  * ctx: 2D context sized to video W x H (video frame already drawn)
  * A: analysis result, lm: landmarks for this frame, cp: checkpoint object or null
  */
-export function drawOverlay(ctx, A, lm, { cp = null, card = false, cpIndex = 0 } = {}) {
+export function drawOverlay(ctx, A, lm, { cp = null, card = false, cpIndex = 0, frame = -1 } = {}) {
   const W = ctx.canvas.width, H = ctx.canvas.height;
   const u = Math.max(9, Math.min(W, H) / 34); // base unit for sizes
   const S = A.scale, t = A.target, b = A.base;
@@ -47,6 +47,8 @@ export function drawOverlay(ctx, A, lm, { cp = null, card = false, cpIndex = 0 }
     ctx.beginPath(); ctx.moveTo(b.ball.x, 0); ctx.lineTo(b.ball.x, b.ball.y); ctx.stroke(); ctx.setLineDash([]);
     pill(ctx, 'BALL', b.ball.x, Math.min(H - u * 4.2, b.ball.y + u * 1.6), u);
   }
+
+  if (A.refs) drawPositionLines(ctx, A, lm, u, { cp, frame });
 
   // Head box (from address); turns orange when the head leaves it
   const hc = headC(lm), bx = b.box;
@@ -89,6 +91,97 @@ export function drawOverlay(ctx, A, lm, { cp = null, card = false, cpIndex = 0 }
 
   if (cp && card) drawCard(ctx, cp, cpIndex, u, W);
   ctx.restore();
+}
+
+/**
+ * Coach-style position lines. Straight lines from address stay on screen the whole swing, with
+ * ticks for where the hips were at the top and at impact, so sway, slide and getting on top of
+ * the ball show at a glance.
+ *   Face-on: trail-hip line (sway), lead-hip line (shift/slide), chest vs ball at impact.
+ *   Behind:  hip line (early extension) and head-height line.
+ */
+function drawPositionLines(ctx, A, lm, u, { cp, frame }) {
+  const { address: a0, top: tp, impact: im } = A.refs;
+  const S = A.scale, t = A.target;
+  const H = ctx.canvas.height;
+  const sev = (v, ok, work) => (v >= work ? COLORS.work : v >= ok ? COLORS.ok : COLORS.good);
+  const vline = (x, y0, y1, label, align = 'center') => {
+    ctx.strokeStyle = 'rgba(255,255,255,0.85)'; ctx.lineWidth = u * 0.13;
+    ctx.beginPath(); ctx.moveTo(x, y0); ctx.lineTo(x, y1); ctx.stroke();
+    if (label) pill(ctx, label, x + (align === 'left' ? u * 0.3 : align === 'right' ? -u * 0.3 : 0), y0 - u * 0.2, u, { size: 0.72, bg: 'rgba(0,0,0,0.55)', align });
+  };
+  const tick = (x, y, col, label, up = true) => {
+    ctx.strokeStyle = col; ctx.lineWidth = u * 0.3;
+    ctx.beginPath(); ctx.moveTo(x, y - u * 0.9); ctx.lineTo(x, y + u * 0.9); ctx.stroke();
+    if (label) pill(ctx, label, x, up ? y - u * 1.9 : y + u * 1.9, u, { size: 0.7, fg: col });
+  };
+  const arrow = (x0, x1, y, col, label) => {
+    if (Math.abs(x1 - x0) < u * 0.3) return;
+    ctx.strokeStyle = col; ctx.fillStyle = col; ctx.lineWidth = u * 0.26;
+    ctx.beginPath(); ctx.moveTo(x0, y); ctx.lineTo(x1, y); ctx.stroke();
+    const d = Math.sign(x1 - x0);
+    ctx.beginPath(); ctx.moveTo(x1, y); ctx.lineTo(x1 - d * u * 0.7, y - u * 0.5); ctx.lineTo(x1 - d * u * 0.7, y + u * 0.5); ctx.closePath(); ctx.fill();
+    if (label) pill(ctx, label, (x0 + x1) / 2, y + u * 1.3, u, { size: 0.8, fg: col });
+  };
+  const inch = (px) => px * S;
+  const nearImpact = cp?.key === 'impact' || (frame >= 0 && A.refFrames && Math.abs(frame - A.refFrames.impact) <= 2);
+
+  if (A.view === 'dtl') {
+    const b = A.base.ballSide || 1; // +1: the ball is image-right of the hips
+    const torso = hipC(a0).y - shC(a0).y;
+    const back = (f) => hipC(f).x - b * 0.12 * torso; // approx. back of the hips (the "butt line")
+    const hx = back(a0), hy = hipC(a0).y;
+    const ankY = Math.max(a0[L.lAn].y, a0[L.rAn].y);
+    vline(hx, hy - torso * 0.7, ankY, 'Butt line', b > 0 ? 'right' : 'left');
+    // head height
+    const hd = headC(a0);
+    ctx.strokeStyle = 'rgba(255,255,255,0.8)'; ctx.lineWidth = u * 0.13; ctx.setLineDash([u * 0.5, u * 0.4]);
+    ctx.beginPath(); ctx.moveTo(hd.x - torso * 0.7, hd.y); ctx.lineTo(hd.x + torso * 0.7, hd.y); ctx.stroke(); ctx.setLineDash([]);
+    pill(ctx, 'Head height', hd.x - torso * 0.7, hd.y - u * 1.0, u, { size: 0.7, align: 'left', bg: 'rgba(0,0,0,0.55)' });
+    // where the hips were at impact
+    const ix = back(im), ee = inch((ix - hx) * b);
+    tick(ix, hy, sev(ee, 1, 2.5), 'impact', false);
+    // live: hips drifting toward the ball
+    const cx = back(lm), now = inch((cx - hx) * b);
+    if (now > 0.6) arrow(hx, cx, hy + u * 1.6, sev(now, 1, 2.5), `${len(now)} toward ball`);
+    return;
+  }
+
+  // ---- face-on ----
+  const sd = A.sides;
+  if (!sd) return;
+  const top = Math.min(a0[L.lSh].y, a0[L.rSh].y) - u * 2;
+  const ankY = Math.max(a0[L.lAn].y, a0[L.rAn].y);
+  // Fixed column on the outside of both hips at address. Hips should stay inside it.
+  const off = Math.abs(a0[sd.leadHip].x - a0[sd.trailHip].x) * 0.35; // hip joint → outside of the hip
+  const tx = a0[sd.trailHip].x - t * off, lx = a0[sd.leadHip].x + t * off, hy = hipC(a0).y;
+  ctx.fillStyle = 'rgba(255,255,255,0.08)';
+  ctx.fillRect(Math.min(tx, lx), top, Math.abs(lx - tx), ankY - top);
+  // labels sit outside the column so they never overlap
+  const tAlign = tx < lx ? 'right' : 'left';
+  vline(tx, top, ankY, 'Trail line', tAlign);
+  vline(lx, top, ankY, 'Lead line', tAlign === 'right' ? 'left' : 'right');
+  // top of the backswing: trail hip vs its line (sway away from the target)
+  const trailEdge = (f) => f[sd.trailHip].x - t * off, leadEdge = (f) => f[sd.leadHip].x + t * off;
+  const swTop = inch((tx - trailEdge(tp)) * t);
+  tick(trailEdge(tp), hy, sev(swTop, 1.5, 3), 'top');
+  // impact: lead hip vs its line (a little toward the target is good; a lot is a slide)
+  const shImp = inch((leadEdge(im) - lx) * t);
+  tick(leadEdge(im), hy, shImp > 4 ? COLORS.ok : COLORS.good, 'impact', false);
+  // live arrows
+  const swNow = inch((tx - trailEdge(lm)) * t);
+  if (swNow > 0.8) arrow(tx, trailEdge(lm), hy + u * 1.8, sev(swNow, 1.5, 3), `Sway ${len(swNow)}`);
+  const shNow = inch((leadEdge(lm) - lx) * t);
+  if (shNow > 0.8) arrow(lx, leadEdge(lm), hy + u * 1.8, shNow > 4 ? COLORS.ok : COLORS.good, `${shNow > 4 ? 'Slide' : 'Bump'} ${len(shNow)}`);
+  // on top of the ball: chest (shoulder centre) vs the ball line at impact
+  const ball = A.base.ball;
+  if (ball && nearImpact) {
+    const c = shC(lm), behind = inch((ball.x - c.x) * t);
+    const driver = A.club === 'driver';
+    const col = driver ? (behind < -1 ? COLORS.ok : COLORS.good) : sev(behind, 2, 4);
+    ctx.fillStyle = col; ctx.beginPath(); ctx.arc(c.x, c.y, u * 0.6, 0, Math.PI * 2); ctx.fill();
+    arrow(c.x, ball.x, c.y + u * 1.6, col, behind > 0.5 ? `Chest ${len(behind)} behind ball` : behind < -0.5 ? `Chest ${len(-behind)} ahead of ball` : 'Chest over the ball');
+  }
 }
 
 function drawMark(ctx, m, u, H) {

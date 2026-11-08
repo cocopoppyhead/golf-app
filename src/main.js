@@ -101,11 +101,11 @@ async function renderRecent() {
   if (!all.length) { el.innerHTML = '<p class="mute small">No swings yet. Record one above.</p>'; $('#seeAll').hidden = true; return; }
   $('#seeAll').hidden = false;
   el.innerHTML = all.slice(0, 5).map((s) => {
-    const chk = plan.focus ? checkIn(s, plan) : null;
+    const chk = plan.focus && !s.golfer ? checkIn(s, plan) : null;
     return `<div class="recent" data-id="${s.id}">
       <img src="${s.thumbs?.[2] || ''}" alt="" />
       <div><div class="t">${s.summary.score10 != null ? `<span class="sc10">${s.summary.score10.toFixed(1)}</span> ` : ''}${esc(s.summary.headline.replace('Biggest opportunity: ', 'Fix: '))}</div>
-      <div class="s"><span class="club">${s.view === 'dtl' ? 'behind' : 'face-on'}</span><span class="club">${esc(s.club)}</span>${fmtDate(s.date)}${chk ? ` · <span style="color:var(--${chk.status})">${chk.verdict}</span>` : ''}${s.learning === false ? ' · test' : ''}</div></div>
+      <div class="s"><span class="club">${s.view === 'dtl' ? 'behind' : 'face-on'}</span><span class="club">${esc(s.club)}</span>${fmtDate(s.date)}${chk ? ` · <span style="color:var(--${chk.status})">${chk.verdict}</span>` : ''}${s.golfer ? ` · <b>${esc(s.golfer)}</b>` : s.learning === false ? ' · test' : ''}</div></div>
       <div class="${has.has(s.id) ? 'play' : 'mute'}">${has.has(s.id) ? '▶' : '›'}</div></div>`;
   }).join('');
   el.querySelectorAll('.recent').forEach((r) => r.addEventListener('click', () => (has.has(r.dataset.id) ? openSaved(r.dataset.id) : (showTab('history'), showDetail(r.dataset.id)))));
@@ -122,7 +122,7 @@ async function openSaved(id) {
     const video = await loadVideo(blob);
     Object.assign(video.style, { position: 'fixed', left: '-9999px', width: '2px', height: '2px', opacity: 0 });
     document.body.appendChild(video);
-    state = { video, file: m.mediaRef ? null : blob, mediaRef: m.mediaRef || null, sessionId: sw.sessionId || null, fr: m.fr, ph: m.ph, ball: m.ball, range: m.range, view: m.view || sw.view || 'face', club: sw.club, learning: sw.learning !== false, id: sw.id, date: sw.date, ai: sw.ai, thumbs: sw.thumbs };
+    state = { video, file: m.mediaRef ? null : blob, mediaRef: m.mediaRef || null, sessionId: sw.sessionId || null, fr: m.fr, ph: m.ph, ball: m.ball, range: m.range, view: m.view || sw.view || 'face', club: sw.club, learning: sw.learning !== false, golfer: sw.golfer || null, heightIn: sw.heightIn || null, id: sw.id, date: sw.date, ai: sw.ai, thumbs: sw.thumbs };
     await showResult(true);
   } catch (e) { toast(e.message, 5000); }
 }
@@ -170,6 +170,8 @@ async function openVideo(file) {
   $('#setupGo').disabled = true; $('#setupGo').hidden = false; $('#setupGo').textContent = 'Analyse swing';
   $('#setupManual').textContent = 'Pick the swing myself';
   setClub(settings.club); $('#learnBox').checked = settings.learning !== false;
+  setWho('me');
+  listSwings().then((all) => { $('#friendNames').innerHTML = [...new Set(all.map((s) => s.golfer).filter(Boolean))].map((n) => `<option value="${esc(n)}"></option>`).join(''); }).catch(() => {});
   document.querySelectorAll('#viewSeg button').forEach((b) => b.classList.toggle('on', b.dataset.view === (settings.view || 'face')));
   let video;
   try {
@@ -218,17 +220,38 @@ async function openVideo(file) {
   startPreview(video, wins);
 }
 
+// Whose swing: yours (counts toward your profile) or a friend's (kept separate)
+function setWho(who) {
+  document.querySelectorAll('#whoSeg button').forEach((b) => b.classList.toggle('on', b.dataset.who === who));
+  $('#friendRow').hidden = who !== 'friend';
+  $('#learnRow').hidden = who === 'friend';
+  if (who === 'friend') { $('#friendHt').placeholder = `Height in ${isMetric() ? 'cm' : 'inches'} (optional)`; setTimeout(() => $('#friendName').focus(), 50); }
+}
+document.querySelectorAll('#whoSeg button').forEach((b) => b.addEventListener('click', () => setWho(b.dataset.who)));
+function readWho() {
+  if (!state) return true;
+  const friend = !$('#friendRow').hidden;
+  if (!friend) { state.golfer = null; state.heightIn = null; state.learning = $('#learnBox').checked; return true; }
+  const name = $('#friendName').value.trim();
+  if (!name) { toast('Add your friend\'s name.'); $('#friendName').focus(); return false; }
+  const h = parseFloat($('#friendHt').value);
+  state.golfer = name; state.learning = false;
+  state.heightIn = h > 0 ? (isMetric() ? h / 2.54 : h) : null;
+  if (state.heightIn && (state.heightIn < 48 || state.heightIn > 90)) state.heightIn = null;
+  return true;
+}
 $('#setupGo').onclick = () => {
   if (!state?.wins?.length) return;
+  if (!readWho()) return;
   stopPreview();
   if (state.wins.length === 1) runAnalysis(state.wins[0]);
   else runSession(state.file, { video: state.video, wins: state.wins });
 };
-$('#setupManual').onclick = () => { if (!state?.video) return; stopPreview(); showTrim(); };
+$('#setupManual').onclick = () => { if (!state?.video || !readWho()) return; stopPreview(); showTrim(); };
 $('#setupCancel').onclick = () => { dropVideo(); screen('coach-start'); renderRecent(); };
 
 async function runSession(file, pre = null) {
-  const keep = pre ? { view: state.view, club: state.club, learning: state.learning } : null;
+  const keep = pre ? { view: state.view, club: state.club, learning: state.learning, golfer: state.golfer || null, heightIn: state.heightIn || null } : null;
   if (!pre) dropVideo();
   screen('coach-busy');
   const setP = (p, msg) => { $('#busyBar').style.width = `${Math.round(p * 100)}%`; if (msg) $('#busyMsg').textContent = msg; };
@@ -256,14 +279,14 @@ async function runSession(file, pre = null) {
     // One ball tap covers the whole session (face-on); the camera doesn't move.
     let ball = null;
     if (view === 'face') {
-      state = { video, fr: swings[0].fr, ph: swings[0].ph, view, club, ball: null };
+      state = { video, fr: swings[0].fr, ph: swings[0].ph, view, club, ball: null, golfer: keep?.golfer || null, heightIn: keep?.heightIn || null };
       ball = await new Promise((resolve) => askBall(resolve));
     }
     screen('coach-busy'); setP(0.92, 'Saving…');
     const sessionId = `rs_${Date.now()}`;
     if (settings.keepVideos !== false) await putMedia({ id: sessionId, blob: file }).catch(() => {});
     for (const [i, s] of swings.entries()) {
-      state = { video, file: null, mediaRef: settings.keepVideos !== false ? sessionId : null, sessionId, fr: s.fr, ph: s.ph, range: s.range, ball, view, club, learning, id: `${sessionId}_${i + 1}`, date: Date.now() + i, player: null };
+      state = { video, file: null, mediaRef: settings.keepVideos !== false ? sessionId : null, sessionId, fr: s.fr, ph: s.ph, range: s.range, ball, view, club, learning, golfer: keep?.golfer || null, heightIn: keep?.heightIn || null, id: `${sessionId}_${i + 1}`, date: Date.now() + i, player: null };
       computeA();
       state.thumbs = await checkpointImages(360, false);
       await putSwing(record()).catch(() => {});
@@ -288,11 +311,11 @@ async function renderSession(sessionId) {
   const plan = getPlan();
   const d = topKey ? (drillFor(topKey) || drillFor(`dtl:${topKey}`)) : null;
   $('#coach-session').innerHTML = `
-    <div class="card"><div class="scorerow">${scoreRing(Math.round(avg * 10) / 10)}<div><h2>Range session · ${all.length} swing${all.length > 1 ? 's' : ''}</h2>
+    <div class="card"><div class="scorerow">${scoreRing(Math.round(avg * 10) / 10)}<div><h2>${all[0].golfer ? `${esc(all[0].golfer)}'s session` : 'Range session'} · ${all.length} swing${all.length > 1 ? 's' : ''}</h2>
       <p>Average ${avg.toFixed(1)}/10 · best: swing ${all.indexOf(best) + 1} (${best.summary.score10?.toFixed(1)})</p>
       ${topKey ? `<p class="mute small">Showed up most: ${esc(topKey.split(':').reverse().join(' at ').toLowerCase())} (${counts[topKey]} of ${all.length})</p>` : ''}</div></div>
       <button class="btn" id="speakBtn" style="width:100%;margin-top:10px">🔊 Read it out</button></div>
-    ${all.map((s, i) => { const chk = plan.focus ? checkIn(s, plan) : null; return `<div class="recent" data-id="${s.id}"><img src="${s.thumbs?.[2] || ''}" alt="" />
+    ${all.map((s, i) => { const chk = plan.focus && !s.golfer ? checkIn(s, plan) : null; return `<div class="recent" data-id="${s.id}"><img src="${s.thumbs?.[2] || ''}" alt="" />
       <div><div class="t"><span class="sc10">${s.summary.score10?.toFixed(1) ?? '–'}</span> Swing ${i + 1}</div><div class="s">${esc(s.summary.headline.replace('Biggest opportunity: ', 'Fix: '))}${chk ? ` · <span style="color:var(--${chk.status})">${chk.verdict}</span>` : ''}</div></div><div class="play">▶</div></div>`; }).join('')}
     ${d ? `<div class="card"><div class="lbl">Take this to your next session</div>${drillHtml(d, esc)}</div>` : ''}
     <button class="btn" id="sessDone" style="width:100%">Done</button>`;
@@ -411,10 +434,14 @@ const seekTo = (v, t) => seekSafe(v, t);
 
 // ---------------- Coach: result ----------------
 function computeA() {
-  const heightIn = settings.heightIn;
+  const heightIn = state.heightIn || settings.heightIn;
   state.A = state.view === 'dtl'
     ? analyseDTL(state.fr, state.ph, { club: state.club, heightIn })
     : analyse(state.fr, state.ph, { club: state.club, heightIn, ball: state.ball });
+  // address / top / impact poses for the fixed position lines on the video
+  const { fr, ph } = state;
+  state.A.refs = { address: fr[ph.address].lm, top: fr[ph.top].lm, impact: fr[ph.impact].lm };
+  state.A.refFrames = { address: ph.address, top: ph.top, impact: ph.impact };
   return state.A;
 }
 
@@ -510,6 +537,10 @@ async function showResult(reopen = false) {
 /** The "Coach check-in" card under the summary: this swing vs your current focus. */
 async function refreshCoachCard(runPlan) {
   const el = $('#coachCheck');
+  if (state.golfer) {
+    el.innerHTML = `<h3>${esc(state.golfer)}'s swing</h3><p class="mute">Saved under their name. Not counted toward your profile.</p>${priorityHtml(null)}`;
+    return;
+  }
   if (!state.learning) {
     el.innerHTML = `<h3>Test swing</h3><p class="mute">Not counted toward your profile.</p><button class="btn" id="countBtn">Count this swing</button>`;
     $('#countBtn').onclick = async () => { state.learning = true; await putSwing(record()).catch(() => {}); refreshCoachCard(true); };
@@ -620,7 +651,7 @@ function cpHtml(c, k) {
 function record() {
   const A = state.A;
   return {
-    id: state.id, date: state.date || Date.now(), sessionId: state.sessionId || null, learning: state.learning !== false, view: state.view || 'face', club: A.club, summary: A.summary, thumbs: state.thumbs, ai: state.ai || null,
+    id: state.id, date: state.date || Date.now(), sessionId: state.sessionId || null, learning: !state.golfer && state.learning !== false, golfer: state.golfer || null, heightIn: state.golfer ? state.heightIn || null : undefined, view: state.view || 'face', club: A.club, summary: A.summary, thumbs: state.thumbs, ai: state.ai || null,
     checkpoints: A.checkpoints.map((c) => ({ key: c.key, title: c.title, items: c.items.map(({ name, you, pro, status, value }) => ({ name, you, pro, status, value })) })),
   };
 }
@@ -640,7 +671,7 @@ async function checkpointImages(width, card) {
   for (const [i, cp] of A.checkpoints.entries()) {
     await seekTo(video, fr[cp.frame].t);
     ctx.drawImage(video, 0, 0);
-    drawOverlay(ctx, A, fr[cp.frame].lm, { cp, card, cpIndex: i });
+    drawOverlay(ctx, A, fr[cp.frame].lm, { cp, card, cpIndex: i, frame: cp.frame });
     octx.drawImage(c, 0, 0, out.width, out.height);
     imgs.push(out.toDataURL('image/jpeg', 0.8));
   }
@@ -678,11 +709,14 @@ async function doAi() {
   try {
     const images = await checkpointImages(560, true);
     const swings = (await listSwings().catch(() => [])).filter((s) => s.id !== state.id);
-    const history = state.learning ? coachContext(swings, await recentRoundAggregate()) : '';
-    const { text, meta } = await getCoaching({ apiKey: settings.apiKey, model: settings.model, A: state.A, images, golfer: [settings.golfer, settings.keys ? `Their own swing keys/notes (use their language): ${settings.keys.replace(/\n+/g, ' | ')}` : ''].filter(Boolean).join('. '), history });
+    const history = state.learning && !state.golfer ? coachContext(swings, await recentRoundAggregate()) : '';
+    const golfer = state.golfer
+      ? `This is ${state.golfer}'s swing (a friend of the app owner). Coach ${state.golfer} directly; no history on file.`
+      : [settings.golfer, settings.keys ? `Their own swing keys/notes (use their language): ${settings.keys.replace(/\n+/g, ' | ')}` : ''].filter(Boolean).join('. ');
+    const { text, meta } = await getCoaching({ apiKey: settings.apiKey, model: settings.model, A: state.A, images, golfer, history });
     state.ai = text;
     let extra = '';
-    if (state.learning && meta) {
+    if (state.learning && !state.golfer && meta) {
       if (meta.note) addCoachNote(String(meta.note).slice(0, 300));
       const valid = state.A.checkpoints.flatMap((c) => c.items.map((i) => `${c.key}:${i.name}`));
       const cur = getPlan().focus?.key;
@@ -741,13 +775,14 @@ async function renderCoachPanel(all) {
 async function renderHistory() {
   $('#historyDetail').hidden = true; $('#historyList').hidden = false; $('#trend').hidden = false; $('#coachPanel').hidden = false;
   const all = await listSwings().catch(() => []);
-  renderCoachPanel(all);
+  const mine = all.filter((s) => !s.golfer);
+  renderCoachPanel(mine);
   if (!all.length) {
     $('#trend').innerHTML = '<h2>No swings yet</h2><p class="mute">Analyse a swing in Coach and it lands here, so you can track the numbers over time.</p>';
     $('#historyList').innerHTML = '';
     return;
   }
-  const rows = all.slice(0, 8).map((s) => {
+  const rows = mine.slice(0, 8).map((s) => {
     const f = (v, d = 1) => (v == null ? '–' : d === 1 && isMetric() ? Math.round(v * 2.54) : (+v).toFixed(d));
     return `<tr><td>${new Date(s.date).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}</td><td>${f(val(s, 'top', 'Head'))}</td><td>${f(val(s, 'impact', 'Head'))}</td><td>${f(val(s, 'impact', 'Hips'))}</td><td>${f(val(s, 'impact', 'Spine tilt'), 0)}°</td></tr>`;
   }).join('');
@@ -756,7 +791,7 @@ async function renderHistory() {
   $('#historyList').innerHTML = all.map((s) => `
     <div class="hist" data-id="${s.id}">
       <img src="${s.thumbs?.[2] || ''}" alt="" />
-      <div><div class="t">${esc(s.summary.headline)}</div><div class="s">${fmtDate(s.date)} · ${esc(s.club)} · ${esc(s.summary.score)} on target${s.ai ? ' · AI reviewed' : ''}${s.learning === false ? ' · test swing' : ''}</div></div>
+      <div><div class="t">${esc(s.summary.headline)}</div><div class="s">${fmtDate(s.date)} · ${esc(s.club)} · ${esc(s.summary.score)} on target${s.ai ? ' · AI reviewed' : ''}${s.golfer ? ` · ${esc(s.golfer)}'s swing` : s.learning === false ? ' · test swing' : ''}</div></div>
       <div class="mute">›</div>
     </div>`).join('');
   document.querySelectorAll('.hist').forEach((el) => el.addEventListener('click', () => showDetail(el.dataset.id)));

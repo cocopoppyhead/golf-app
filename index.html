@@ -75,10 +75,16 @@
         </div>
         <p class="found" id="setupFound"></p>
         <div class="setcard">
+          <div class="setrow"><span class="lbl">Who</span><div class="seg seg2" id="whoSeg"><button data-who="me" class="on">My swing</button><button data-who="friend">A friend's</button></div></div>
+          <div class="friendrow" id="friendRow" hidden>
+            <input id="friendName" list="friendNames" placeholder="Friend's name" autocomplete="off" /><datalist id="friendNames"></datalist>
+            <input id="friendHt" inputmode="decimal" placeholder="Height (optional)" />
+            <p class="mute small">Saved under their name. It won't count toward your coach profile, focus or stats.</p>
+          </div>
           <div class="setrow"><span class="lbl">View</span><div class="seg seg2" id="viewSeg"><button data-view="face">Face-on</button><button data-view="dtl">From behind</button></div></div>
           <p class="mute small hint" id="viewHint"></p>
           <div class="setrow"><span class="lbl">Club</span><div class="seg" id="clubSeg"><button data-club="driver">Driver</button><button data-club="wood">Wood</button><button data-club="iron">Iron</button><button data-club="wedge">Wedge</button></div></div>
-          <label class="check learn"><input type="checkbox" id="learnBox" /> <span><b>Learning mode</b><br /><span class="mute small">Counts toward your coach profile. Untick for test swings.</span></span></label>
+          <label class="check learn" id="learnRow"><input type="checkbox" id="learnBox" /> <span><b>Learning mode</b><br /><span class="mute small">Counts toward your coach profile. Untick for test swings.</span></span></label>
         </div>
         <button class="btn primary big" id="setupGo" disabled>Analyse swing</button>
         <div class="setlinks"><button class="link" id="setupManual">Pick the swing myself</button><button class="link" id="setupCancel">Cancel</button></div>

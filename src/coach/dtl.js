@@ -55,7 +55,7 @@ export function analyseDTL(fr, ph, { club = 'iron', heightIn = 70 } = {}) {
       { name: 'Early extension', you: ee > 0.4 ? `Hips ${len(ee)} toward the ball` : 'Hips stayed back', pro: `Hips stay back (under ${lenRange(0, 1).split('–')[1]})`, status: ee <= 1 ? 'good' : ee <= 2.5 ? 'ok' : 'work', value: ee },
       { name: 'Spine angle', you: `${Math.round(bImp)}° (address ${Math.round(bend0)}°)`, pro: 'Within 5° of address', status: g(bend0 - bImp, -5, 5, 5), value: bImp - bend0 },
       { name: 'Head height', you: hd(hImp), pro: 'Level, or slightly lower', status: g(hImp, -1.5, 2, 1.5), value: hImp },
-    ], marks: [{ type: 'vline', x: butt, label: 'PRO: hips stay on this line' }, { type: 'spine', from: hipC(IM), angle: bend0, target: -b, len: spineLen }] },
+    ], marks: [{ type: 'spine', from: hipC(IM), angle: bend0, target: -b, len: spineLen }] },
     { key: 'finish', title: 'Finish', frame: ph.finish, items: [
       { name: 'Balance', you: `${bFin < 25 ? 'Tall' : 'Still bent over'}, hips ${overFeet < 4 ? 'over your feet' : `${len(overFeet)} off your feet`}`, pro: 'Tall and balanced', status: bFin < 25 && overFeet < 4 ? 'good' : bFin < 35 && overFeet < 7 ? 'ok' : 'work', value: overFeet },
     ], marks: [] },

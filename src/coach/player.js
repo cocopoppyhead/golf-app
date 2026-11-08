@@ -58,7 +58,7 @@ export class SwingPlayer {
     const i = nearestFrame(fr, video.currentTime);
     const k = cpIndex >= 0 ? cpIndex : (this.playing ? -1 : this.cpAt(video.currentTime));
     const cp = k >= 0 ? A.checkpoints[k] : null;
-    drawOverlay(ctx, A, fr[cp ? cp.frame : i].lm, { cp, card: false, cpIndex: k });
+    drawOverlay(ctx, A, fr[cp ? cp.frame : i].lm, { cp, card: false, cpIndex: k, frame: cp ? cp.frame : i });
   }
 
   async showCheckpoint(k) {

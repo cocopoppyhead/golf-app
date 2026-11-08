@@ -50,7 +50,7 @@ export async function exportMp4(video, fr, A, { slow = 3, holdSec = 2.5, summary
     const ci = cpByFrame.has(i) ? cpByFrame.get(i) : -1;
     // draw at source resolution coordinates
     const c2 = { canvas: { width: video.videoWidth, height: video.videoHeight } };
-    drawOverlay(proxy(ctx, c2.canvas), A, fr[i].lm, { cp: ci >= 0 ? A.checkpoints[ci] : null, card: ci >= 0, cpIndex: ci });
+    drawOverlay(proxy(ctx, c2.canvas), A, fr[i].lm, { cp: ci >= 0 ? A.checkpoints[ci] : null, card: ci >= 0, cpIndex: ci, frame: i });
     ctx.restore();
     const dt = i < i1 ? Math.max(1 / 120, fr[i + 1].t - fr[i].t) : 1 / 30;
     await push(ci >= 0 ? holdSec : dt * slow);

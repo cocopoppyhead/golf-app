@@ -101,7 +101,7 @@ export function analyse(fr, ph, { club = 'iron', heightIn = 70, ball } = {}) {
       { name: 'Hips', you: trailHipPast > 0.5 ? `Slid ${fmtIn(trailHipPast)} past trail foot` : `${fmtIn(hipTop)} ${dir(hipTop)}, inside trail foot`, pro: 'Turn without sliding past trail foot', status: trailHipPast > 1.5 ? 'work' : trailHipPast > 0.5 ? 'ok' : hipTop > 1.5 ? 'ok' : 'good', value: hipTop },
       { name: 'Spine tilt', you: `${Math.round(tiltTop)}° ${tiltTop >= 0 ? 'away from' : 'toward'} target`, pro: 'Tilted away from target', status: tiltTop < -2 ? 'work' : tiltTop < 2 ? 'ok' : 'good', value: tiltTop },
     ],
-    marks: [{ type: 'vline', x: base.trailAnX, label: 'PRO: hips stay inside this line' }],
+    marks: [], // the fixed column (render.js) shows this
   };
 
   // ---------- IMPACT ----------
@@ -136,7 +136,7 @@ export function analyse(fr, ph, { club = 'iron', heightIn = 70, ball } = {}) {
       { name: 'Trail foot', you: heelLift > 2 || toeHeel > 0 ? 'Up on the toe' : heelLift > 0.8 ? 'Heel partly up' : 'Heel still down', pro: 'Up on the toe', status: heelLift > 2 || toeHeel > 0 ? 'good' : heelLift > 0.8 ? 'ok' : 'work', value: heelLift },
       { name: 'Body', you: shRatio < 0.6 ? 'Chest facing target' : shRatio < 0.8 ? 'Chest mostly round' : 'Chest still facing ball', pro: 'Chest facing target, balanced', status: shRatio < 0.6 ? 'good' : shRatio < 0.8 ? 'ok' : 'work', value: shRatio },
     ],
-    marks: [{ type: 'vline', x: base.leadAnX, label: 'PRO: hips stacked over lead foot' }],
+    marks: [],
   };
 
   const checkpoints = [address, top, impact, finish];
