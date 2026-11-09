@@ -22,6 +22,17 @@ const ble = new BleManager();
 // Tells the web app it's inside the native shell (see src/native.js in the web app).
 const BOOT = `window.GolfNative = { platform: '${Platform.OS}', version: 1 }; true;`;
 
+// The WebView's file chooser (swing video, scorecard photo) only offers the camera once the app
+// holds the camera permission, and on some phones shows nothing at all without it. Ask up front.
+async function androidMediaPermissions() {
+  if (Platform.OS !== 'android') return;
+  const P = PermissionsAndroid.PERMISSIONS;
+  const want = [P.CAMERA];
+  if (Platform.Version >= 33) want.push(P.READ_MEDIA_IMAGES, P.READ_MEDIA_VIDEO);
+  else want.push(P.READ_EXTERNAL_STORAGE);
+  try { await PermissionsAndroid.requestMultiple(want.filter(Boolean)); } catch {}
+}
+
 async function androidBlePermissions() {
   if (Platform.OS !== 'android') return true;
   const P = PermissionsAndroid.PERMISSIONS;
@@ -221,7 +232,7 @@ function Shell() {
         style={[styles.web, error && { display: 'none' }]}
         injectedJavaScriptBeforeContentLoaded={BOOT}
         onMessage={onMessage}
-        onLoadEnd={() => setLoaded(true)}
+        onLoadEnd={() => { setLoaded(true); androidMediaPermissions(); }}
         onError={() => setError(true)}
         onNavigationStateChange={(n) => { canGoBack.current = n.canGoBack; }}
         javaScriptEnabled

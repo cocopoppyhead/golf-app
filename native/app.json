@@ -55,7 +55,8 @@
           "resizeMode": "contain",
           "backgroundColor": "#0b1120"
         }
-      ]
+      ],
+      "./plugins/withCaptureQueries.js"
     ],
     "scheme": "golfcoach",
     "backgroundColor": "#0b1120",
