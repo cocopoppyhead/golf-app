@@ -9,7 +9,7 @@ import {
 } from '../store.js';
 import { getPlan, savePlan } from '../coach/profile.js';
 
-const SETTINGS_KEYS = ['name', 'bag', 'keys', 'roundRules', 'golfer', 'heightIn', 'system', 'handedness', 'club', 'view', 'nickname', 'avatar', 'homeCourse', 'hand', 'handicap', 'onboarded', 'partials', 'laserProfiles', 'aiProvider', 'starredCourses'];
+const SETTINGS_KEYS = ['name', 'bag', 'keys', 'roundRules', 'golfer', 'heightIn', 'system', 'handedness', 'club', 'view', 'nickname', 'avatar', 'homeCourse', 'hand', 'handicap', 'onboarded', 'partials', 'laserProfiles', 'aiProvider', 'starredCourses', 'workingOn'];
 const KINDS = {
   swing: { list: listSwings, put: putSwing, del: deleteSwing },
   round: { list: listRounds, put: putRound, del: deleteRound },

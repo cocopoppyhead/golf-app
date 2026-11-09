@@ -49,6 +49,7 @@ export function pickClub(bag, yards, partials = true) {
 }
 
 let unsub = null;
+let connectingNow = false;
 
 const SW = { full: '', '¾': ' ¾', '½': ' ½' };
 const short = (club) => club.replace(/^(\d) iron$/i, '$1i').replace(/^(\d) wood$/i, '$1w').replace(/^(\d) hybrid$/i, '$1h').replace(/^Driver$/i, 'Dr');
@@ -215,7 +216,9 @@ export async function renderBag(root) {
     root.querySelector('#laserBtn')?.addEventListener('click', async () => {
       sync();
       if (laserConnected()) { disconnectLaser(); status = 'Disconnected'; return draw(); }
-      try { await connectLaser((m) => { status = m; draw(); }); } catch (e) { status = e.message; }
+      if (connectingNow) return;
+      connectingNow = true; setTimeout(() => (connectingNow = false), 15000);
+      try { await connectLaser((m) => { status = m; if (/Connected|error|No Bushnell|Disconnected|wasn't/i.test(m)) connectingNow = false; draw(); }); } catch (e) { status = e.message; connectingNow = false; }
       draw();
     });
   };

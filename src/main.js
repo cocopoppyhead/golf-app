@@ -22,6 +22,7 @@ import { roundTendencies } from './rounds/stats.js';
 import { savePlan as savePlanX } from './coach/profile.js';
 import { renderAccount } from './cloud/account.js';
 import { renderScoring, practiceFromRounds } from './progress.js';
+import { renderWork, workContext } from './workingon.js';
 import { maybeOnboard, avatarHtml, localProfile, openProfileEditor } from './onboarding.js';
 import { startSync } from './cloud/sync.js';
 import { tendencies, focusProgress, updatePlan, checkIn, getPlan, setFocus, addCoachNote, coachContext, metricLabel, metricCue } from './coach/profile.js';
@@ -86,10 +87,6 @@ document.addEventListener('toast', (e) => toast(e.detail));
 // Recent swings on the camera page; tap to reopen the full analysis if the video is kept.
 function renderKeys() {
   const t = getKeysText();
-  // the "Working on…" section of your keys sits open at the top of the Swing page; the rest stays folded
-  const wo = parseKeys(t).find((s) => /^working on/i.test(s.title));
-  $('#workingOn').hidden = !wo;
-  if (wo) $('#workingOn').innerHTML = `<div class="lbl">${esc(wo.title)}</div><ol>${wo.items.map((i) => `<li>${esc(i)}</li>`).join('')}</ol>`;
   $('#keysCard').hidden = !t.trim();
   $('#keysBody').innerHTML = keysHtml(t);
 }
@@ -717,7 +714,7 @@ async function doAi() {
     const history = state.learning && !state.golfer ? coachContext(swings, await recentRoundAggregate()) : '';
     const golfer = state.golfer
       ? `This is ${state.golfer}'s swing (a friend of the app owner). Coach ${state.golfer} directly; no history on file.`
-      : [settings.golfer, settings.keys ? `Their own swing keys/notes (use their language): ${settings.keys.replace(/\n+/g, ' | ')}` : ''].filter(Boolean).join('. ');
+      : [settings.golfer, workContext(), settings.keys ? `Their own swing keys/notes (use their language): ${settings.keys.replace(/\n+/g, ' | ')}` : ''].filter(Boolean).join('. ');
     const { text, meta } = await getCoaching({ ...aiFrom(settings), A: state.A, images, golfer, history });
     state.ai = text;
     let extra = '';
@@ -785,6 +782,7 @@ async function renderHistory() {
   $('#progSeg').hidden = false;
   $('#progScoring').hidden = progTab !== 'scoring'; $('#progPractice').hidden = progTab !== 'practice';
   if (progTab === 'scoring') { $('#historyDetail').hidden = true; return renderScoring($('#progScoring')); }
+  renderWork($('#rangeWork'), { toast });
   practiceFromRounds().then((h) => { $('#practiceRounds').innerHTML = h; }).catch(() => {});
   $('#historyDetail').hidden = true; $('#historyList').hidden = false; $('#trend').hidden = false; $('#coachPanel').hidden = false;
   const all = await listSwings().catch(() => []);

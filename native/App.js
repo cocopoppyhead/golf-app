@@ -89,8 +89,14 @@ function Shell() {
   // id: connect to a picked device; otherwise look for a Bushnell by name.
   // Bushnell: listen on its known distance characteristic. Anything else: listen on every
   // notify/indicate characteristic and forward packets tagged with their UUID so the web app can learn them.
-  const laserConnect = useCallback(async ({ id } = {}) => {
+  const connecting = useRef(false);
+  const lastId = useRef(null);
+  const laserConnect = useCallback(async ({ id } = {}, attempt = 1) => {
     const log = (text) => send({ type: 'laser.log', text });
+    // one connection attempt at a time (a double tap used to start two and they cancelled each other)
+    if (connecting.current && attempt === 1) { log('already connecting, ignored'); return; }
+    connecting.current = true;
+    let settingUp = true;
     try {
       await ready();
       ble.stopDeviceScan();
@@ -107,12 +113,21 @@ function Shell() {
           });
         });
       }
-      log(`device ${found.name || found.localName || ''} (${found.id})`);
-      send({ type: 'laser.status', text: 'Connecting…' });
-      const d = await found.connect();
+      lastId.current = found.id;
+      log(`device ${found.name || found.localName || ''} (${found.id})${attempt > 1 ? ` · attempt ${attempt}` : ''}`);
+      send({ type: 'laser.status', text: attempt > 1 ? 'Connecting again…' : 'Connecting…' });
+      // a stale link from an earlier try (or the Bushnell app) blocks a new one: drop it first
+      if (await ble.isDeviceConnected(found.id).catch(() => false)) { log('dropping an old connection'); await ble.cancelDeviceConnection(found.id).catch(() => {}); await new Promise((r) => setTimeout(r, 600)); }
+      const d = await ble.connectToDevice(found.id, { timeout: 12000, ...(Platform.OS === 'android' ? { requestMTU: 185 } : {}) });
+      log('connected, reading services…');
+      d.onDisconnected((err) => {
+        device.current = null; stopSubs();
+        if (settingUp) return; // handled by the retry below
+        log(`disconnected${err ? `: ${err.message}` : ''}`);
+        send({ type: 'laser.disconnected' });
+      });
       await d.discoverAllServicesAndCharacteristics();
       device.current = d;
-      d.onDisconnected(() => { device.current = null; stopSubs(); send({ type: 'laser.disconnected' }); });
       const name = d.name || d.localName || found.name || 'Rangefinder';
       const services = await d.services();
       log(`services: ${services.map((s) => s.uuid).join(', ')}`);
@@ -131,9 +146,19 @@ function Shell() {
         }));
       }
       if (!listen.length) { send({ type: 'laser.error', text: 'Connected, but this device sends nothing the app can listen to. Copy the log and send it to Claude.' }); return; }
+      settingUp = false;
+      connecting.current = false;
       send({ type: 'laser.connected', name, known: !!bush, chars: listen.map((c) => c.uuid.toLowerCase()) });
     } catch (e) {
-      send({ type: 'laser.error', text: e?.message || String(e) });
+      const msg = e?.message || String(e);
+      log(`error: ${msg}`);
+      // Android's first GATT connect often drops: wait and try again up to twice
+      if (attempt < 3 && /disconnected|cancel|133|timed out|gatt/i.test(msg)) {
+        await new Promise((r) => setTimeout(r, 1200));
+        return laserConnect({ id: id || lastId.current }, attempt + 1);
+      }
+      connecting.current = false;
+      send({ type: 'laser.error', text: msg });
     }
   }, [send]);
 
