@@ -6,7 +6,7 @@ export const SUPABASE_URL = 'https://uxigfgwznyalmyyrnsrh.supabase.co';
 export const SUPABASE_KEY = 'sb_publishable_ZSbe6VCrxsY2VssOEPRLTQ_TNBsjV0F';
 
 export const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
-  auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false, storageKey: 'golf.auth' },
+  auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, storageKey: 'golf.auth' },
 });
 
 export async function currentUser() {
@@ -39,6 +39,21 @@ export async function verifyCode(email, token) {
 }
 
 export const signOut = () => sb.auth.signOut();
+
+/** Emails a reset link that brings the golfer back to the app to choose a new password. */
+export async function resetPassword(email) {
+  const redirectTo = `${location.origin}${location.pathname}`;
+  const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo });
+  if (error) throw error;
+}
+export async function updatePassword(password) {
+  const { error } = await sb.auth.updateUser({ password });
+  if (error) throw error;
+}
+/** Fires when the app is opened from a reset link. */
+export function onPasswordRecovery(fn) {
+  sb.auth.onAuthStateChange((ev) => { if (ev === 'PASSWORD_RECOVERY') fn(); });
+}
 
 export async function getProfile(uid) {
   const { data } = await sb.from('profiles').select('*').eq('id', uid).maybeSingle();

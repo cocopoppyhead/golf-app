@@ -1,5 +1,5 @@
 // Account card (Settings): email code sign-in, profile name + handicap, sync status.
-import { currentUser, signInPassword, signUpPassword, signOut, getProfile, saveProfile } from './supabase.js';
+import { currentUser, signInPassword, signUpPassword, signOut, getProfile, saveProfile, resetPassword, updatePassword, onPasswordRecovery } from './supabase.js';
 import { syncNow, onSyncStatus, claimDevice } from './sync.js';
 import { getSettings, saveSettings } from '../store.js';
 import { openProfileEditor, avatarHtml, localProfile } from '../onboarding.js';
@@ -46,10 +46,17 @@ function signedOut(el, { toast, onChange }) {
       <input id="aEmail" type="email" inputmode="email" autocomplete="email" placeholder="you@email.com" style="margin-bottom:8px" />
       <input id="aPass" type="password" autocomplete="${mode === 'in' ? 'current-password' : 'new-password'}" placeholder="${mode === 'in' ? 'Password' : 'Choose a password (8+ characters)'}" style="margin-bottom:8px" />
       <button class="btn primary" type="button" id="aGo" style="width:100%">${mode === 'in' ? 'Sign in' : 'Create account'}</button>
+      ${mode === 'in' ? '<button class="link" type="button" id="aForgot" style="margin-top:10px">Forgot your password?</button>' : ''}
       ${owner ? '<p class="mute small" style="margin-top:8px">This phone has a previous owner\'s data. Signing in with a different account clears it from this phone (it stays safe in their account).</p>' : ''}
     </div>`;
     el.querySelectorAll('[data-m]').forEach((b) => (b.onclick = () => { mode = b.dataset.m; draw(); }));
     el.querySelector('#aGo').onclick = go;
+    el.querySelector('#aForgot')?.addEventListener('click', async () => {
+      const email = el.querySelector('#aEmail').value.trim().toLowerCase();
+      if (!/^\S+@\S+\.\S+$/.test(email)) return toast('Type your email above first, then tap Forgot.');
+      try { await resetPassword(email); toast(`Reset link sent to ${email}. Open it on this phone; it brings you back here to set a new password.`, 9000); }
+      catch (e) { toast(/rate|limit/i.test(e.message) ? 'Too many emails just now. Try again in an hour.' : e.message, 7000); }
+    });
   };
   const go = async () => {
     const email = el.querySelector('#aEmail').value.trim().toLowerCase(), pass = el.querySelector('#aPass').value;
@@ -72,4 +79,24 @@ function signedOut(el, { toast, onChange }) {
     }
   };
   draw();
+}
+
+/** Call once at startup: when the app opens from a reset link, ask for the new password. */
+export function initPasswordRecovery({ toast = () => {}, onDone = () => {} } = {}) {
+  onPasswordRecovery(() => {
+    if (document.querySelector('.sheet.pwreset')) return;
+    const sheet = document.createElement('div'); sheet.className = 'sheet pwreset';
+    sheet.innerHTML = `<div class="sheet-in"><div class="sheet-h"><b>Choose a new password</b></div>
+      <input id="np1" type="password" autocomplete="new-password" placeholder="New password (8+ characters)" style="margin-bottom:8px" />
+      <input id="np2" type="password" autocomplete="new-password" placeholder="Again" style="margin-bottom:8px" />
+      <button class="btn primary big" id="npGo">Save password</button></div>`;
+    sheet.querySelector('#npGo').onclick = async () => {
+      const a = sheet.querySelector('#np1').value, b = sheet.querySelector('#np2').value;
+      if (a.length < 8) return toast('Password needs at least 8 characters.');
+      if (a !== b) return toast('The two passwords don\'t match.');
+      try { await updatePassword(a); sheet.remove(); history.replaceState(null, '', location.pathname); toast('Password saved. You\'re signed in.'); onDone(); }
+      catch (e) { toast(e.message, 7000); }
+    };
+    document.body.appendChild(sheet);
+  });
 }

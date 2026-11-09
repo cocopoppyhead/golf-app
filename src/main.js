@@ -20,7 +20,7 @@ import { isNative, nativeSend, onNative, blobToBase64 } from './native.js';
 import { initRounds, roundsHome, recentRoundAggregate } from './rounds/ui.js';
 import { roundTendencies } from './rounds/stats.js';
 import { savePlan as savePlanX } from './coach/profile.js';
-import { renderAccount } from './cloud/account.js';
+import { renderAccount, initPasswordRecovery } from './cloud/account.js';
 import { renderScoring, practiceFromRounds } from './progress.js';
 import { renderWork, workContext } from './workingon.js';
 import { renderRangefinder } from './rangefinder.js';
@@ -959,6 +959,7 @@ function afterAccountChange() {
 }
 renderHeaderAvatar();
 setTimeout(afterAccountChange, 1200);
+initPasswordRecovery({ toast, onDone: afterAccountChange });
 
 window.addEventListener('golf-synced', () => { settings = getSettings(); });
 
