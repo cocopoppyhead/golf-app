@@ -382,3 +382,6 @@ table.t5, table.dk { width: 100%; border-collapse: collapse; font-size: 13px; } 
 .wdone { margin-top: 10px; }
 .infobtn { width: 26px; height: 26px; border-radius: 50%; border: 1.5px solid var(--mute); background: none; color: var(--mute); font: italic 700 14px Georgia, serif; cursor: pointer; padding: 0; }
 .steps { padding-left: 20px; margin: 8px 0; } .steps li { margin: 6px 0; font-size: 14px; }
+.aisum { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 4px 0 14px; border-bottom: 1px solid var(--line); margin-bottom: 12px; } .aisum .link { text-align: right; }
+.lasline { margin: 6px 2px 0; } .lasline a { color: var(--acc); } .dotok { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--good); margin-right: 4px; }
+#laserRow .acct { margin-bottom: 16px; }

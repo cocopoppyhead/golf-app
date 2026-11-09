@@ -183,6 +183,7 @@
       <form id="settingsForm" class="card form">
         <div id="accountRow"></div>
         <div id="installRow"></div>
+        <div id="laserRow"></div>
         <label>Theme
           <select name="theme"><option value="dark">Dark</option><option value="light">Light</option><option value="system">Match my phone</option></select>
         </label>
@@ -203,6 +204,8 @@
         </label>
         <label class="check"><input type="checkbox" name="keepVideos" /> <span>Keep swing videos on this phone<br /><span class="hint">So you can replay past analyses from the Swing page. Uses phone storage (roughly 10–50 MB per swing).</span></span></label>
         <hr />
+        <div class="aisum" id="aiSum"></div>
+        <div id="aiBox" hidden>
         <label>AI coach
           <select name="aiProvider"><option value="claude">Claude (Anthropic)</option><option value="openai">ChatGPT (OpenAI)</option><option value="gemini">Gemini (Google)</option></select>
           <span class="hint">Used for swing reviews, round reviews and reading scorecard photos. Pick whichever you have a key for.</span>
@@ -223,6 +226,7 @@
           <div class="row"><select name="aiModel" id="aiModel"></select><button type="button" class="btn" id="aiModels" style="flex:0 0 auto">Refresh</button></div>
           <span class="hint" id="aiModelHint">Keys are stored only on this phone. Each review costs a few cents at most.</span>
         </label>
+        </div>
         <label>My swing keys
           <textarea name="keys" rows="10" placeholder="# Set-up&#10;- Hinge hips, not upright&#10;# Swing&#10;- Slow takeaway"></textarea>
           <span class="hint"># starts a section, - starts a key. Shown on the Swing page and used by the AI coach.</span>

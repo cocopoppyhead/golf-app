@@ -23,6 +23,7 @@ import { savePlan as savePlanX } from './coach/profile.js';
 import { renderAccount } from './cloud/account.js';
 import { renderScoring, practiceFromRounds } from './progress.js';
 import { renderWork, workContext } from './workingon.js';
+import { renderRangefinder } from './rangefinder.js';
 import { maybeOnboard, avatarHtml, localProfile, openProfileEditor } from './onboarding.js';
 import { startSync } from './cloud/sync.js';
 import { tendencies, focusProgress, updatePlan, checkIn, getPlan, setFocus, addCoachNote, coachContext, metricLabel, metricCue } from './coach/profile.js';
@@ -839,6 +840,7 @@ function fillSettings() {
   $('#hUnit').textContent = f.system.value === 'metric' ? 'cm' : 'in';
   renderInstall($('#installRow'), true);
   renderAccount($('#accountRow'), { toast, onChange: afterAccountChange });
+  renderRangefinder($('#laserRow'), { toast });
   f.handedness.value = settings.handedness; f.quality.value = settings.quality;
   f.keepVideos.checked = settings.keepVideos !== false;
   f.keys.value = settings.keys || '';
@@ -846,7 +848,17 @@ function fillSettings() {
   $('#rulesBoxes').innerHTML = Object.entries(RULES).map(([id, r]) => `<label class="check small"><input type="checkbox" data-rule="${id}" ${on.has(id) ? 'checked' : ''}/> ${esc(r.label)}</label>`).join('');
   f.apiKey.value = settings.apiKey || ''; f.openaiKey.value = settings.openaiKey || ''; f.geminiKey.value = settings.geminiKey || ''; f.golfer.value = settings.golfer;
   f.aiProvider.value = aiFrom(settings).provider; showProvider();
+  aiSummary(false);
   $('#savedMsg').hidden = true;
+}
+// AI coach: a one-line summary; tap to open the provider, key and model
+function aiSummary(open) {
+  const a = aiFrom(settings); const P = PROVIDERS[a.provider];
+  $('#aiBox').hidden = !open;
+  $('#aiSum').innerHTML = a.apiKey
+    ? `<span><b>AI coach</b> · ${esc(P.short)}${a.model ? ` · <span class="mute">${esc(a.model)}</span>` : ''} <span class="goodc">✓</span></span><button type="button" class="link" id="aiToggle">${open ? 'Done' : 'Change'}</button>`
+    : `<span><b>AI coach</b> <span class="mute">not connected</span><div class="mute small">Claude, ChatGPT or Gemini</div></span><button type="button" class="link acc" id="aiToggle">${open ? 'Cancel' : 'Connect'}</button>`;
+  $('#aiToggle').onclick = () => aiSummary($('#aiBox').hidden);
 }
 // AI provider: show its key field and the models that key can use
 function showProvider() {
@@ -894,6 +906,7 @@ $('#settingsForm').addEventListener('submit', (e) => {
   saveSettings(settings);
   applyTheme();
   $('#savedMsg').hidden = false;
+  aiSummary(false);
 });
 
 // ---------------- Theme ----------------
