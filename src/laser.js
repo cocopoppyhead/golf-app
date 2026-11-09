@@ -9,8 +9,9 @@ import { getSettings, saveSettings } from './store.js';
 import { learnFrom, applyProfile } from './laserlearn.js';
 
 const CHAR = '3dd92622-b3cc-458b-9093-0e842dd41bcd';
-// The parent service UUID isn't in his code. Vendors share the suffix, so ask for the whole block.
-const SERVICES = Array.from({ length: 256 }, (_, i) => `3dd926${i.toString(16).padStart(2, '0')}-b3cc-458b-9093-0e842dd41bcd`);
+// Parent service, confirmed on Conor's Pro X3 (9 Nov 2026 log). Older guess kept as a fallback.
+const SERVICE = '9f3f46a7-fcc2-4562-83a3-716e06a38bc5';
+const SERVICES = [SERVICE, ...Array.from({ length: 256 }, (_, i) => `3dd926${i.toString(16).padStart(2, '0')}-b3cc-458b-9093-0e842dd41bcd`)];
 
 export const laserSupported = () => isNative() || !!navigator.bluetooth;
 export const isIOS = () => /iPhone|iPad|iPod/.test(navigator.userAgent);

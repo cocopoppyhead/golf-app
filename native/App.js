@@ -141,7 +141,12 @@ function Shell() {
       const listen = bush ? [bush] : all.filter((c) => c.isNotifiable || c.isIndicatable);
       for (const c of listen) {
         subs.current.push(c.monitor((err, ch) => {
-          if (err) { log(`monitor error ${c.uuid}: ${err.message}`); return; }
+          if (err) {
+            log(`monitor error ${c.uuid}: ${err.message}`);
+            // the Pro X3 needs the phone paired (bonded) before it will send distances
+            if (/notify change failed|auth|encrypt|bond|insufficient/i.test(err.message || '')) send({ type: 'laser.error', text: 'The laser needs your phone paired first. If Android asks for a PIN, try 000000 or 123456. Easiest: pair once in the Bushnell Golf app, force-stop it, then connect here.' });
+            return;
+          }
           if (ch?.value) send({ type: 'laser.packet', b64: ch.value, char: c.uuid.toLowerCase() });
         }));
       }
