@@ -54,7 +54,7 @@ function spark(vals, { good = 'down' } = {}) {
 
 export async function renderScoring(el) {
   const R = await loadRounds();
-  if (!R.length) { el.innerHTML = '<div class="card"><h2>No rounds yet</h2><p class="mute">Log a round in Rounds. Your scoring, Tiger 5 and strokes gained build up here.</p></div>'; return; }
+  if (!R.length) { el.innerHTML = '<div class="card"><h2>No rounds yet</h2><p class="mute">Log a round in Play. Your scoring, Tiger 5 and strokes gained build up here.</p></div>'; return; }
   const full = R.filter((x) => x.S.holes >= 18);
   const n = R.length;
   const sum = (f) => R.reduce((a, x) => a + (f(x) || 0), 0);

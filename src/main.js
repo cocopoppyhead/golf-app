@@ -34,15 +34,15 @@ let settings = getSettings();
 let state = null; // current analysis session
 
 // ---------------- Tabs ----------------
-const TITLES = { coach: 'Swing', history: 'Progress', rounds: 'Rounds', bag: 'Bag', settings: 'Settings' };
+const TITLES = { coach: 'Practice', history: 'Progress', rounds: 'Play', bag: 'Bag', settings: 'Settings' };
 document.querySelectorAll('nav.tabs button').forEach((b) => b.addEventListener('click', () => showTab(b.dataset.tab, true)));
 function showTab(name, fromNav = false) {
-  // The camera button always brings you to the swing page (unless an analysis is running)
+  // Practice from the nav always lands on the hub (unless an analysis is running)
   if (name === 'coach' && fromNav && $('#coach-busy').hidden) { state?.player?.stop(); screen('coach-start'); renderRecent(); }
   document.querySelectorAll('nav.tabs button').forEach((b) => b.classList.toggle('active', b.dataset.tab === name));
   document.querySelectorAll('.tab').forEach((t) => t.classList.toggle('active', t.id === `tab-${name}`));
   $('#tabTitle').textContent = TITLES[name];
-  if (name === 'history') renderHistory();
+  if (name === 'history') renderScoring($('#progScoring'));
   if (name === 'settings') fillSettings();
   if (name === 'rounds') roundsHome();
   if (name === 'bag') renderBag($('#bagRoot'));
@@ -82,7 +82,8 @@ for (const id of ['#videoInput', '#videoCapture']) $(id).addEventListener('chang
   e.target.value = '';
   if (file) openVideo(file);
 });
-$('#seeAll').onclick = () => showTab('history');
+$('#seeAll').onclick = () => renderHistory();
+$('#histBack').onclick = () => { screen('coach-start'); renderRecent(); };
 document.addEventListener('toast', (e) => toast(e.detail));
 
 // Recent swings on the camera page; tap to reopen the full analysis if the video is kept.
@@ -94,6 +95,7 @@ function renderKeys() {
 
 async function renderRecent() {
   renderKeys();
+  renderPractice();
   const [all, keys] = await Promise.all([listSwings().catch(() => []), mediaKeys().catch(() => [])]);
   const has = new Set(keys);
   const plan = getPlan();
@@ -111,7 +113,7 @@ async function renderRecent() {
       <div class="s"><span class="club">${s.view === 'dtl' ? 'behind' : 'face-on'}</span><span class="club">${esc(s.club)}</span>${fmtDate(s.date)}${chk ? ` · <span style="color:var(--${chk.status})">${chk.verdict}</span>` : ''}${s.golfer ? ` · <b>${esc(s.golfer)}</b>` : s.learning === false ? ' · test' : ''}</div></div>
       <div class="${has.has(s.id) ? 'play' : 'mute'}">${has.has(s.id) ? '▶' : '›'}</div></div>`;
   }).join('');
-  el.querySelectorAll('.recent').forEach((r) => r.addEventListener('click', () => (has.has(r.dataset.id) ? openSaved(r.dataset.id) : (showTab('history'), showDetail(r.dataset.id)))));
+  el.querySelectorAll('.recent').forEach((r) => r.addEventListener('click', () => (has.has(r.dataset.id) ? openSaved(r.dataset.id) : showDetail(r.dataset.id))));
 }
 
 async function openSaved(id) {
@@ -766,7 +768,7 @@ async function renderCoachPanel(all) {
   const rt = roundTendencies(RA);
   html += `<h3 style="margin-top:16px">On the course <span class="mute small">${RA ? `last ${RA.rounds} round${RA.rounds > 1 ? 's' : ''}` : ''}</span></h3>`;
   html += rt.length ? rt.slice(0, 4).map((x) => `<div class="tend"><div><b>${esc(x.text)}</b><div class="mute small">${esc(x.detail)}</div></div></div>`).join('')
-    : `<p class="mute small">${RA ? 'No clear on-course pattern yet.' : 'Log rounds in the Rounds tab and on-course patterns show up here next to your swing ones.'}</p>`;
+    : `<p class="mute small">${RA ? 'No clear on-course pattern yet.' : 'Log rounds in Play and on-course patterns show up here next to your swing ones.'}</p>`;
   el.innerHTML = html;
   $('#focusSel')?.addEventListener('change', (e) => {
     if (e.target.value) setFocus(e.target.value);
@@ -775,22 +777,21 @@ async function renderCoachPanel(all) {
   });
 }
 
-// Progress has two halves: Scoring (rounds) and Practice (what to work on: rounds + swing coach)
-let progTab = 'scoring';
-document.querySelectorAll('#progSeg button').forEach((b) => b.addEventListener('click', () => { progTab = b.dataset.p; renderHistory(); }));
-async function renderHistory() {
-  document.querySelectorAll('#progSeg button').forEach((b) => b.classList.toggle('on', b.dataset.p === progTab));
-  $('#progSeg').hidden = false;
-  $('#progScoring').hidden = progTab !== 'scoring'; $('#progPractice').hidden = progTab !== 'practice';
-  if (progTab === 'scoring') { $('#historyDetail').hidden = true; return renderScoring($('#progScoring')); }
+// Practice hub (on the Practice tab, under the swing tiles): range work, what the rounds say to work on, the coach's read
+async function renderPractice() {
   renderWork($('#rangeWork'), { toast });
   practiceFromRounds().then((h) => { $('#practiceRounds').innerHTML = h; }).catch(() => {});
-  $('#historyDetail').hidden = true; $('#historyList').hidden = false; $('#trend').hidden = false; $('#coachPanel').hidden = false;
+  const mine = (await listSwings().catch(() => [])).filter((s) => !s.golfer);
+  renderCoachPanel(mine);
+}
+// All swings: trend + full list (Practice → See all)
+async function renderHistory() {
+  screen('coach-history');
+  $('#historyDetail').hidden = true; $('#swingsAll').hidden = false;
   const all = await listSwings().catch(() => []);
   const mine = all.filter((s) => !s.golfer);
-  renderCoachPanel(mine);
   if (!all.length) {
-    $('#trend').innerHTML = '<h2>No swings yet</h2><p class="mute">Analyse a swing in Coach and it lands here, so you can track the numbers over time.</p>';
+    $('#trend').innerHTML = '<h2>No swings yet</h2><p class="mute">Check a swing in Practice and it lands here, so you can track the numbers over time.</p>';
     $('#historyList').innerHTML = '';
     return;
   }
@@ -816,7 +817,7 @@ async function renderHistory() {
 async function showDetail(id) {
   const s = await getSwing(id);
   if (!s) return;
-  $('#progPractice').hidden = true; $('#progSeg').hidden = true;
+  showTab('coach'); screen('coach-history'); $('#swingsAll').hidden = true;
   const d = $('#historyDetail'); d.hidden = false;
   d.innerHTML = `<button class="btn" id="backBtn">‹ Back</button>
     <div class="card summary"><h2>${esc(s.summary.headline)}</h2><p>${esc(s.summary.advice)}</p><span class="score">${esc(s.summary.score)} checks on target</span><p class="mute small">${fmtDate(s.date)} · ${esc(s.club)}</p></div>

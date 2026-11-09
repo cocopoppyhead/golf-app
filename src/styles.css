@@ -154,7 +154,6 @@ nav.tabs button.active { color: var(--ink); }
 
 /* ---------- Scan page + camera nav ---------- */
 nav.tabs button svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
-nav.tabs button.cam { position: relative; padding-top: 40px; }
 .cambtn { position: absolute; top: -24px; left: 50%; transform: translateX(-50%); width: 58px; height: 58px; border-radius: 50%; background: var(--acc); display: grid; place-items: center; box-shadow: 0 0 0 5px var(--bg), 0 0 0 6px rgba(61,220,132,.35), 0 6px 20px rgba(61,220,132,.35); }
 .cambtn svg { width: 30px !important; height: 30px !important; stroke: var(--acc-ink) !important; stroke-width: 2 !important; }
 nav.tabs button.cam.active { color: var(--acc); }

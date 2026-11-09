@@ -18,7 +18,7 @@
 </head>
 <body>
   <header class="top">
-    <div class="brand"><span class="dot"></span>ohsolo<span class="mute">·</span><span id="tabTitle">Swing</span></div>
+    <div class="brand"><span class="dot"></span>ohsolo<span class="mute">·</span><span id="tabTitle">Practice</span></div>
     <button class="hdr-av" id="hdrAvatar" aria-label="Profile" hidden></button>
   </header>
 
@@ -28,7 +28,7 @@
       <div id="coach-start" class="screen">
         <div id="installBanner"></div>
         <div class="hero">
-          <div class="eyebrow">SWING COACH</div>
+          <div class="eyebrow">PRACTICE</div>
           <h1 class="display">Check a swing</h1>
           <p>Film or pick a video. The app finds each swing from address to finish, so there's nothing to trim.</p>
         </div>
@@ -45,7 +45,12 @@
         </div>
         <input id="videoCapture" type="file" accept="video/*" capture="environment" hidden />
         <input id="videoInput" type="file" accept="video/*" hidden />
-        
+        <div class="sechead"><h2>Recent swings</h2><button class="link acc" id="seeAll">See all</button></div>
+        <div id="recentSwings"></div>
+        <div id="rangeWork"></div>
+        <div id="practiceRounds"></div>
+        <div id="coachPanel" class="card coachcheck"></div>
+
         <details class="tips rowcard" id="keysCard" hidden>
           <summary><span class="ic">📓</span><span><b>My swing keys</b><br /><span class="mute small">Your own notes. Edit in Settings.</span></span><span class="chev">⌄</span></summary>
           <div class="keys" id="keysBody" style="padding:0 16px 14px"></div>
@@ -66,9 +71,16 @@
             <li>One swing per clip. Good light, no one walking behind you.</li>
           </ul>
         </details>
-        <div class="sechead"><h2>Recent swings</h2><button class="link acc" id="seeAll">See all</button></div>
-        <div id="recentSwings"></div>
         <p class="mute small center" style="margin-top:14px">Tracking runs on your phone. Videos stay on this device.</p>
+      </div>
+
+      <div id="coach-history" class="screen" hidden>
+        <div id="swingsAll">
+          <button class="btn" id="histBack">‹ Practice</button>
+          <div id="trend" class="card"></div>
+          <div id="historyList"></div>
+        </div>
+        <div id="historyDetail" hidden></div>
       </div>
 
       <div id="coach-setup" class="screen" hidden>
@@ -160,16 +172,7 @@
 
     <!-- HISTORY -->
     <section id="tab-history" class="tab">
-      <div class="seg seg2 progseg" id="progSeg"><button data-p="scoring" class="on">Scoring</button><button data-p="practice">Practice</button></div>
       <div id="progScoring"></div>
-      <div id="progPractice" hidden>
-        <div id="rangeWork"></div>
-        <div id="practiceRounds"></div>
-        <div id="coachPanel" class="card coachcheck"></div>
-        <div id="trend" class="card"></div>
-        <div id="historyList"></div>
-      </div>
-      <div id="historyDetail" hidden></div>
     </section>
 
     <!-- ROUNDS (next) -->
@@ -204,7 +207,7 @@
         <label>Tracking quality
           <select name="quality"><option value="full">Standard (faster)</option><option value="heavy">High (slower, more accurate)</option></select>
         </label>
-        <label class="check"><input type="checkbox" name="keepVideos" /> <span>Keep swing videos on this phone<br /><span class="hint">So you can replay past analyses from the Swing page. Uses phone storage (roughly 10–50 MB per swing).</span></span></label>
+        <label class="check"><input type="checkbox" name="keepVideos" /> <span>Keep swing videos on this phone<br /><span class="hint">So you can replay past analyses from Practice. Uses phone storage (roughly 10–50 MB per swing).</span></span></label>
         <hr />
         <div class="aisum" id="aiSum"></div>
         <div id="aiBox" hidden>
@@ -231,7 +234,7 @@
         </div>
         <label>My swing keys
           <textarea name="keys" rows="10" placeholder="# Set-up&#10;- Hinge hips, not upright&#10;# Swing&#10;- Slow takeaway"></textarea>
-          <span class="hint"># starts a section, - starts a key. Shown on the Swing page and used by the AI coach.</span>
+          <span class="hint"># starts a section, - starts a key. Shown in Practice and used by the AI coach.</span>
         </label>
         <label>Round rules (checked after every round)
           <div id="rulesBoxes" class="rulesbox"></div>
@@ -252,9 +255,9 @@
   </main>
 
   <nav class="tabs">
-    <button data-tab="rounds"><svg viewBox="0 0 24 24"><path d="M6 21V3l11 4-11 4"/><path d="M3 21h18"/></svg>Rounds</button>
+    <button data-tab="rounds"><svg viewBox="0 0 24 24"><path d="M6 21V3l11 4-11 4"/><path d="M3 21h18"/></svg>Play</button>
+    <button data-tab="coach" class="active"><svg viewBox="0 0 24 24"><circle cx="12" cy="9" r="5"/><path d="M12 14v4"/><path d="M8 21h8"/><path d="M10 7.5h.01M13 6h.01M13.5 9.5h.01"/></svg>Practice</button>
     <button data-tab="history"><svg viewBox="0 0 24 24"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg>Progress</button>
-    <button data-tab="coach" class="cam active" aria-label="Swing coach"><span class="cambtn"><svg viewBox="0 0 24 24"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg></span>Swing</button>
     <button data-tab="bag"><svg viewBox="0 0 24 24"><rect x="7" y="7" width="10" height="14" rx="3"/><path d="M9 7V3M12 7V2M15 7V4"/></svg>Bag</button>
     <button data-tab="settings"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>Settings</button>
   </nav>

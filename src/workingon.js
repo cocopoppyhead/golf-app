@@ -1,5 +1,5 @@
 // "Range work": the few things you're working on right now, each with drills. Temporary by design:
-// mark one fixed and it moves to your history. Lives in Progress → Practice and is part of what the
+// mark one fixed and it moves to your history. Lives on the Practice tab and is part of what the
 // AI coach knows about you (so reviews check these points first).
 import { getSettings, saveSettings } from './store.js';
 
