@@ -27,8 +27,8 @@ export function renderRangefinder(el, { toast = () => {} } = {}) {
             <button type="button" class="btn primary" id="teachBtn" style="width:100%;margin-top:8px">That's the reading</button>${teachMsg ? `<p class="small" style="margin:8px 0 0">${esc(teachMsg)}</p>` : ''}</div>` : ''}
           ${laserConnected() && !laserNeedsTeaching() && getSettings().laserProfiles?.[laserName()] ? '<button type="button" class="link" id="forgetBtn" style="margin-top:8px">Re-teach this rangefinder</button>' : ''}
           <details style="margin-top:8px"><summary class="small mute">Diagnostics log</summary><pre class="log">${esc(laserLog() || 'Nothing yet.')}</pre><button type="button" class="btn" id="copyLog" style="width:100%">Copy log</button></details>`
-        : `<p class="mute small">${isIOS() ? 'iPhone browsers don\'t support Bluetooth. Use the Golf Coach app for the rangefinder.' : 'This browser has no Bluetooth. Use Chrome, or the Golf Coach Android app.'}</p>`}
-        ${!isNative() ? '<p class="mute small" style="margin-top:8px">Other brands (Blue Tees, Shot Scope) need the Golf Coach app.</p>' : ''}
+        : `<p class="mute small">${isIOS() ? 'iPhone browsers don\'t support Bluetooth. Use the ohsolo app for the rangefinder.' : 'This browser has no Bluetooth. Use Chrome, or the ohsolo Android app.'}</p>`}
+        ${!isNative() ? '<p class="mute small" style="margin-top:8px">Other brands (Blue Tees, Shot Scope) need the ohsolo app.</p>' : ''}
       </div>`;
     el.querySelector('#copyLog')?.addEventListener('click', () => navigator.clipboard?.writeText(laserLog()).then(() => toast('Log copied')));
     el.querySelector('#pairHelp')?.addEventListener('click', () => {

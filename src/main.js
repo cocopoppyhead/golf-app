@@ -928,7 +928,7 @@ initRounds($('#roundsRoot'), {
 
 $('#exportBtn2').onclick = async () => {
   const blob = await exportData();
-  const name = `golf-coach-backup-${new Date().toISOString().slice(0, 10)}.json`;
+  const name = `ohsolo-backup-${new Date().toISOString().slice(0, 10)}.json`;
   if (isNative()) return nativeSend({ type: 'share.file', name, mime: 'application/json', b64: await blobToBase64(blob) });
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; a.click();
 };

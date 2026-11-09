@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Golf Coach",
+    "name": "ohsolo",
     "slug": "golf-coach",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -10,11 +10,11 @@
       "supportsTablet": false,
       "bundleIdentifier": "com.cocopoppyhead.golfcoach",
       "infoPlist": {
-        "NSCameraUsageDescription": "Golf Coach uses the camera to record your swing.",
+        "NSCameraUsageDescription": "ohsolo uses the camera to record your swing.",
         "NSMicrophoneUsageDescription": "Video recording includes sound from the microphone.",
-        "NSPhotoLibraryUsageDescription": "Golf Coach opens swing videos and scorecard photos from your library.",
-        "NSPhotoLibraryAddUsageDescription": "Golf Coach can save your annotated swing videos.",
-        "NSLocationWhenInUseUsageDescription": "Golf Coach uses your location for the weather (temperature and wind) when you log a shot, and to find courses near you.",
+        "NSPhotoLibraryUsageDescription": "ohsolo opens swing videos and scorecard photos from your library.",
+        "NSPhotoLibraryAddUsageDescription": "ohsolo can save your annotated swing videos.",
+        "NSLocationWhenInUseUsageDescription": "ohsolo uses your location for the weather (temperature and wind) when you log a shot, and to find courses near you.",
         "ITSAppUsesNonExemptEncryption": false
       }
     },
@@ -43,7 +43,7 @@
         {
           "isBackgroundEnabled": false,
           "neverForLocation": true,
-          "bluetoothAlwaysPermission": "Golf Coach connects to your Bushnell rangefinder to read distances."
+          "bluetoothAlwaysPermission": "ohsolo connects to your Bushnell rangefinder to read distances."
         }
       ],
       "expo-sharing",
