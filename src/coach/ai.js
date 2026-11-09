@@ -1,4 +1,4 @@
-// Optional AI coaching: sends the measurements + 4 checkpoint frames to Claude.
+// Optional AI coaching: sends the measurements + 4 checkpoint frames to Claude, ChatGPT or Gemini.
 // The API key lives only in this browser (localStorage); it is never in the code or repo.
 
 const SYSTEM = `You are a blunt, practical golf coach reviewing a face-on swing video.
@@ -23,8 +23,79 @@ After the review, end with one fenced json block, nothing after it:
 {"focus": "<one key from the allowed list, or null to keep the current focus>", "note": "<one line for your coaching notebook: what you saw and what you asked for>"}
 \`\`\``;
 
-async function callClaude({ apiKey, model, system, content, maxTokens = 1200 }) {
-  if (!apiKey) throw new Error('Add your Claude API key in Settings first.');
+// ---- providers: Claude, ChatGPT (OpenAI) and Gemini. Keys live only on this phone. ----
+export const PROVIDERS = {
+  claude: { label: 'Claude (Anthropic)', short: 'Claude', keyField: 'apiKey', modelField: 'model', def: 'claude-sonnet-5-5', ph: 'sk-ant-…', where: 'console.anthropic.com' },
+  openai: { label: 'ChatGPT (OpenAI)', short: 'ChatGPT', keyField: 'openaiKey', modelField: 'openaiModel', def: '', ph: 'sk-…', where: 'platform.openai.com/api-keys' },
+  gemini: { label: 'Gemini (Google)', short: 'Gemini', keyField: 'geminiKey', modelField: 'geminiModel', def: '', ph: 'AIza…', where: 'aistudio.google.com/apikey' },
+};
+/** The AI settings in use: { provider, apiKey, model }. */
+export function aiFrom(s) {
+  const provider = PROVIDERS[s.aiProvider] ? s.aiProvider : 'claude';
+  const p = PROVIDERS[provider];
+  return { provider, apiKey: s[p.keyField] || '', model: s[p.modelField] || p.def };
+}
+export const aiReady = (s) => !!aiFrom(s).apiKey;
+export const aiName = (s) => PROVIDERS[aiFrom(s).provider].short;
+
+/** Models this key can use, best first. */
+export async function listModels(provider, apiKey) {
+  if (provider === 'openai') {
+    const r = await fetch('https://api.openai.com/v1/models', { headers: { authorization: `Bearer ${apiKey}` } });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(d?.error?.message || `OpenAI error ${r.status}`);
+    const skip = /(audio|realtime|search|transcribe|tts|image|instruct|embedding|moderation|dall|whisper|codex|oss|preview|\d{4}-\d{2}-\d{2})/i;
+    return rank(d.data.map((m) => m.id).filter((id) => /^(gpt-|chatgpt|o\d)/i.test(id) && !skip.test(id)), /(mini|nano|luna)/i);
+  }
+  if (provider === 'gemini') {
+    const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?pageSize=200&key=${encodeURIComponent(apiKey)}`);
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(d?.error?.message || `Gemini error ${r.status}`);
+    const skip = /(embedding|tts|image|live|audio|aqa|vision|learnlm|gemma|robotics|computer|exp|preview)/i;
+    return rank((d.models || []).filter((m) => (m.supportedGenerationMethods || []).includes('generateContent')).map((m) => m.name.replace(/^models\//, '')).filter((id) => /gemini/i.test(id) && !skip.test(id)), /(lite|flash-8b)/i);
+  }
+  return [PROVIDERS.claude.def];
+}
+// newest version first; "small" models last
+function rank(ids, small) {
+  const ver = (id) => (id.match(/\d+(\.\d+)?/) || ['0'])[0] * 1;
+  return [...new Set(ids)].sort((a, b) => (small.test(a) - small.test(b)) || ver(b) - ver(a) || a.length - b.length);
+}
+
+async function callLLM({ provider = 'claude', apiKey, model, system, content, maxTokens = 1200 }) {
+  const name = PROVIDERS[provider]?.short || 'AI';
+  if (!apiKey) throw new Error(`Add your ${name} API key in Settings first.`);
+  if (!model) model = (await listModels(provider, apiKey))[0];
+  const images = content.filter((c) => c.type === 'image').map((c) => c.source.data);
+  const text = content.filter((c) => c.type === 'text').map((c) => c.text).join('\n\n');
+
+  if (provider === 'openai') {
+    const res = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', authorization: `Bearer ${apiKey}` },
+      body: JSON.stringify({
+        model, max_completion_tokens: maxTokens * 3,
+        messages: [{ role: 'system', content: system }, { role: 'user', content: [...images.map((d) => ({ type: 'image_url', image_url: { url: `data:image/jpeg;base64,${d}` } })), { type: 'text', text }] }],
+      }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data?.error?.message || `ChatGPT API error ${res.status}`);
+    return data.choices?.[0]?.message?.content || '';
+  }
+  if (provider === 'gemini') {
+    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-goog-api-key': apiKey },
+      body: JSON.stringify({
+        systemInstruction: { parts: [{ text: system }] },
+        contents: [{ role: 'user', parts: [...images.map((d) => ({ inline_data: { mime_type: 'image/jpeg', data: d } })), { text }] }],
+        generationConfig: { maxOutputTokens: maxTokens * 4 },
+      }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data?.error?.message || `Gemini API error ${res.status}`);
+    return (data.candidates?.[0]?.content?.parts || []).filter((p) => p.text && !p.thought).map((p) => p.text).join('\n');
+  }
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: { 'content-type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
@@ -38,7 +109,7 @@ async function callClaude({ apiKey, model, system, content, maxTokens = 1200 }) 
 const img = (d) => ({ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: d.split(',')[1] } });
 
 /** Read a scorecard photo into JSON. kind: 'course' (par/SI/yards) or 'scores' (one player's row). */
-export async function readCard({ apiKey, model, images, kind, player = '', holes = 18 }) {
+export async function readCard({ provider, apiKey, model, images, kind, player = '', holes = 18 }) {
   const ask = kind === 'course'
     ? `This is a golf scorecard. Extract the course layout. Return ONLY JSON:
 {"name": "<course name if printed, else null>", "tees": [{"name": "<tee colour/name>", "yards": [<${holes} numbers or null>]}], "par": [<${holes} integers>], "si": [<${holes} integers or null>]}
@@ -46,7 +117,7 @@ Use the men's stroke index row if there are several. If a value is unreadable us
     : `This is a filled-in golf scorecard. Read the hole-by-hole scores for ${player ? `the player "${player}" (match the name or initials)` : 'the player whose row is filled in most completely (if several, the first player row)'}.
 The player may also mark putts as a small number next to the score (e.g. "5²" or "5/2") and a fairway hit with a dot or tick.
 Return ONLY JSON: {"player": "<name/initials on the row>", "scores": [<${holes} integers or null>], "putts": [<${holes} integers or null>], "fairway": [<${holes} true/false/null>], "confidence": "<high|medium|low>", "notes": "<anything unclear>"}`;
-  const text = await callClaude({ apiKey, model, system: 'You read golf scorecards precisely. Output only valid JSON, no prose.', content: [...images.map(img), { type: 'text', text: ask }], maxTokens: 1500 });
+  const text = await callLLM({ provider, apiKey, model, system: 'You read golf scorecards precisely. Output only valid JSON, no prose.', content: [...images.map(img), { type: 'text', text: ask }], maxTokens: 1500 });
   const m = text.match(/\{[\s\S]*\}/);
   if (!m) throw new Error('Could not read that card. Try a flatter, brighter photo.');
   return JSON.parse(m[0]);
@@ -61,16 +132,16 @@ Be blunt and short. No praise padding. Markdown:
 **Practice (only if worth it):** one 20-minute session.
 Under 230 words. Then end with one fenced json block: \`\`\`json {"note": "<one line for your coaching notebook>"} \`\`\``;
 
-export async function reviewRound({ apiKey, model, roundText, recentText, history, golfer = '' }) {
-  const full = await callClaude({ apiKey, model, system: ROUND_SYSTEM, content: [{ type: 'text', text: `${golfer ? `About the golfer: ${golfer}\n` : ''}THIS ROUND\n${roundText}\n\nRECENT ROUNDS\n${recentText || 'none yet'}\n\nCOACHING HISTORY (swings + notebook)\n${history || 'none yet'}` }] });
+export async function reviewRound({ provider, apiKey, model, roundText, recentText, history, golfer = '' }) {
+  const full = await callLLM({ provider, apiKey, model, system: ROUND_SYSTEM, content: [{ type: 'text', text: `${golfer ? `About the golfer: ${golfer}\n` : ''}THIS ROUND\n${roundText}\n\nRECENT ROUNDS\n${recentText || 'none yet'}\n\nCOACHING HISTORY (swings + notebook)\n${history || 'none yet'}` }] });
   let meta = null, text = full;
   const m = full.match(/```json\s*([\s\S]*?)```\s*$/);
   if (m) { try { meta = JSON.parse(m[1]); } catch {} text = full.slice(0, m.index).trim(); }
   return { text, meta };
 }
 
-export async function getCoaching({ apiKey, model, A, images, golfer = '', history = '' }) {
-  if (!apiKey) throw new Error('Add your Claude API key in Settings first.');
+export async function getCoaching({ provider, apiKey, model, A, images, golfer = '', history = '' }) {
+  if (!apiKey) throw new Error('Add an AI key (Claude, ChatGPT or Gemini) in Settings first.');
   const metrics = A.checkpoints.map((c) => ({
     checkpoint: c.title,
     items: c.items.map((i) => ({ measure: i.name, you: i.you, tour: i.pro, status: i.status })),

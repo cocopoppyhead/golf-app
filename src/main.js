@@ -7,7 +7,7 @@ import { analyseDTL } from './coach/dtl.js';
 import { drawOverlay } from './coach/render.js';
 import { SwingPlayer } from './coach/player.js';
 import { exportMp4, canExport } from './coach/export.js';
-import { getCoaching, md } from './coach/ai.js';
+import { getCoaching, md, aiFrom, aiReady, aiName, PROVIDERS, listModels } from './coach/ai.js';
 import { getSettings, saveSettings, putSwing, listSwings, getSwing, deleteSwing, putMedia, getMedia, mediaKeys } from './store.js';
 import { renderBag } from './bag.js';
 import { isMetric } from './units.js';
@@ -703,7 +703,7 @@ async function doExport() {
 
 async function doAi() {
   const out = $('#aiOut');
-  if (!settings.apiKey) { toast('Add your Claude API key in Settings to use the AI coach.'); showTab('settings'); return; }
+  if (!aiReady(settings)) { toast('Add a Claude, ChatGPT or Gemini key in Settings to use the AI coach.'); showTab('settings'); return; }
   out.hidden = false; out.innerHTML = '<p class="mute">Coach is looking at your swing…</p>';
   $('#aiBtn').disabled = true;
   try {
@@ -713,7 +713,7 @@ async function doAi() {
     const golfer = state.golfer
       ? `This is ${state.golfer}'s swing (a friend of the app owner). Coach ${state.golfer} directly; no history on file.`
       : [settings.golfer, settings.keys ? `Their own swing keys/notes (use their language): ${settings.keys.replace(/\n+/g, ' | ')}` : ''].filter(Boolean).join('. ');
-    const { text, meta } = await getCoaching({ apiKey: settings.apiKey, model: settings.model, A: state.A, images, golfer, history });
+    const { text, meta } = await getCoaching({ ...aiFrom(settings), A: state.A, images, golfer, history });
     state.ai = text;
     let extra = '';
     if (state.learning && !state.golfer && meta) {
@@ -829,9 +829,34 @@ function fillSettings() {
   f.keys.value = settings.keys || '';
   const on = new Set(settings.roundRules || DEFAULT_RULES);
   $('#rulesBoxes').innerHTML = Object.entries(RULES).map(([id, r]) => `<label class="check small"><input type="checkbox" data-rule="${id}" ${on.has(id) ? 'checked' : ''}/> ${esc(r.label)}</label>`).join('');
-  f.apiKey.value = settings.apiKey; f.model.value = settings.model; f.golfer.value = settings.golfer;
+  f.apiKey.value = settings.apiKey || ''; f.openaiKey.value = settings.openaiKey || ''; f.geminiKey.value = settings.geminiKey || ''; f.golfer.value = settings.golfer;
+  f.aiProvider.value = aiFrom(settings).provider; showProvider();
   $('#savedMsg').hidden = true;
 }
+// AI provider: show its key field and the models that key can use
+function showProvider() {
+  const f = $('#settingsForm'); const prov = f.aiProvider.value; const P = PROVIDERS[prov];
+  document.querySelectorAll('[data-prov]').forEach((el) => (el.hidden = el.dataset.prov !== prov));
+  const cur = settings[P.modelField] || P.def;
+  f.aiModel.innerHTML = cur ? `<option value="${esc(cur)}">${esc(cur)}</option>` : '<option value="">Best available (auto)</option>';
+  if (f[P.keyField].value.trim() && prov !== 'claude') loadModels();
+}
+async function loadModels() {
+  const f = $('#settingsForm'); const prov = f.aiProvider.value; const P = PROVIDERS[prov];
+  const key = f[P.keyField].value.trim();
+  if (!key) { $('#aiModelHint').textContent = `Add your ${P.short} key first.`; return; }
+  if (prov === 'claude') { const cur = f.aiModel.value || P.def; f.aiModel.innerHTML = [...new Set([cur, 'claude-sonnet-5-5', 'claude-opus-5-5', 'claude-haiku-5-5'])].map((m) => `<option ${m === cur ? 'selected' : ''}>${esc(m)}</option>`).join(''); return; }
+  $('#aiModelHint').textContent = 'Checking your key…';
+  try {
+    const ids = await listModels(prov, key);
+    const cur = settings[P.modelField];
+    f.aiModel.innerHTML = ids.map((m, i) => `<option value="${esc(m)}" ${(cur ? m === cur : i === 0) ? 'selected' : ''}>${esc(m)}${i === 0 ? ' (recommended)' : ''}</option>`).join('');
+    $('#aiModelHint').textContent = `Key works. ${ids.length} models available.`;
+  } catch (e) { $('#aiModelHint').textContent = `That key didn't work: ${e.message}`; }
+}
+$('#settingsForm').aiProvider.addEventListener('change', showProvider);
+$('#aiModels').addEventListener('click', loadModels);
+for (const n of ['openaiKey', 'geminiKey']) $('#settingsForm')[n].addEventListener('change', loadModels);
 $('#settingsForm').theme.addEventListener('change', (e) => { settings.theme = e.target.value; saveSettings(settings); applyTheme(); });
 $('#settingsForm').system.addEventListener('change', (e) => {
   const f = $('#settingsForm'); const h = parseFloat(f.height.value);
@@ -848,7 +873,8 @@ $('#settingsForm').addEventListener('submit', (e) => {
     theme: f.theme.value, system: f.system.value, heightIn: isNaN(h) ? settings.heightIn : f.system.value === 'metric' ? h / 2.54 : h,
     handedness: f.handedness.value, quality: f.quality.value, keepVideos: f.keepVideos.checked,
     keys: f.keys.value, roundRules: [...document.querySelectorAll('[data-rule]')].filter((x) => x.checked).map((x) => x.dataset.rule),
-    apiKey: f.apiKey.value.trim(), model: f.model.value.trim() || 'claude-sonnet-5-5', golfer: f.golfer.value.trim(),
+    apiKey: f.apiKey.value.trim(), openaiKey: f.openaiKey.value.trim(), geminiKey: f.geminiKey.value.trim(), aiProvider: f.aiProvider.value, golfer: f.golfer.value.trim(),
+    [PROVIDERS[f.aiProvider.value].modelField]: f.aiModel.value || PROVIDERS[f.aiProvider.value].def,
   };
   saveSettings(settings);
   applyTheme();

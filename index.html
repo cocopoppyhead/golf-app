@@ -197,12 +197,25 @@
         </label>
         <label class="check"><input type="checkbox" name="keepVideos" /> <span>Keep swing videos on this phone<br /><span class="hint">So you can replay past analyses from the Swing page. Uses phone storage (roughly 10–50 MB per swing).</span></span></label>
         <hr />
-        <label>Claude API key (for AI coach)
+        <label>AI coach
+          <select name="aiProvider"><option value="claude">Claude (Anthropic)</option><option value="openai">ChatGPT (OpenAI)</option><option value="gemini">Gemini (Google)</option></select>
+          <span class="hint">Used for swing reviews, round reviews and reading scorecard photos. Pick whichever you have a key for.</span>
+        </label>
+        <label data-prov="claude">Claude API key
           <input name="apiKey" type="password" autocomplete="off" placeholder="sk-ant-…" />
-          <span class="hint">Stored only on this phone. Get one at console.anthropic.com. Each review costs about 1–3¢.</span>
+          <span class="hint">Get one at console.anthropic.com.</span>
+        </label>
+        <label data-prov="openai">OpenAI API key
+          <input name="openaiKey" type="password" autocomplete="off" placeholder="sk-…" />
+          <span class="hint">Get one at platform.openai.com/api-keys. A ChatGPT Plus subscription doesn't include API use; the API is billed separately.</span>
+        </label>
+        <label data-prov="gemini">Gemini API key
+          <input name="geminiKey" type="password" autocomplete="off" placeholder="AIza…" />
+          <span class="hint">Get one free at aistudio.google.com/apikey.</span>
         </label>
         <label>Model
-          <input name="model" autocomplete="off" />
+          <div class="row"><select name="aiModel" id="aiModel"></select><button type="button" class="btn" id="aiModels" style="flex:0 0 auto">Refresh</button></div>
+          <span class="hint" id="aiModelHint">Keys are stored only on this phone. Each review costs a few cents at most.</span>
         </label>
         <label>My swing keys
           <textarea name="keys" rows="10" placeholder="# Set-up&#10;- Hinge hips, not upright&#10;# Swing&#10;- Slow takeaway"></textarea>

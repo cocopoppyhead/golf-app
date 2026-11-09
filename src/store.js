@@ -96,6 +96,6 @@ export async function clearLocal() {
   const d = await db();
   for (const name of ['swings', 'media', 'rounds', 'courses', 'shots']) await new Promise((res) => { const t = d.transaction(name, 'readwrite'); t.objectStore(name).clear(); t.oncomplete = res; t.onerror = res; });
   for (const k of ['golf.plan', 'golf.deleted']) localStorage.removeItem(k);
-  const keep = getSettings(); const fresh = { theme: keep.theme, system: keep.system, apiKey: keep.apiKey, model: keep.model, keepVideos: keep.keepVideos };
+  const keep = getSettings(); const fresh = { theme: keep.theme, system: keep.system, apiKey: keep.apiKey, model: keep.model, openaiKey: keep.openaiKey, openaiModel: keep.openaiModel, geminiKey: keep.geminiKey, geminiModel: keep.geminiModel, aiProvider: keep.aiProvider, keepVideos: keep.keepVideos };
   localStorage.setItem('golf.settings', JSON.stringify(fresh));
 }

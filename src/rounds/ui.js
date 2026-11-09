@@ -2,7 +2,7 @@
 import { CODES, TEE_ZONES, MISS, isGir, roundStats, aggregate, roundTendencies, roundSummaryText, pct, top, played } from './stats.js';
 import { openLibrary } from './library.js';
 import { putRound, getRound, deleteRound, listRounds, putCourse, getCourse, listCourses, deleteCourse, listSwings } from '../store.js';
-import { readCard, reviewRound, md } from '../coach/ai.js';
+import { readCard, reviewRound, md, aiFrom, aiReady } from '../coach/ai.js';
 import { coachContext, addCoachNote } from '../coach/profile.js';
 import { dist, toYards, du, duLong, PUTT_FT, puttLabel, puttUnit } from '../units.js';
 import { checkRules, rulesCard, DEFAULT_RULES } from './tiger.js';
@@ -128,10 +128,10 @@ async function editCourse(id) {
       const f = e.target.files?.[0]; if (!f) return;
       sync();
       const s = ctx.settings();
-      if (!s.apiKey) return ctx.toast('Reading a card photo uses Claude. Add your API key in Settings.', 5000);
+      if (!aiReady(s)) return ctx.toast('Reading a card photo uses AI. Add a Claude, ChatGPT or Gemini key in Settings.', 5000);
       ctx.toast('Reading the card…', 8000);
       try {
-        const data = await readCard({ apiKey: s.apiKey, model: s.model, images: [await shrink(f)], kind: 'course', holes: c.holes.length });
+        const data = await readCard({ ...aiFrom(s), images: [await shrink(f)], kind: 'course', holes: c.holes.length });
         if (data.name && !c.name) c.name = data.name;
         const tee = data.tees?.find((t) => c.tees && t.name?.toLowerCase().includes(c.tees.toLowerCase())) || data.tees?.[0];
         if (tee?.name && !c.tees) c.tees = tee.name;
@@ -266,7 +266,7 @@ function tagSheet(h, par, i, unexplained) {
 // ---------------- Scorecard photo import ----------------
 async function importCard(courseId) {
   const s = ctx.settings();
-  if (!s.apiKey) return ctx.toast('Reading a scorecard uses Claude. Add your API key in Settings.', 5000);
+  if (!aiReady(s)) return ctx.toast('Reading a scorecard uses AI. Add a Claude, ChatGPT or Gemini key in Settings.', 5000);
   const c = await getCourse(courseId);
   root.innerHTML = `<button class="btn" data-x="back">‹ Back</button>
     <div class="card"><h2>Import scorecard</h2><p class="mute">${esc(c.name)}. Photograph the card flat and well lit. Tip: write putts as a small number next to each score (5²) and a dot for a fairway hit, and it reads those too.</p>
@@ -279,7 +279,7 @@ async function importCard(courseId) {
     ctx.saveSetting?.('cardName', player);
     root.innerHTML = `<div class="busy"><div class="spinner"></div><p>Reading your card…</p></div>`;
     try {
-      const data = await readCard({ apiKey: s.apiKey, model: s.model, images: [await shrink(f)], kind: 'scores', player, holes: c.holes.length });
+      const data = await readCard({ ...aiFrom(s), images: [await shrink(f)], kind: 'scores', player, holes: c.holes.length });
       confirmCard(c, data);
     } catch (err) { ctx.toast(err.message, 6000); importCard(courseId); }
   };
@@ -402,7 +402,7 @@ async function renderSummary(r, c) {
     if (x === 'del') { await deleteRound(r.id); return roundsHome(); }
     if (x === 'ai') {
       const s = ctx.settings();
-      if (!s.apiKey) return ctx.toast('Add your Claude API key in Settings to use the AI coach.', 5000);
+      if (!aiReady(s)) return ctx.toast('Add a Claude, ChatGPT or Gemini key in Settings to use the AI coach.', 5000);
       const out = root.querySelector('#roundAi'); out.hidden = false; out.innerHTML = '<p class="mute">Coach is going through your round…</p>';
       try {
         const recent = (await listRounds()).filter((x) => x.finished && x.id !== r.id && x.learning !== false).slice(0, 8);
@@ -410,7 +410,7 @@ async function renderSummary(r, c) {
         const swings = await listSwings().catch(() => []);
         const holeLog = r.holes.map((h, i) => h ? `H${i + 1} par ${c.holes[i].par}: ${h.score} (${h.putts ?? '?'} putts${h.tee ? `, tee ${h.tee}` : ''}${h.miss ? `, missed green ${h.miss}` : ''}${h.bunker ? ', bunker' : ''}${(h.tags || []).length ? `, tags: ${h.tags.map((t) => [t.shot, t.cause, t.strike, t.result].filter(Boolean).join('/') + (t.cost ? ` +${t.cost}` : ' saved')).join('; ')}` : ''}${h.note ? `, golfer's note: "${h.note}"` : ''})` : null).filter(Boolean).join('\n');
         const roundText = `${c.name}${c.tees ? ` (${c.tees})` : ''}: ${S.score} (${toParStr(S.toPar)}). ${roundSummaryText(aggregate([{ round: r, course: c, stats: S }]))}\nRules the golfer plays by: ${checkRules(r, c, ctx.settings().roundRules || DEFAULT_RULES).map((x) => `${x.label}: ${x.holes.length ? `broken on ${x.holes.join(',')}` : 'kept'}`).join('; ')}.\nHole by hole:\n${holeLog}${r.debrief?.tags?.length || r.debrief?.notes ? `\nGolfer's debrief: ${[...(r.debrief.tags || []), r.debrief.notes].filter(Boolean).join('; ')}` : ''}`;
-        const { text, meta } = await reviewRound({ apiKey: s.apiKey, model: s.model, roundText, recentText: A ? roundSummaryText(A) : '', history: coachContext(swings, recent.length ? A : null), golfer: s.golfer });
+        const { text, meta } = await reviewRound({ ...aiFrom(s), roundText, recentText: A ? roundSummaryText(A) : '', history: coachContext(swings, recent.length ? A : null), golfer: s.golfer });
         r.ai = text; await putRound(r);
         if (meta?.note && r.learning !== false) addCoachNote(`[round] ${String(meta.note).slice(0, 280)}`);
         out.innerHTML = md(text);
