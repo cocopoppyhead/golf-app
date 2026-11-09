@@ -413,3 +413,13 @@ table.t5, table.dk { width: 100%; border-collapse: collapse; font-size: 13px; } 
 .step span { min-width: 30px; text-align: center; font-weight: 800; font-size: 18px; } .step span.under { color: var(--good); } .step span.over { color: var(--work); }
 .step.sm button { width: 28px; height: 28px; font-size: 15px; } .step.sm span { min-width: 22px; font-size: 14px; }
 .card-t tr.pr th, .card-t tr.pr td { color: var(--mute); font-weight: 500; }
+
+.slots { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 8px; }
+.slot { font-size: 12px; font-weight: 700; padding: 5px 10px; border-radius: 999px; border: 1px dashed var(--line); color: var(--mute); }
+.slot.on { border-style: solid; border-color: var(--acc); background: color-mix(in srgb, var(--acc) 18%, transparent); color: var(--ink); }
+.wkbars { display: flex; align-items: flex-end; gap: 4px; height: 34px; border-bottom: 1px solid var(--line); }
+.wkbars i { flex: 1; max-width: 26px; border-radius: 3px 3px 0 0; background: var(--panel2); } .wkbars i.on { background: var(--acc); }
+.prow2 { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-top: 1px solid var(--line); }
+.sitem { padding: 6px 0; border-top: 1px solid var(--line); } .sitem .drills { padding: 4px 0 0 26px; display: flex; flex-direction: column; gap: 4px; }
+.seg10 { display: grid; grid-template-columns: repeat(10, 1fr); gap: 3px; margin-bottom: 8px; } .seg10 button { padding: 8px 0; border-radius: 8px; border: 1px solid var(--line); background: var(--panel2); color: var(--ink); font-weight: 700; } .seg10 button.on { background: var(--acc); color: var(--acc-ink); border-color: var(--acc); }
+.plog .tagrow { cursor: pointer; }

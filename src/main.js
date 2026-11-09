@@ -23,6 +23,7 @@ import { savePlan as savePlanX } from './coach/profile.js';
 import { renderAccount, initPasswordRecovery } from './cloud/account.js';
 import { renderScoring, practiceFromRounds } from './progress.js';
 import { renderWork, workContext } from './workingon.js';
+import { renderPracticeLog, practiceContext } from './practice.js';
 import { renderRangefinder } from './rangefinder.js';
 import { maybeOnboard, avatarHtml, localProfile, openProfileEditor } from './onboarding.js';
 import { startSync } from './cloud/sync.js';
@@ -717,7 +718,7 @@ async function doAi() {
     const history = state.learning && !state.golfer ? coachContext(swings, await recentRoundAggregate()) : '';
     const golfer = state.golfer
       ? `This is ${state.golfer}'s swing (a friend of the app owner). Coach ${state.golfer} directly; no history on file.`
-      : [settings.golfer, workContext(), settings.keys ? `Their own swing keys/notes (use their language): ${settings.keys.replace(/\n+/g, ' | ')}` : ''].filter(Boolean).join('. ');
+      : [settings.golfer, workContext(), await practiceContext().catch(() => ''), settings.keys ? `Their own swing keys/notes (use their language): ${settings.keys.replace(/\n+/g, ' | ')}` : ''].filter(Boolean).join('. ');
     const { text, meta } = await getCoaching({ ...aiFrom(settings), A: state.A, images, golfer, history });
     state.ai = text;
     let extra = '';
@@ -780,6 +781,7 @@ async function renderCoachPanel(all) {
 // Practice hub (on the Practice tab, under the swing tiles): range work, what the rounds say to work on, the coach's read
 async function renderPractice() {
   renderWork($('#rangeWork'), { toast });
+  renderPracticeLog($('#practiceLog'), { toast });
   practiceFromRounds().then((h) => { $('#practiceRounds').innerHTML = h; }).catch(() => {});
   const mine = (await listSwings().catch(() => [])).filter((s) => !s.golfer);
   renderCoachPanel(mine);
