@@ -318,3 +318,15 @@ img.av { object-fit: cover; }
 .librow { display: flex; gap: 6px; align-items: stretch; } .librow .libitem { flex: 1; }
 .star { flex: none; width: 48px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; color: var(--mute); font-size: 22px; cursor: pointer; } .star.on { color: #ffd23f; }
 .libhead { font-size: 12px; color: var(--mute); text-transform: uppercase; letter-spacing: .08em; margin: 10px 2px 2px; }
+.shotrow { display: flex; gap: 10px; align-items: flex-start; padding: 8px 0; border-top: 1px solid var(--line); } .shotrow:first-of-type { border-top: 0; }
+.shotrow .sn { flex: none; width: 24px; height: 24px; border-radius: 50%; background: var(--panel2); display: grid; place-items: center; font-weight: 800; font-size: 12px; margin-top: 4px; }
+.shotrow .sb { flex: 1; min-width: 0; } .shotrow > .link { margin-top: 6px; }
+.srow1 { display: flex; align-items: center; gap: 8px; } .srow1 input { width: 84px; padding: 8px; text-align: center; } .srow1 .link { margin-left: auto; }
+.lies { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; margin-top: 6px; }
+.lies button { background: var(--panel2); color: var(--ink); border: 1px solid var(--line); border-radius: 8px; padding: 7px 2px; font: 600 11.5px Inter, system-ui; }
+.lies button.on { background: var(--acc); color: var(--acc-ink); border-color: var(--acc); } .lies button.on.auto { background: transparent; color: var(--acc); border-color: var(--acc); border-style: dashed; }
+.pen { color: var(--work); font-weight: 700; }
+.sgpill { float: right; font-size: 11.5px; padding: 2px 8px; border-radius: 10px; font-weight: 800; } .sgpill.pos { background: var(--good); color: #062; } .sgpill.neg { background: var(--work); color: #fff; }
+.sgrow { display: grid; grid-template-columns: 120px 1fr 44px; align-items: center; gap: 8px; margin: 6px 0; font-size: 13px; } .sgrow b { text-align: right; font-variant-numeric: tabular-nums; }
+.sgbar { position: relative; height: 12px; background: var(--panel2); border-radius: 6px; } .sgbar::after { content: ''; position: absolute; left: 50%; top: -3px; bottom: -3px; width: 2px; background: var(--mute); }
+.sgbar i { position: absolute; top: 0; bottom: 0; border-radius: 6px; } .sgbar i.pos { background: var(--good); } .sgbar i.neg { background: var(--work); }

@@ -6,6 +6,8 @@ import { readCard, reviewRound, md, aiFrom, aiReady } from '../coach/ai.js';
 import { coachContext, addCoachNote } from '../coach/profile.js';
 import { dist, toYards, du, duLong, PUTT_FT, puttLabel, puttUnit } from '../units.js';
 import { checkRules, rulesCard, DEFAULT_RULES } from './tiger.js';
+import { LIES, roundSG, holeSG, SG_LABELS } from './sg.js';
+import { onLaser } from '../laser.js';
 
 const DEBRIEF_TAGS = ['Driver into trouble', 'Risky shot choice', 'Approach misses', 'Short game', '3-putts', 'Lost focus', 'Back problem', 'Tired', 'Wind / conditions', 'Bad luck'];
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -18,6 +20,27 @@ let root;
 let cur = null; // { round, course, hole, review }
 
 export function initRounds(el, opts) { root = el; ctx = { ...ctx, ...opts }; }
+
+// ---------------- Rangefinder → shot distances ----------------
+// Each lock-on during an open round becomes the next shot's distance on the hole you're on.
+// Re-lasering within 45 s (pin, then a hazard, then the pin again) updates the same shot.
+onLaser(async (r) => {
+  if (!r?.raw) return;
+  let round = cur?.round && !cur.round.finished ? cur.round : (await listRounds().catch(() => [])).find((x) => !x.finished);
+  if (!round) return;
+  const course = cur?.round === round ? cur.course : await getCourse(round.courseId).catch(() => null);
+  if (!course) return;
+  const i = round.curHole ?? Math.max(0, round.holes.findIndex((x) => !x || x.score == null));
+  const h = round.holes[i] || (round.holes[i] = { score: null, putts: null, tee: null, gir: null, miss: null, bunker: false, firstPutt: null, tags: [] });
+  h.shots ||= [{ lie: 'tee', dist: course.holes[i]?.yds ?? null }];
+  const last = h.shots.reduce((m, x, k) => (x?.src === 'laser' ? k : m), -1);
+  let k = last >= 1 && Date.now() - (h.shots[last].t || 0) < 45000 ? last : h.shots.findIndex((x, n) => n >= 1 && (!x || x.dist == null));
+  if (k < 1) k = Math.max(1, h.shots.length);
+  h.shots[k] = { ...(h.shots[k] || {}), dist: Math.round(r.raw), src: 'laser', t: Date.now() };
+  await putRound(round).catch(() => {});
+  ctx.toast(`Hole ${i + 1}, shot ${k + 1}: ${dist(r.raw)} ${du()}`);
+  if (cur?.round === round && root?.isConnected && document.querySelector('.shotscard')) renderHole();
+});
 
 // ---------------- Home ----------------
 export async function roundsHome() {
@@ -45,6 +68,14 @@ export async function roundsHome() {
       <button class="btn" data-act="import" style="width:100%;margin-top:8px">📷 Already played? Import scorecard photo</button>` : ''}
     </div>
     ${A ? statsCard(A, `Last ${A.rounds} round${A.rounds > 1 ? 's' : ''}`) : ''}
+    ${await (async () => {
+      const gs = [];
+      for (const r of done.filter((x) => x.learning !== false).slice(0, 10)) { const c = await getCourse(r.courseId).catch(() => null); const G = c && roundSG(r, c); if (G && G.complete >= Math.min(9, G.holes)) gs.push(G); }
+      if (!gs.length) return '';
+      const avg = { ott: 0, app: 0, arg: 0, putt: 0, total: 0 };
+      gs.forEach((G) => { for (const k in avg) avg[k] += G[k] / gs.length; });
+      return sgCard(avg, `Average of your last ${gs.length} round${gs.length > 1 ? 's' : ''} with shot data`);
+    })()}
     ${tend.length ? `<div class="card"><h2>On the course</h2>${tend.slice(0, 5).map((t) => `<div class="tend"><div><b>${esc(t.text)}</b><div class="mute small">${esc(t.detail)}</div></div></div>`).join('')}<p class="mute small">These feed your coach alongside your swing tendencies.</p></div>` : ''}
     ${done.length ? `<h2 style="margin:18px 0 8px">Rounds</h2>` + done.map((r) => {
       const s = r._stats;
@@ -159,6 +190,26 @@ async function openRound(id) {
 
 const save = () => putRound(cur.round).catch(() => {});
 
+// Lie for a shot when the golfer hasn't picked one: from where the tee shot finished, or the green-side bunker
+function defaultLie(h, k, n) {
+  if (k === 1 && h.tee) return h.tee === 'FW' ? 'fw' : h.tee === 'LR' || h.tee === 'RR' ? 'rgh' : 'wst';
+  if (k === n - 1 && h.bunker) return 'bnk';
+  return k === 1 ? 'fw' : 'rgh';
+}
+/** Make h.shots match the strokes taken off the green (score − putts − penalties), keeping what's entered. */
+function syncShots(h, score, putts, yds) {
+  h.shots ||= [];
+  const pens = () => h.shots.filter((x) => x?.pen).length;
+  let n = Math.max(1, score - putts - pens());
+  // keep laser/typed rows beyond the count (the score may not be entered yet)
+  const filled = h.shots.reduce((m, x, k) => (x && x.dist != null ? k + 1 : m), 0);
+  n = Math.max(n, filled);
+  for (let k = 0; k < n; k++) h.shots[k] ||= { dist: null, lie: null };
+  h.shots.length = n;
+  h.shots[0] = { ...h.shots[0], lie: 'tee', dist: h.shots[0].dist ?? yds ?? null };
+  return n;
+}
+
 function renderHole() {
   const { round, course, hole: i, review } = cur;
   const ch = course.holes[i];
@@ -170,6 +221,9 @@ function renderHole() {
   const diff = score - par;
   const tagCost = (h.tags || []).reduce((a, t) => a + (t.cost || 0), 0);
   const needTag = diff > 0 && tagCost < diff;
+  round.curHole = i;
+  const nShots = syncShots(h, score, putts, ch.yds);
+  const sg = holeSG({ ...h, score, putts }, par, ch.yds);
   const tot = round.holes.reduce((a, x, k) => (x && x.score != null ? { s: a.s + x.score, p: a.p + course.holes[k].par } : a), { s: 0, p: 0 });
 
   root.innerHTML = `
@@ -192,6 +246,18 @@ function renderHole() {
     ${par >= 4 ? `<div class="card"><div class="lbl">Tee shot</div>
       <div class="zones">${TEE_ZONES.map(([k, l]) => `<button class="${h.tee === k ? 'on' : ''} z${k}" data-tee="${k}">${k[0] === 'L' ? '◀ ' : ''}${l}${k[0] === 'R' ? ' ▶' : ''}</button>`).join('')}</div></div>` : ''}
 
+    <div class="card shotscard">
+      <div class="lbl">Shots <span class="mute">${putts ? `then ${putts} putt${putts > 1 ? 's' : ''}` : ''}</span>${sg && sg.complete ? `<span class="sgpill ${sg.total >= 0 ? 'pos' : 'neg'}">SG ${sg.total >= 0 ? '+' : ''}${sg.total.toFixed(1)}</span>` : ''}</div>
+      ${h.shots.map((x, k) => {
+        if (k === 0) return `<div class="shotrow"><span class="sn">1</span><div class="sb"><b>Tee shot</b> <span class="mute">${x.dist ? `${dist(x.dist)} ${du()}` : ''}</span>${x.pen ? ' <span class="pen">+1 pen</span>' : ''}</div><button class="link" data-pen="0">${x.pen ? 'no penalty' : '+ penalty'}</button></div>`;
+        const lie = x.lie || defaultLie(h, k, h.shots.length);
+        return `<div class="shotrow"><span class="sn">${k + 1}</span><div class="sb">
+          <div class="srow1"><input inputmode="numeric" data-sd="${k}" placeholder="to pin" value="${x.dist != null ? dist(x.dist) : ''}" /><span class="mute small">${du()}${x.src === 'laser' ? ' · 📍 laser' : ''}</span><button class="link" data-pen="${k}">${x.pen ? '<span class="pen">+1 pen</span>' : '+ penalty'}</button></div>
+          <div class="lies">${LIES.map(([v, l]) => `<button class="${lie === v ? 'on' : ''} ${!x.lie && lie === v ? 'auto' : ''}" data-lie="${k}" data-v="${v}">${l.split(' ')[0]}</button>`).join('')}</div></div></div>`;
+      }).join('')}
+      <p class="mute small" style="margin:6px 0 0">Distances fill in from the rangefinder as you play. Type over them if needed.</p>
+    </div>
+
     <div class="card">
       <div class="lbl">Green <span class="badge ${g ? 'good' : 'bad'}">${g ? 'GIR ✓' : 'Missed green'}</span> <button class="link" data-gir="1">${h.gir == null ? 'auto' : 'manual'} · change</button></div>
       ${!g ? `<div class="seg4">${MISS.map(([k, l]) => `<button class="${h.miss === k ? 'on' : ''}" data-miss="${k}">${l}</button>`).join('')}</div>
@@ -201,7 +267,7 @@ function renderHole() {
 
     <div class="card ${needTag ? 'needtag' : ''}">
       <div class="lbl">${diff > 0 ? `${diff === 1 ? 'Bogey' : diff === 2 ? 'Double' : `+${diff}`}: what caused it?` : 'Bad shot you got away with? (optional)'}</div>
-      ${(h.tags || []).map((t, k) => `<div class="tagrow"><span>${esc([t.shot, t.cause, t.strike, t.result].filter(Boolean).join(' · '))} ${t.cost ? `<b>+${t.cost}</b>` : '<span class="mute">saved it</span>'}</span><button class="link" data-deltag="${k}">remove</button></div>`).join('')}
+      ${(h.tags || []).map((t, k) => `<div class="tagrow"><span>${esc([t.shot, t.cause, t.flight, t.strike, t.result].filter(Boolean).join(' · '))} ${t.cost ? `<b>+${t.cost}</b>` : '<span class="mute">saved it</span>'}</span><button class="link" data-deltag="${k}">remove</button></div>`).join('')}
       ${needTag ? `<p class="mute small">${diff - tagCost} stroke${diff - tagCost > 1 ? 's' : ''} not explained yet.</p>` : ''}
       <button class="btn" data-addtag="1" style="width:100%">+ ${diff > 0 ? 'Tag the shot' : 'Tag a saved shot'}</button>
       ${diff > 0 || h.note ? `<textarea class="hnote" data-note rows="2" placeholder="What happened? e.g. went for the green over water, should have laid up">${esc(h.note || '')}</textarea>` : ''}
@@ -220,6 +286,9 @@ function renderHole() {
   root.querySelectorAll('[data-tee]').forEach((b) => b.onclick = () => { commit(); h.tee = h.tee === b.dataset.tee ? null : b.dataset.tee; save(); renderHole(); });
   root.querySelectorAll('[data-miss]').forEach((b) => b.onclick = () => { commit(); h.miss = h.miss === b.dataset.miss ? null : b.dataset.miss; save(); renderHole(); });
   root.querySelector('[data-bunker]')?.addEventListener('change', (e) => { commit(); h.bunker = e.target.checked; save(); renderHole(); });
+  root.querySelectorAll('[data-sd]').forEach((el) => el.addEventListener('change', () => { commit(); const k = +el.dataset.sd; h.shots[k] = { ...h.shots[k], dist: toYards(el.value), src: el.value ? 'manual' : null }; save(); renderHole(); }));
+  root.querySelectorAll('[data-lie]').forEach((b) => b.onclick = () => { commit(); const k = +b.dataset.lie; h.shots[k] = { ...h.shots[k], lie: b.dataset.v }; save(); renderHole(); });
+  root.querySelectorAll('[data-pen]').forEach((b) => b.onclick = () => { commit(); const k = +b.dataset.pen; h.shots[k] = { ...h.shots[k], pen: !h.shots[k].pen }; save(); renderHole(); });
   root.querySelector('[data-gir]').onclick = () => { commit(); h.gir = h.gir == null ? !g : null; save(); renderHole(); };
   root.querySelector('[data-learn]').onchange = (e) => { round.learning = e.target.checked; save(); };
   root.querySelector('[data-note]')?.addEventListener('input', (e) => { h.note = e.target.value; clearTimeout(window.__noteT); window.__noteT = setTimeout(save, 500); });
@@ -248,13 +317,13 @@ function nextBogey(i) {
 
 /** Bottom sheet for tagging one bad shot with Conor's codes. */
 function tagSheet(h, par, i, unexplained) {
-  const t = { shot: null, cause: null, strike: null, result: null, cost: unexplained > 0 ? Math.min(2, unexplained) : 0 };
+  const t = { shot: null, cause: null, flight: null, strike: null, result: null, cost: unexplained > 0 ? Math.min(2, unexplained) : 0 };
   const sheet = document.createElement('div'); sheet.className = 'sheet';
   const draw = () => {
-    const row = (k, list) => `<div class="lbl">${{ shot: 'Shot', cause: 'Cause', strike: 'Flight / strike', result: 'Ended up' }[k]}</div><div class="codes">${list.map(([c, l]) => `<button class="${t[k] === c ? 'on' : ''}" data-k="${k}" data-v="${c}">${c}${l ? `<small>${l}</small>` : ''}</button>`).join('')}</div>`;
+    const row = (k, list) => `<div class="lbl">${{ shot: 'Shot type', cause: 'Execution', flight: 'Ball flight', strike: 'Strike', result: 'Positioning' }[k]}</div><div class="codes">${list.map(([c, l]) => `<button class="${t[k] === c ? 'on' : ''}" data-k="${k}" data-v="${c}">${c}${l ? `<small>${l}</small>` : ''}</button>`).join('')}</div>`;
     sheet.innerHTML = `<div class="sheet-in">
       <div class="sheet-h"><b>Tag a shot · hole ${i + 1}</b><button class="link" data-close>Cancel</button></div>
-      ${row('shot', CODES.shot)}${row('cause', CODES.cause)}${row('strike', CODES.strike)}${row('result', CODES.result)}
+      ${row('shot', CODES.shot)}${row('cause', CODES.cause)}${row('flight', CODES.flight)}${row('strike', CODES.strike)}${row('result', CODES.result)}
       <div class="lbl">Cost</div><div class="seg4">${[[1, '+1'], [2, '+2'], [0, 'Saved it']].map(([v, l]) => `<button class="${t.cost === v ? 'on' : ''}" data-cost="${v}">${l}</button>`).join('')}</div>
       <button class="btn primary big" data-ok ${t.shot ? '' : 'disabled'}>Add</button></div>`;
     sheet.querySelectorAll('[data-k]').forEach((b) => b.onclick = () => { t[b.dataset.k] = t[b.dataset.k] === b.dataset.v ? null : b.dataset.v; draw(); });
@@ -322,6 +391,18 @@ function confirmCard(c, data) {
 }
 
 // ---------------- Summary ----------------
+/** Strokes gained card: one bar per category, centred on the tour baseline. */
+function sgCard(G, title, sub = '') {
+  if (!G) return '';
+  const keys = ['ott', 'app', 'arg', 'putt'];
+  const max = Math.max(2, ...keys.map((k) => Math.abs(G[k])));
+  const worst = keys.reduce((a, k) => (G[k] < G[a] ? k : a), 'ott');
+  return `<div class="card"><div class="sechead" style="margin:0 0 6px"><h2 style="margin:0">Strokes gained</h2><span class="sgpill ${G.total >= 0 ? 'pos' : 'neg'}" style="float:none">${G.total >= 0 ? '+' : ''}${G.total.toFixed(1)}</span></div>
+    <p class="mute small" style="margin:0 0 10px">${esc(title)}${sub ? ` · ${esc(sub)}` : ''}. Versus a tour-average player, so negative is normal; the biggest bar is where your shots go.</p>
+    ${keys.map((k) => `<div class="sgrow"><span>${SG_LABELS[k]}</span><div class="sgbar"><i class="${G[k] >= 0 ? 'pos' : 'neg'}" style="${G[k] >= 0 ? 'left:50%' : `right:50%`};width:${(Math.abs(G[k]) / max) * 50}%"></i></div><b>${G[k] >= 0 ? '+' : ''}${G[k].toFixed(1)}</b></div>`).join('')}
+    ${G[worst] < -0.5 ? `<p class="small" style="margin:10px 0 0">Practice priority: <b>${SG_LABELS[worst].toLowerCase()}</b> (${G[worst].toFixed(1)}).</p>` : ''}</div>`;
+}
+
 function statsCard(S, title) {
   const isAgg = S.rounds != null;
   const k = isAgg ? S.per18 : 1;
@@ -368,10 +449,11 @@ async function renderSummary(r, c) {
       <tr><th>You</th>${half(9, 18)}<td><b>${S.back}</b></td></tr>` : ''}</table></div>
     </div>
     ${statsCard(S, `${S.score} (${toParStr(S.toPar)})`)}
+    ${(() => { const G = roundSG(r, c); return G && G.complete >= Math.min(9, G.holes) ? sgCard(G, 'This round', G.complete < G.holes ? `${G.complete} of ${G.holes} holes have full shot data` : '') : '<div class="card"><h2>Strokes gained</h2><p class="mute small">Log shot distances and lies (they fill in from the rangefinder) plus the first-putt distance, and strokes gained shows here.</p></div>'; })()}
     ${rulesCard(checkRules(r, c, ctx.settings().roundRules || DEFAULT_RULES), esc)}
     <div class="card debrief"><h2>Debrief</h2>
       <p class="mute small">What really decided this round? The coach reads this alongside the numbers.</p>
-      ${c.holes.map((ch, i) => ({ h: r.holes[i], ch, i })).filter(({ h, ch }) => h && h.score - ch.par >= 2).map(({ h, ch, i }) => `<div class="dhole"><b>Hole ${i + 1}: ${h.score} on a par ${ch.par}</b>${(h.tags || []).length ? `<span class="mute small"> · ${esc(h.tags.map((t) => [t.shot, t.cause, t.strike, t.result].filter(Boolean).join('/')).join(', '))}</span>` : ''}
+      ${c.holes.map((ch, i) => ({ h: r.holes[i], ch, i })).filter(({ h, ch }) => h && h.score - ch.par >= 2).map(({ h, ch, i }) => `<div class="dhole"><b>Hole ${i + 1}: ${h.score} on a par ${ch.par}</b>${(h.tags || []).length ? `<span class="mute small"> · ${esc(h.tags.map((t) => [t.shot, t.cause, t.flight, t.strike, t.result].filter(Boolean).join('/')).join(', '))}</span>` : ''}
         <textarea data-hn="${i}" rows="2" placeholder="What happened on ${i + 1}?">${esc(h.note || '')}</textarea></div>`).join('')}
       <div class="lbl">What cost you most today?</div>
       <div class="dtags">${DEBRIEF_TAGS.map((t) => `<button class="${r.debrief?.tags?.includes(t) ? 'on' : ''}" data-dt="${esc(t)}">${esc(t)}</button>`).join('')}</div>
@@ -411,7 +493,7 @@ async function renderSummary(r, c) {
         const recent = (await listRounds()).filter((x) => x.finished && x.id !== r.id && x.learning !== false).slice(0, 8);
         const A = await aggStats(recent);
         const swings = await listSwings().catch(() => []);
-        const holeLog = r.holes.map((h, i) => h ? `H${i + 1} par ${c.holes[i].par}: ${h.score} (${h.putts ?? '?'} putts${h.tee ? `, tee ${h.tee}` : ''}${h.miss ? `, missed green ${h.miss}` : ''}${h.bunker ? ', bunker' : ''}${(h.tags || []).length ? `, tags: ${h.tags.map((t) => [t.shot, t.cause, t.strike, t.result].filter(Boolean).join('/') + (t.cost ? ` +${t.cost}` : ' saved')).join('; ')}` : ''}${h.note ? `, golfer's note: "${h.note}"` : ''})` : null).filter(Boolean).join('\n');
+        const holeLog = r.holes.map((h, i) => h ? `H${i + 1} par ${c.holes[i].par}: ${h.score} (${h.putts ?? '?'} putts${h.tee ? `, tee ${h.tee}` : ''}${h.miss ? `, missed green ${h.miss}` : ''}${h.bunker ? ', bunker' : ''}${(h.tags || []).length ? `, tags: ${h.tags.map((t) => [t.shot, t.cause, t.flight, t.strike, t.result].filter(Boolean).join('/') + (t.cost ? ` +${t.cost}` : ' saved')).join('; ')}` : ''}${h.note ? `, golfer's note: "${h.note}"` : ''})` : null).filter(Boolean).join('\n');
         const roundText = `${c.name}${c.tees ? ` (${c.tees})` : ''}: ${S.score} (${toParStr(S.toPar)}). ${roundSummaryText(aggregate([{ round: r, course: c, stats: S }]))}\nRules the golfer plays by: ${checkRules(r, c, ctx.settings().roundRules || DEFAULT_RULES).map((x) => `${x.label}: ${x.holes.length ? `broken on ${x.holes.join(',')}` : 'kept'}`).join('; ')}.\nHole by hole:\n${holeLog}${r.debrief?.tags?.length || r.debrief?.notes ? `\nGolfer's debrief: ${[...(r.debrief.tags || []), r.debrief.notes].filter(Boolean).join('; ')}` : ''}`;
         const { text, meta } = await reviewRound({ ...aiFrom(s), roundText, recentText: A ? roundSummaryText(A) : '', history: coachContext(swings, recent.length ? A : null), golfer: s.golfer });
         r.ai = text; await putRound(r);

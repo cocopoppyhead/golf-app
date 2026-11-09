@@ -8,10 +8,16 @@
 
 // Conor's codes. Labels only where the meaning is unambiguous.
 export const CODES = {
-  shot: [['DRV', 'Driver'], ['TEE', 'Tee shot'], ['IRN', 'Iron 150+'], ['APP', 'Approach <150'], ['CHP', 'Chip/pitch'], ['BNK', 'Bunker'], ['PT', 'Putt']],
-  cause: [['TAC', 'Tactical'], ['SWE', 'Swing error'], ['FOC', 'Focus'], ['BAC', 'Back problem']],
-  strike: [['HK', 'Hook'], ['PL', 'Pull'], ['SL', 'Slice'], ['PU', 'Push'], ['THN', 'Thin'], ['FAT', 'Fat'], ['TOE', 'Toe'], ['HEL', 'Heel']],
-  result: [['BNK', 'Bunker'], ['OBS', 'Out of bounds'], ['WDS', 'Trees'], ['RGH', 'Rough'], ['SS', 'Short sided'], ['LNG', 'Long'], ['SHT', 'Short']],
+  // shot type
+  shot: [['DRV', 'Driver'], ['TEE', 'Non-driver off tee'], ['FWY', 'Wood/hybrid off turf'], ['IRN', 'Mid-long iron'], ['APP', 'Wedge, inside 100–150'], ['CHP', 'Chip/pitch'], ['BKR', 'Greenside bunker'], ['PT', 'Putt']],
+  // execution
+  cause: [['TAC', 'Tactical'], ['SWE', 'Swing error'], ['FOC', 'Focus / prep'], ['BAC', 'Back problem']],
+  // ball flight
+  flight: [['STR', 'Straight'], ['HK', 'Hook'], ['PL', 'Pull'], ['SL', 'Slice'], ['PU', 'Push']],
+  // strike
+  strike: [['THN', 'Thin'], ['FAT', 'Chunk / fat'], ['TOE', 'Toe'], ['HEL', 'Heel']],
+  // positioning
+  result: [['BNK', 'Bunker'], ['OBS', 'Out of bounds'], ['WDS', 'Woods'], ['RGH', 'Heavy rough'], ['SS', 'Short sided'], ['UNUD', 'Up & down made'], ['3P', '3-putt'], ['LNG', 'Long'], ['SHT', 'Short']],
 };
 export const TEE_ZONES = [['LT', 'Trouble'], ['LR', 'Rough'], ['FW', 'Fairway'], ['RR', 'Rough'], ['RT', 'Trouble']];
 export const MISS = [['S', 'Short'], ['LF', 'Left'], ['R', 'Right'], ['L', 'Long']];
@@ -64,7 +70,7 @@ export function roundStats(round, course) {
     for (const t of h.tags || []) {
       if (!t.cost) { S.saved++; continue; }
       tagged += t.cost; S.cost += t.cost;
-      for (const [k, m] of [['cause', S.byCause], ['shot', S.byShot], ['strike', S.byStrike], ['result', S.byResult]]) if (t[k]) m[t[k]] = (m[t[k]] || 0) + t.cost;
+      for (const [k, m] of [['cause', S.byCause], ['shot', S.byShot], ['flight', S.byStrike], ['strike', S.byStrike], ['result', S.byResult]]) if (t[k]) m[t[k]] = (m[t[k]] || 0) + t.cost;
     }
     if (d > 0 && tagged < d) S.untagged += d - tagged;
   });
