@@ -123,6 +123,24 @@ function distributionCard(R) {
     <p class="mute small" style="margin:6px 0 0">${tot} holes from ${H.length} hole-by-hole round${H.length > 1 ? 's' : ''}.</p></div>`;
 }
 
+/** Putting: putts a round, 1-putts and 3-putts, make % and 3-putt % by first-putt length. */
+function puttingCard(R) {
+  const H = R.filter((x) => !x.S.quick && x.S.puttsHoles);
+  if (!H.length) return '';
+  const holes = H.flatMap((x) => (x.r.holes || []).filter((h) => h && h.putts != null));
+  const n = holes.length;
+  const per18 = (f) => (n ? (holes.reduce((a, h) => a + f(h), 0) / n) * 18 : null);
+  const B = [[3, '≤3 ft'], [6, '4–6'], [10, '7–10'], [20, '11–20'], [30, '21–30'], [50, '30+']];
+  const withFp = holes.filter((h) => h.firstPutt != null);
+  const rows = B.map(([ft, l]) => { const hs = withFp.filter((h) => h.firstPutt === ft); return { l, n: hs.length, made: hs.filter((h) => h.putts === 1).length, three: hs.filter((h) => h.putts >= 3).length }; }).filter((r) => r.n);
+  const pc = (a, b) => (b ? `${Math.round((100 * a) / b)}%` : '–');
+  return `<div class="card"><h2>Putting</h2>
+    <div class="kpis"><div><b>${f1(per18((h) => h.putts))}</b><span>putts / round</span></div><div><b>${f1(per18((h) => (h.putts === 1 ? 1 : 0)))}</b><span>1-putts</span></div><div><b>${f1(per18((h) => (h.putts >= 3 ? 1 : 0)))}</b><span>3-putts</span></div><div><b>${pc(holes.filter((h) => h.putts === 0).length, n)}</b><span>holed out</span></div></div>
+    ${rows.length ? `<table class="dk"><tr><th>First putt</th><th>Made</th><th>3-putt</th><th>Holes</th></tr>${rows.map((r) => `<tr><td>${r.l}</td><td><b>${pc(r.made, r.n)}</b></td><td class="${r.three ? 'workc' : ''}">${pc(r.three, r.n)}</td><td class="mute">${r.n}</td></tr>`).join('')}</table>
+    <p class="mute small" style="margin:6px 0 0">Tour makes about 99% from 3 ft, 70% from 6, 40% from 10, 15% from 20. 3-putts from 30+ are speed, not line.</p>` : '<p class="mute small">Tap the first-putt length on each hole and make % by distance shows here.</p>'}
+  </div>`;
+}
+
 function activityCard(ALL) {
   const y = new Date().getFullYear();
   const Y = ALL.filter((x) => ym(x.r.date) === y);
@@ -169,6 +187,7 @@ export async function renderScoring(el) {
     ${handicapCard(Hc)}
     ${scoringHistoryCard(ALL, Hc)}
     ${distributionCard(R)}
+    ${puttingCard(R)}
 
     ${L.length ? `    <div class="card">
       <div class="sechead" style="margin:0 0 4px"><h2 style="margin:0">Tiger 5</h2><span class="sgpill ${t5tot <= 6 ? 'pos' : 'neg'}" style="float:none">${f1(t5tot)} / round</span></div>

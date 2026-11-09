@@ -12,7 +12,8 @@ import { dist, toYards, du, duLong, PUTT_FT, puttLabel, puttUnit } from '../unit
 import { checkRules, rulesCard, DEFAULT_RULES, tiger5, TIGER5_LABEL } from './tiger.js';
 import { LIES, roundSG, holeSG, SG_LABELS } from './sg.js';
 import { onLaser } from '../laser.js';
-import { getBag } from '../bag.js';
+import { getBag, resolveClub } from '../bag.js';
+import { listShots } from '../store.js';
 import { workContext } from '../workingon.js';
 import { practiceContext } from '../practice.js';
 
@@ -306,7 +307,7 @@ function renderHole() {
       ${detBadge(x) ? `<div class="detline">${detBadge(x)}</div>` : ''}
       ${tee ? '' : `<div class="lbl">From</div>
         <div class="lies6">${LIES.map(([v, l]) => `<button class="${lie === v ? 'on' : ''} ${!x.lie && lie === v ? 'auto' : ''}" data-lie="${k}" data-v="${v}">${l}</button>`).join('')}</div>
-        <div class="srow1"><input inputmode="numeric" data-sd="${k}" placeholder="to pin" value="${x.dist != null ? dist(x.dist) : ''}" /><span class="mute small">${du()} to the pin${x.src === 'laser' ? ' · 📍 laser' : ''}</span></div>`}
+        <div class="srow1"><input inputmode="numeric" data-sd="${k}" placeholder="to pin" value="${x.dist != null ? dist(x.dist) : ''}" /><span class="mute small">${du()} to the pin${x.src === 'laser' ? ' · 📍 laser' : x.src === 'club' ? ' · ≈ from club' : ''}</span></div>`}
       ${tee ? '' : `<div class="lbl">Swing</div>
       <div class="swings">${SWING_TYPES.map(([v, l]) => `<button class="${sw === v ? 'on' : ''} ${!x.sw && sw === v ? 'auto' : ''}" data-sw="${k}" data-v="${v}">${l}</button>`).join('')}</div>`}
       ${tee || sw === 'full' ? `<div class="lbl">Planned shape</div><div class="intent">${INTENT.map(([v, l]) => `<button class="${x.intent === v ? 'on' : ''}" data-int="${k}" data-v="${v}">${l}</button>`).join('')}</div>` : ''}
@@ -462,7 +463,17 @@ function shotDetails(h, k, par, holeIdx, done) {
     sheet.querySelectorAll('[data-cost]').forEach((b) => b.onclick = () => { d.cost = b.dataset.cost === 'null' ? null : +b.dataset.cost; draw(); });
     sheet.querySelector('[data-close]').onclick = () => sheet.remove();
     sheet.querySelector('[data-clear]')?.addEventListener('click', () => { delete x.d; sheet.remove(); done(); });
-    sheet.querySelector('[data-ok]').onclick = () => { x.d = { ...d, shot: d.shot || auto }; sheet.remove(); done(); };
+    sheet.querySelector('[data-ok]').onclick = async () => {
+      x.d = { ...d, shot: d.shot || auto };
+      // no distance logged for this shot: take the club's number from the bag (full swing), as an estimate
+      if (d.club && (x.dist == null || x.src === 'club') && (x.sw || 'full') === 'full' && k > 0) {
+        const c = getBag().find((b) => b.club === d.club);
+        const shots = await listShots().catch(() => []);
+        const e = c ? resolveClub(c, shots) : null;
+        if (e?.carry) { x.dist = e.carry; x.src = 'club'; }
+      }
+      sheet.remove(); done();
+    };
   };
   draw();
   document.body.appendChild(sheet);
