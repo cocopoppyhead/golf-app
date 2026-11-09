@@ -5,16 +5,16 @@ import { sb, currentUser } from './supabase.js';
 import {
   getSettings, saveSettings, onLocalChange, clearLocal,
   listSwings, putSwing, deleteSwing, listRounds, putRound, deleteRound,
-  listCourses, putCourse, deleteCourse, listShots, putShot, deleteShot,
-} from '../store.js';
+  listCourses, putCourse, deleteCourse, listShots, putShot, deleteShot, putSession, deleteSession, listSessions } from '../store.js';
 import { getPlan, savePlan } from '../coach/profile.js';
 
-const SETTINGS_KEYS = ['name', 'bag', 'keys', 'roundRules', 'golfer', 'heightIn', 'system', 'handedness', 'club', 'view', 'nickname', 'avatar', 'homeCourse', 'hand', 'handicap', 'onboarded', 'partials', 'laserProfiles', 'aiProvider', 'starredCourses', 'workingOn'];
+const SETTINGS_KEYS = ['name', 'bag', 'keys', 'roundRules', 'golfer', 'heightIn', 'system', 'handedness', 'club', 'view', 'nickname', 'avatar', 'homeCourse', 'hand', 'handicap', 'onboarded', 'partials', 'laserProfiles', 'aiProvider', 'starredCourses', 'workingOn', 'handicapMode', 'partners', 'practicePlan'];
 const KINDS = {
   swing: { list: listSwings, put: putSwing, del: deleteSwing },
   round: { list: listRounds, put: putRound, del: deleteRound },
   course: { list: listCourses, put: putCourse, del: deleteCourse },
   shot: { list: listShots, put: putShot, del: deleteShot },
+  session: { list: listSessions, put: putSession, del: deleteSession },
 };
 const clean = (x) => { const { _stats, ...rest } = x; return rest; };
 

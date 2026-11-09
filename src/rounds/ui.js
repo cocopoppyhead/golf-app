@@ -2,6 +2,9 @@
 import { CODES, TEE_ZONES, MISS, isGir, roundStats, aggregate, roundTendencies, roundSummaryText, pct, top, played } from './stats.js';
 import { openLibrary, isHome, starred } from './library.js';
 import { differential, courseHandicap, adjustedGross, indexFrom } from './handicap.js';
+import { getConditions, condText } from '../weather.js';
+import { getSettings as S0, saveSettings as S1 } from '../store.js';
+import { isMetric } from '../units.js';
 import { putRound, getRound, deleteRound, listRounds, putCourse, getCourse, listCourses, deleteCourse, listSwings } from '../store.js';
 import { readCard, reviewRound, md, aiFrom, aiReady } from '../coach/ai.js';
 import { coachContext, addCoachNote } from '../coach/profile.js';
@@ -114,7 +117,8 @@ async function homeAction(act, id) {
     c.lastPlayed = Date.now(); await putCourse(c);
     await putRound(r);
     cur = { round: r, course: c, hole: 0, review: false };
-    return moodSheet(r, 'start', renderHole);
+    getConditions().then((w) => { r.cond = { ...(r.cond || {}), start: w }; save(); }).catch(() => {});
+    return playersSheet(r, () => moodSheet(r, 'start', renderHole));
   }
   if (act === 'import') return importCard(sel);
   if (act === 'post') return postScore(sel);
@@ -332,6 +336,12 @@ function renderHole() {
       ${putts === 0 ? '<p class="mute small">Holed from off the green. Nice.</p>' : ''}
     </div>
 
+    ${(round.players || []).length ? `<div class="card partners"><div class="lbl">Playing partners <span class="mute">score · putts</span></div>
+      ${round.players.map((p, pi) => { const sc = p.scores[i], pt = p.putts[i]; return `<div class="prow"><b>${esc(p.name)}</b>
+        <div class="step"><button data-pp="${pi}" data-d="-1">−</button><span class="${sc == null ? 'mute' : sc < par ? 'under' : sc > par ? 'over' : ''}">${sc ?? '–'}</span><button data-pp="${pi}" data-d="1">+</button></div>
+        <div class="step sm"><button data-pq="${pi}" data-d="-1">−</button><span class="mute">${pt ?? '–'}</span><button data-pq="${pi}" data-d="1">+</button></div></div>`; }).join('')}
+      <button class="link" data-paddp>+ Partner</button></div>` : `<button class="link" data-paddp style="margin:-4px 0 8px">+ Add a playing partner's score</button>`}
+
     ${diff > 0 || h.note ? `<div class="card"><div class="lbl">${word}: what happened? <span class="mute">(optional)</span></div>
       <textarea class="hnote" data-note rows="2" placeholder="e.g. went for the green over water, should have laid up">${esc(h.note || '')}</textarea>
       <p class="mute small" style="margin:6px 0 0">Tap Details on the shot that cost you to log how it went (flight, strike, cause).</p></div>` : ''}
@@ -364,6 +374,9 @@ function renderHole() {
   root.querySelectorAll('[data-pt]').forEach((b) => b.onclick = () => { h.putts = +b.dataset.pt; if (!h.putts) h.firstPutt = null; redo(); });
   root.querySelectorAll('[data-fp]').forEach((b) => b.onclick = () => { h.firstPutt = h.firstPutt === +b.dataset.fp ? null : +b.dataset.fp; redo(); });
   root.querySelector('[data-learn]').onchange = (e) => { round.learning = e.target.checked; save(); };
+  root.querySelectorAll('[data-pp]').forEach((b) => b.onclick = () => { const p = round.players[+b.dataset.pp]; const v = p.scores[i]; p.scores[i] = v == null ? par : Math.max(1, v + +b.dataset.d); save(); renderHole(); });
+  root.querySelectorAll('[data-pq]').forEach((b) => b.onclick = () => { const p = round.players[+b.dataset.pq]; const v = p.putts[i]; p.putts[i] = v == null ? 2 : Math.max(0, v + +b.dataset.d); save(); renderHole(); });
+  root.querySelector('[data-paddp]')?.addEventListener('click', () => playersSheet(round, () => { save(); renderHole(); }));
   root.querySelector('[data-note]')?.addEventListener('input', (e) => { h.note = e.target.value; clearTimeout(window.__noteT); window.__noteT = setTimeout(save, 500); });
   // leaving a hole counts it as played: unpicked putts are taken as 2, unpicked lies as the suggested ones
   const commit = () => {
@@ -388,7 +401,7 @@ function renderHole() {
       return go();
     }
     if (a === 'finish') {
-      const done = async () => { round.finished = true; await save(); renderSummary(round, course); };
+      const done = async () => { round.finished = true; await save(); renderSummary(round, course); getConditions().then((w) => { round.cond = { ...(round.cond || {}), finish: w }; save(); }).catch(() => {}); };
       return round.mood?.finish == null ? moodSheet(round, 'finish', done) : done();
     }
     if (a === 'home') return roundsHome();
@@ -646,6 +659,37 @@ function confirmCard(c, data, day) {
   };
 }
 
+/** Weather saved with the round (start and finish), for the summary and the AI review. */
+function wxLine(r) {
+  const w = r.cond || {}; if (!w.start && !w.finish) return '';
+  const m = isMetric();
+  const a = w.start ? condText(w.start, null, m) : '', b = w.finish ? condText(w.finish, null, m) : '';
+  return `<p class="mute small" style="margin:8px 0 0">☁ ${a}${b && b !== a ? ` → ${b}` : ''}</p>`;
+}
+
+/** Who else is on the card. Names are remembered for next time. */
+function playersSheet(round, done) {
+  const s = S0(); const known = s.partners || [];
+  round.players = round.players || [];
+  const n = round.holes.length;
+  const sheet = document.createElement('div'); sheet.className = 'sheet';
+  const draw = () => {
+    const on = new Set(round.players.map((p) => p.name));
+    sheet.innerHTML = `<div class="sheet-in"><div class="sheet-h"><b>Who's playing?</b><button class="link" data-close>${round.players.length ? 'Done' : 'Just me'}</button></div>
+      <p class="mute small">Their scores go on your card, score and putts only. Your own shot detail stays separate.</p>
+      <div class="clubchips">${[...new Set([...known, ...round.players.map((p) => p.name)])].map((k) => `<button class="${on.has(k) ? 'on' : ''}" data-pk="${esc(k)}">${esc(k)}</button>`).join('')}</div>
+      <div class="row" style="margin-top:8px"><input id="pNew" placeholder="Add a name" style="flex:1" /><button class="btn" data-padd>Add</button></div>
+      <button class="btn primary big" data-ok style="margin-top:10px">${round.players.length ? `Start with ${round.players.map((p) => p.name.split(' ')[0]).join(', ')}` : 'Just me'}</button></div>`;
+    const toggle = (name) => { const i = round.players.findIndex((p) => p.name === name); if (i >= 0) round.players.splice(i, 1); else round.players.push({ name, scores: Array(n).fill(null), putts: Array(n).fill(null) }); draw(); };
+    sheet.querySelectorAll('[data-pk]').forEach((b) => b.onclick = () => toggle(b.dataset.pk));
+    sheet.querySelector('[data-padd]').onclick = () => { const v = sheet.querySelector('#pNew').value.trim(); if (!v) return; if (!known.includes(v)) { known.push(v); s.partners = known; S1(s); } toggle(v); };
+    sheet.querySelector('#pNew').addEventListener('keydown', (e) => { if (e.key === 'Enter') sheet.querySelector('[data-padd]').click(); });
+    const close = () => { sheet.remove(); done(); };
+    sheet.querySelector('[data-close]').onclick = close; sheet.querySelector('[data-ok]').onclick = close;
+  };
+  draw(); document.body.appendChild(sheet);
+}
+
 // ---------------- Summary ----------------
 /** What the shot details say to take to practice: flight and strike by shot type. */
 function practiceCard(r, c) {
@@ -711,15 +755,20 @@ async function renderSummary(r, c) {
     return `<td class="${d == null ? '' : d < 0 ? 'b' : d === 0 ? '' : d === 1 ? 'o' : 'oo'}">${x?.score ?? '–'}</td>`;
   }).join('');
   const nine = c.holes.length > 9;
+  const prow = (from, to) => (r.players || []).map((p) => `<tr class="pr"><th>${esc(p.name.split(' ')[0])}</th>${c.holes.slice(from, to).map((h, i) => { const v = p.scores[from + i]; const d = v == null ? null : v - h.par; return `<td class="${d == null ? '' : d < 0 ? 'b' : d === 0 ? '' : d === 1 ? 'o' : 'oo'}">${v ?? '–'}</td>`; }).join('')}<td>${c.holes.slice(from, to).reduce((a, h, i) => a + (p.scores[from + i] || 0), 0) || '–'}</td></tr>`).join('');
   root.innerHTML = `
     <button class="btn" data-x="back">‹ Rounds</button>
     <div class="card"><h2>${esc(r.courseName)} <span class="mute small">${fmtD(r.date)}</span></h2>
       <div class="scroll"><table class="card-t"><tr><th>Hole</th>${c.holes.slice(0, 9).map((_, i) => `<th>${i + 1}</th>`).join('')}<th>Out</th></tr>
       <tr><th>Par</th>${c.holes.slice(0, 9).map((h) => `<td class="mute">${h.par}</td>`).join('')}<td class="mute">${c.holes.slice(0, 9).reduce((a, h) => a + h.par, 0)}</td></tr>
       <tr><th>You</th>${half(0, 9)}<td><b>${S.front}</b></td></tr>
+      ${prow(0, 9)}
       ${nine ? `<tr><th>Hole</th>${c.holes.slice(9).map((_, i) => `<th>${i + 10}</th>`).join('')}<th>In</th></tr>
       <tr><th>Par</th>${c.holes.slice(9).map((h) => `<td class="mute">${h.par}</td>`).join('')}<td class="mute">${c.holes.slice(9).reduce((a, h) => a + h.par, 0)}</td></tr>
-      <tr><th>You</th>${half(9, 18)}<td><b>${S.back}</b></td></tr>` : ''}</table></div>
+      <tr><th>You</th>${half(9, 18)}<td><b>${S.back}</b></td></tr>
+      ${prow(9, 18)}` : ''}</table></div>
+      ${(r.players || []).length ? `<p class="mute small" style="margin:8px 0 0">${r.players.map((p) => `${esc(p.name)} ${p.scores.reduce((a, v) => a + (v || 0), 0) || '–'}`).join(' · ')}</p>` : ''}
+      ${wxLine(r)}
     </div>
     ${moodLine(r) ? `<p class="mute small center">${esc(moodLine(r))}</p>` : ''}
     ${statsCard(S, `${S.score} (${toParStr(S.toPar)})`)}
@@ -773,7 +822,7 @@ async function renderSummary(r, c) {
         const swings = await listSwings().catch(() => []);
         const holeLog = r.holes.map((h, i) => h ? `H${i + 1} par ${c.holes[i].par}: ${h.score} (${h.putts ?? '?'} putts${h.tee ? `, tee ${h.tee}` : ''}${h.miss ? `, missed green ${h.miss}` : ''}${h.bunker ? ', bunker' : ''}${(h.tags || []).length ? `, tags: ${h.tags.map((t) => [t.shot, t.cause, t.flight, t.strike, t.result].filter(Boolean).join('/') + (t.cost ? ` +${t.cost}` : ' saved')).join('; ')}` : ''}${(h.shots || []).some((x) => x.d || x.res || x.dist) ? `, shots: ${h.shots.map((x, k) => `${k + 1}${x.lie && x.lie !== 'tee' ? ` from ${x.lie}` : ''}${x.dist ? ` ${Math.round(x.dist)}y` : ''}${x.sw ? ` ${x.sw}` : ''}${x.intent ? ` (planned ${({ D: 'draw', S: 'straight', F: 'fade' })[x.intent]})` : ''}${x.res ? ` → ${x.res}${x.dir ? ` missed ${x.dir}` : ''}${x.ss ? ' short-sided' : ''}` : ''}${x.d ? ` [${[x.d.club, x.d.flight, x.d.strike, x.d.cause, x.d.result].filter(Boolean).join('/')}]` : ''}`).join('; ')}` : ''}${h.note ? `, golfer's note: "${h.note}"` : ''})` : null).filter(Boolean).join('\n');
         const roundText = `${c.name}${c.tees ? ` (${c.tees})` : ''}: ${S.score} (${toParStr(S.toPar)}). ${moodLine(r) ? moodLine(r) + ' (1 = lethargic, 5 = calm/focused ideal, 10 = agitated). ' : ''}${roundSummaryText(aggregate([{ round: r, course: c, stats: S }]))}\nRules the golfer plays by: ${checkRules(r, c, ctx.settings().roundRules || DEFAULT_RULES).map((x) => `${x.label}: ${x.holes.length ? `broken on ${x.holes.join(',')}` : 'kept'}`).join('; ')}.\nHole by hole:\n${holeLog}${r.debrief?.tags?.length || r.debrief?.notes ? `\nGolfer's debrief: ${[...(r.debrief.tags || []), r.debrief.notes].filter(Boolean).join('; ')}` : ''}`;
-        const { text, meta } = await reviewRound({ ...aiFrom(s), roundText, recentText: A ? roundSummaryText(A) : '', history: coachContext(swings, recent.length ? A : null), golfer: [s.golfer, workContext()].filter(Boolean).join(' ') });
+        const { text, meta } = await reviewRound({ ...aiFrom(s), roundText: `${wxLine(r) ? `Conditions: ${wxLine(r).replace(/<[^>]+>/g, '').replace('☁ ', '')}\n` : ''}${roundText}`, recentText: A ? roundSummaryText(A) : '', history: coachContext(swings, recent.length ? A : null), golfer: [s.golfer, workContext()].filter(Boolean).join(' ') });
         r.ai = text; await putRound(r);
         if (meta?.note && r.learning !== false) addCoachNote(`[round] ${String(meta.note).slice(0, 280)}`);
         out.innerHTML = md(text);

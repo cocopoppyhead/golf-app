@@ -8,6 +8,7 @@ import { tiger5, TIGER5, TIGER5_LABEL, TIGER5_TOUR } from './rounds/tiger.js';
 import { sgCard, autoShotType } from './rounds/ui.js';
 import { CODES } from './rounds/stats.js';
 import { differential, adjustedGross, indexFrom, indexHistory } from './rounds/handicap.js';
+import { getSettings } from './store.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const f1 = (v) => (v == null || !Number.isFinite(v) ? '–' : v.toFixed(1));
@@ -78,6 +79,11 @@ const bars = (vals, { hi = null, lo = null, cls = () => '' } = {}) => {
 const ym = (t) => new Date(t).getFullYear();
 
 function handicapCard(Hc) {
+  const S = getSettings();
+  if (S.handicapMode === 'manual' || (!S.handicapMode && S.handicap != null)) {
+    return `<div class="card"><div class="scorehead"><div><span class="mute small">Handicap index · yours</span><div class="big">${S.handicap != null ? f1(S.handicap) : '–'}</div>
+      <span class="mute small">${S.handicap != null ? 'Kept by you (GHIN or your club). Update it in your profile.' : 'Add your index in your profile, or switch to "work it out from my rounds".'}</span></div></div></div>`;
+  }
   if (!Hc || !Hc.current) return `<div class="card"><h2>Handicap index</h2><p class="mute small">Shows after 3 rounds of 18 holes on courses with a rating and slope (every UAE library course has them). Post past scores from Play to build it faster.</p></div>`;
   const hist = Hc.history.filter((h) => h.index != null);
   const prev5 = hist.length > 5 ? hist[hist.length - 6].index : null;
@@ -157,7 +163,8 @@ export async function renderScoring(el) {
   };
   const row = (label, metric, v, fmt = f2) => `<tr><td>${label}</td><td><b>${fmt(v)}</b></td><td>${v == null ? '' : BANDS[band(metric, v)]}</td><td>${mark(metric, v)}</td></tr>`;
 
-  const Hc = handicap(ALL);
+  const auto = getSettings().handicapMode !== 'manual' && !(!getSettings().handicapMode && getSettings().handicap != null);
+  const Hc = auto ? handicap(ALL) : null;
   el.innerHTML = `
     ${handicapCard(Hc)}
     ${scoringHistoryCard(ALL, Hc)}

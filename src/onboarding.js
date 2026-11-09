@@ -21,7 +21,7 @@ const QUICK_CLUBS = ['Driver', '3 wood', '4 hybrid', '5 iron', '6 iron', '7 iron
 export function localProfile() {
   const s = getSettings();
   return {
-    name: s.name || '', nickname: s.nickname || '', avatar: s.avatar || '', handicap: s.handicap ?? null,
+    name: s.name || '', nickname: s.nickname || '', avatar: s.avatar || '', handicap: s.handicap ?? null, handicapMode: s.handicapMode || (s.handicap != null ? 'manual' : 'auto'),
     hand: s.hand || 'right', heightIn: s.heightIn, system: s.system, homeCourse: s.homeCourse || '', onboarded: !!s.onboarded,
   };
 }
@@ -106,8 +106,10 @@ export async function openProfileEditor({ first = false, prof = null, user = nul
       <label class="field-label">Nickname <span class="mute">(optional)</span></label><input id="oNick" placeholder="What the group calls you" value="${esc(p.nickname)}" />`,
     1: () => `<h2>Your game</h2>
       <p class="mute">Used for stableford points, club picks and to measure your swing.</p>
-      <label class="field-label">Handicap index</label>
-      <div class="hcprow"><input id="oHcp" inputmode="decimal" placeholder="e.g. 12.4" value="${p.handicap ?? ''}" ${!first && p.handicap == null ? 'disabled' : ''} /><label class="check mini"><input type="checkbox" id="oNoHcp" ${!first && p.handicap == null ? 'checked' : ''} /> No handicap yet</label></div>
+      <label class="field-label">Handicap</label>
+      <div class="seg seg2" id="oHm"><button type="button" data-v="manual" class="${p.handicapMode === 'manual' ? 'on' : ''}">I have one (GHIN etc.)</button><button type="button" data-v="auto" class="${p.handicapMode !== 'manual' ? 'on' : ''}">Work it out from my rounds</button></div>
+      <div class="hcprow" id="oHcpRow" ${p.handicapMode !== 'manual' ? 'hidden' : ''}><input id="oHcp" inputmode="decimal" placeholder="Index, e.g. 12.4" value="${p.handicap ?? ''}" /><label class="check mini"><input type="checkbox" id="oNoHcp" ${!first && p.handicap == null && p.handicapMode === 'manual' ? 'checked' : ''} /> Not sure</label></div>
+      <p class="mute small" id="oHmNote" style="margin:4px 0 10px">${p.handicapMode === 'manual' ? 'Keep it updated yourself; ohsolo won\'t keep a second one.' : 'ohsolo keeps a WHS-style index from the rounds and scores you post here. Good if you don\'t have an official one.'}</p>
       <label class="field-label">You play</label>
       <div class="seg seg2" id="oHand"><button type="button" data-v="right" class="${p.hand !== 'left' ? 'on' : ''}">Right-handed</button><button type="button" data-v="left" class="${p.hand === 'left' ? 'on' : ''}">Left-handed</button></div>
       <label class="field-label">Units</label>
@@ -128,7 +130,7 @@ export async function openProfileEditor({ first = false, prof = null, user = nul
     if (step === 0) { p.name = el.querySelector('#oName').value.trim(); p.nickname = el.querySelector('#oNick').value.trim(); }
     if (step === 1) {
       const h = parseFloat(el.querySelector('#oHcp').value.replace(',', '.'));
-      p.handicap = el.querySelector('#oNoHcp').checked ? null : (Number.isFinite(h) && h >= -10 && h <= 54 ? Math.round(h * 10) / 10 : p.handicap);
+      p.handicap = p.handicapMode !== 'manual' ? p.handicap : el.querySelector('#oNoHcp').checked ? null : (Number.isFinite(h) && h >= -10 && h <= 54 ? Math.round(h * 10) / 10 : p.handicap);
       readHeight();
     }
     if (step === 2) p.homeCourse = el.querySelector('#oHome').value.trim();
@@ -146,7 +148,7 @@ export async function openProfileEditor({ first = false, prof = null, user = nul
     if (saving) return; saving = true;
     try { readStep(); } catch (e) { console.warn('onboarding read', e); }
     const s2 = getSettings();
-    Object.assign(s2, { name: p.name, nickname: p.nickname, avatar: p.avatar, handicap: p.handicap, homeCourse: p.homeCourse, hand: p.hand, heightIn: p.heightIn, system: p.system, onboarded: true });
+    Object.assign(s2, { name: p.name, nickname: p.nickname, avatar: p.avatar, handicap: p.handicap, handicapMode: p.handicapMode, homeCourse: p.homeCourse, hand: p.hand, heightIn: p.heightIn, system: p.system, onboarded: true });
     if (first || step === 3 || bag.some((b) => b.carry)) s2.bag = bag;
     try { saveSettings(s2); } catch (e) { console.warn('onboarding settings', e); toast('Could not save on this phone: storage is full or blocked.'); }
     // Close straight away; the phone has everything. The cloud copy goes up in the background.
@@ -190,6 +192,11 @@ export async function openProfileEditor({ first = false, prof = null, user = nul
       try { p.name = q('#oName').value.trim(); p.nickname = q('#oNick').value.trim(); p.avatar = await shrinkPhoto(f); draw(); } catch (err) { toast(err.message); }
     });
     q('#oNoHcp')?.addEventListener('change', (e) => { q('#oHcp').disabled = e.target.checked; if (e.target.checked) q('#oHcp').value = ''; });
+    el.querySelectorAll('#oHm button').forEach((b) => b.addEventListener('click', () => {
+      p.handicapMode = b.dataset.v; el.querySelectorAll('#oHm button').forEach((x) => x.classList.toggle('on', x === b));
+      q('#oHcpRow').hidden = p.handicapMode !== 'manual';
+      q('#oHmNote').textContent = p.handicapMode === 'manual' ? 'Keep it updated yourself; ohsolo won\'t keep a second one.' : 'ohsolo keeps a WHS-style index from the rounds and scores you post here. Good if you don\'t have an official one.';
+    }));
     el.querySelectorAll('#oHand button').forEach((b) => b.addEventListener('click', () => { p.hand = b.dataset.v; el.querySelectorAll('#oHand button').forEach((x) => x.classList.toggle('on', x === b)); }));
     el.querySelectorAll('#oSys button').forEach((b) => b.addEventListener('click', () => {
       readHeight(); p.system = b.dataset.v;

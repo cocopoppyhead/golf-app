@@ -407,3 +407,9 @@ table.t5, table.dk { width: 100%; border-collapse: collapse; font-size: 13px; } 
 .hilo { display: flex; gap: 12px; } .hilo span { display: flex; flex-direction: column; align-items: center; font-size: 11px; color: var(--mute); } .hilo b { font-size: 18px; color: var(--ink); }
 .goodc { color: var(--good); } .workc { color: var(--work); }
 .kpis.k2 { grid-template-columns: repeat(2, 1fr); }
+
+.partners .prow { display: grid; grid-template-columns: 1fr auto auto; gap: 10px; align-items: center; padding: 6px 0; border-top: 1px solid var(--line); }
+.step { display: inline-flex; align-items: center; gap: 2px; } .step button { width: 34px; height: 34px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel2); color: var(--ink); font-size: 18px; }
+.step span { min-width: 30px; text-align: center; font-weight: 800; font-size: 18px; } .step span.under { color: var(--good); } .step span.over { color: var(--work); }
+.step.sm button { width: 28px; height: 28px; font-size: 15px; } .step.sm span { min-width: 22px; font-size: 14px; }
+.card-t tr.pr th, .card-t tr.pr td { color: var(--mute); font-weight: 500; }
