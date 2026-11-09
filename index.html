@@ -248,5 +248,16 @@
   </nav>
 
   <script type="module" src="/src/main.js"></script>
+  <script>
+    // If a deploy was mid-way when the app opened, the new styles/script can 404 and the page shows unstyled.
+    // Detect that and reload once.
+    addEventListener('load', function () {
+      var ok = getComputedStyle(document.documentElement).getPropertyValue('--bg').trim() && window.__golfTest;
+      try {
+        if (!ok && !sessionStorage.getItem('golf.reloaded')) { sessionStorage.setItem('golf.reloaded', '1'); setTimeout(function () { location.reload(); }, 1500); }
+        else if (ok) sessionStorage.removeItem('golf.reloaded');
+      } catch (e) {}
+    });
+  </script>
 </body>
 </html>
