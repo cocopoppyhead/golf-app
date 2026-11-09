@@ -12,7 +12,7 @@ import { getSettings, saveSettings, putSwing, listSwings, getSwing, deleteSwing,
 import { renderBag } from './bag.js';
 import { isMetric } from './units.js';
 import { drillFor, drillHtml } from './coach/drills.js';
-import { keysHtml, getKeysText } from './keys.js';
+import { keysHtml, getKeysText, parseKeys } from './keys.js';
 import { RULES, DEFAULT_RULES } from './rounds/tiger.js';
 import { renderInstall } from './install.js';
 import { exportData, importData } from './backup.js';
@@ -86,6 +86,10 @@ document.addEventListener('toast', (e) => toast(e.detail));
 // Recent swings on the camera page; tap to reopen the full analysis if the video is kept.
 function renderKeys() {
   const t = getKeysText();
+  // the "Working on…" section of your keys sits open at the top of the Swing page; the rest stays folded
+  const wo = parseKeys(t).find((s) => /^working on/i.test(s.title));
+  $('#workingOn').hidden = !wo;
+  if (wo) $('#workingOn').innerHTML = `<div class="lbl">${esc(wo.title)}</div><ol>${wo.items.map((i) => `<li>${esc(i)}</li>`).join('')}</ol>`;
   $('#keysCard').hidden = !t.trim();
   $('#keysBody').innerHTML = keysHtml(t);
 }

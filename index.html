@@ -31,6 +31,7 @@
           <p>Film or pick a video. The app finds each swing from address to finish, so there's nothing to trim.</p>
         </div>
         <div id="focusStrip" class="strip-note" hidden></div>
+        <div id="workingOn" class="card workon" hidden></div>
         <div class="tiles">
           <label class="tile" for="videoCapture">
             <svg viewBox="0 0 24 24"><path d="M15 10l5-3v10l-5-3z"/><rect x="3" y="6" width="12" height="12" rx="2"/></svg>
@@ -229,8 +230,8 @@
         <label>Round rules (checked after every round)
           <div id="rulesBoxes" class="rulesbox"></div>
         </label>
-        <label>About you (sent with AI reviews)
-          <textarea name="golfer" rows="3" placeholder="e.g. 5 handicap. Miss: block right with irons. Working on: staying centred."></textarea>
+        <label>My swing story (sent with AI reviews)
+          <textarea name="golfer" rows="8" placeholder="e.g. 5 handicap. Used to sway; now working on getting to the left heel. Miss: block right."></textarea>
         </label>
         <button class="btn primary" type="submit">Save</button>
         <hr />
