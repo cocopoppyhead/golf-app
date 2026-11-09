@@ -24,6 +24,7 @@ import { renderAccount, initPasswordRecovery } from './cloud/account.js';
 import { renderScoring, practiceFromRounds } from './progress.js';
 import { renderWork, workContext } from './workingon.js';
 import { renderPracticeLog, practiceContext } from './practice.js';
+import { renderDrillsCard, drillContext } from './drills.js';
 import { renderRangefinder } from './rangefinder.js';
 import { maybeOnboard, avatarHtml, localProfile, openProfileEditor } from './onboarding.js';
 import { startSync } from './cloud/sync.js';
@@ -718,7 +719,7 @@ async function doAi() {
     const history = state.learning && !state.golfer ? coachContext(swings, await recentRoundAggregate()) : '';
     const golfer = state.golfer
       ? `This is ${state.golfer}'s swing (a friend of the app owner). Coach ${state.golfer} directly; no history on file.`
-      : [settings.golfer, workContext(), await practiceContext().catch(() => ''), settings.keys ? `Their own swing keys/notes (use their language): ${settings.keys.replace(/\n+/g, ' | ')}` : ''].filter(Boolean).join('. ');
+      : [settings.golfer, workContext(), await practiceContext().catch(() => ''), await drillContext().catch(() => ''), settings.keys ? `Their own swing keys/notes (use their language): ${settings.keys.replace(/\n+/g, ' | ')}` : ''].filter(Boolean).join('. ');
     const { text, meta } = await getCoaching({ ...aiFrom(settings), A: state.A, images, golfer, history });
     state.ai = text;
     let extra = '';
@@ -782,6 +783,7 @@ async function renderCoachPanel(all) {
 async function renderPractice() {
   renderWork($('#rangeWork'), { toast });
   renderPracticeLog($('#practiceLog'), { toast });
+  renderDrillsCard($('#drillsCard'), { toast });
   practiceFromRounds().then((h) => { $('#practiceRounds').innerHTML = h; }).catch(() => {});
   const mine = (await listSwings().catch(() => [])).filter((s) => !s.golfer);
   renderCoachPanel(mine);
@@ -962,6 +964,7 @@ function afterAccountChange() {
 }
 renderHeaderAvatar();
 setTimeout(afterAccountChange, 1200);
+window.addEventListener('practice-changed', () => { renderPracticeLog($('#practiceLog'), { toast }); renderDrillsCard($('#drillsCard'), { toast }); });
 initPasswordRecovery({ toast, onDone: afterAccountChange });
 
 window.addEventListener('golf-synced', () => { settings = getSettings(); });

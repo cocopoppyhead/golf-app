@@ -3,6 +3,7 @@
 // The AI coach sees the log, so "what to work on" meets "what you've been working on".
 import { getSettings, saveSettings, listSessions, putSession, deleteSession } from './store.js';
 import { activeWork } from './workingon.js';
+import { openLibrary, loadDrills, fmtScore } from './drills.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const uid = () => `ps_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`;
@@ -23,7 +24,7 @@ export async function practiceContext() {
   const recent = all.filter((s) => s.date >= cut);
   const P = getPlan();
   if (!recent.length) return `Practice plan: ${P.perWeek} sessions a week. No sessions logged in the last two weeks.`;
-  const lines = recent.slice(0, 8).map((s) => `${new Date(s.date).toLocaleDateString()} ${WL[s.where] || s.where}${s.minutes ? ` ${s.minutes} min` : ''}: ${(s.items || []).map((it) => `${it.title}${it.drills?.length ? ` (${it.drills.filter((d) => d.done).map((d) => `${d.name}${d.reps ? ` ${d.reps}` : ''}`).join(', ')})` : ''}`).join('; ') || 'general'}${s.feel ? `, felt ${s.feel}/10` : ''}${s.note ? `, note: "${s.note}"` : ''}`);
+  const lines = recent.slice(0, 8).map((s) => `${new Date(s.date).toLocaleDateString()} ${WL[s.where] || s.where}${s.minutes ? ` ${s.minutes} min` : ''}: ${(s.items || []).map((it) => `${it.title}${it.drillId && it.score != null ? ` = ${it.score}${it.of ? `/${it.of}` : ''}` : ''}${it.drills?.length ? ` (${it.drills.filter((d) => d.done).map((d) => `${d.name}${d.reps ? ` ${d.reps}` : ''}`).join(', ')})` : ''}`).join('; ') || 'general'}${s.feel ? `, felt ${s.feel}/10` : ''}${s.note ? `, note: "${s.note}"` : ''}`);
   return `Practice plan: ${P.perWeek} sessions a week (range ${P.split.range}, short game ${P.split.short}, putting ${P.split.putting}). Last two weeks (${recent.length} sessions):\n${lines.join('\n')}`;
 }
 
@@ -48,7 +49,7 @@ export async function renderPracticeLog(el, { toast = () => {} } = {}) {
     <p class="mute small" style="margin:2px 0 8px">Sessions a week, last 8 weeks.</p>
     <button class="btn primary" data-log style="width:100%">+ Log a session</button>
     ${all.length ? `<details class="plog" style="margin-top:8px"><summary class="mute small">Recent sessions (${all.length})</summary>
-      ${all.slice(0, 10).map((s) => `<div class="tagrow" data-open="${s.id}"><span><b>${WL[s.where] || esc(s.where)}</b> · ${fmt(s.date)}${s.minutes ? ` · ${s.minutes} min` : ''}<div class="mute small">${(s.items || []).map((it) => esc(it.title)).join(', ') || 'general practice'}${s.feel ? ` · felt ${s.feel}/10` : ''}</div></span><span class="mute">›</span></div>`).join('')}</details>` : ''}
+      ${all.slice(0, 10).map((s) => `<div class="tagrow" data-open="${s.id}"><span><b>${WL[s.where] || esc(s.where)}</b> · ${fmt(s.date)}${s.minutes ? ` · ${s.minutes} min` : ''}<div class="mute small">${(s.items || []).map((it) => esc(it.title) + (it.drillId && it.score != null ? ` ${it.score}${it.of ? `/${it.of}` : ''}` : '')).join(', ') || 'general practice'}${s.feel ? ` · felt ${s.feel}/10` : ''}</div></span><span class="mute">›</span></div>`).join('')}</details>` : ''}
   </div>`;
   const redraw = () => renderPracticeLog(el, { toast });
   el.querySelector('[data-log]').onclick = () => sessionSheet(null, redraw, toast);
@@ -89,6 +90,9 @@ function sessionSheet(existing, done, toast) {
       <div class="lbl">What you worked on</div>
       ${work.length ? work.map((w) => { const it = itemFor(w); return `<div class="sitem ${it ? 'on' : ''}"><label class="check"><input type="checkbox" data-wk="${w.id}" ${it ? 'checked' : ''}/> <b>${esc(w.title || w.text)}</b></label>
         ${it && w.drills?.length ? `<div class="drills">${w.drills.map((d, k) => { const dd = it.drills?.[k] || {}; return `<label class="check mini"><input type="checkbox" data-dr="${w.id}:${k}" ${dd.done ? 'checked' : ''}/> ${esc(d.name)} <span class="mute">${esc(d.reps || '')}</span></label>`; }).join('')}</div>` : ''}</div>`; }).join('') : '<p class="mute small">No Range work points yet. Add them above and they show here with their drills.</p>'}
+      <div class="lbl">Drills <span class="mute">(from the library, with your score)</span></div>
+      ${s.items.filter((it) => it.drillId).map((it, i) => `<div class="sitem on drillrow2"><b>${esc(it.title)}</b><div class="row"><input inputmode="decimal" data-ds="${i}" value="${it.score ?? ''}" placeholder="score" style="flex:1" />${it.of ? `<span class="mute" style="align-self:center">/ ${it.of}</span>` : ''}<button class="link" data-drm="${i}">✕</button></div></div>`).join('')}
+      <button class="btn" data-adddrill style="width:100%;margin:6px 0 10px">+ Drill from the library</button>
       <label class="small mute">Anything else<input data-other placeholder="e.g. 30 balls wedges to 60/80/100" value="${esc(s.items.find((it) => !it.workId)?.title || '')}" /></label>
       <div class="lbl">How did it feel? <span class="mute">1 scrappy · 10 flushed</span></div>
       <div class="seg10">${Array.from({ length: 10 }, (_, i) => `<button class="${s.feel === i + 1 ? 'on' : ''}" data-feel="${i + 1}">${i + 1}</button>`).join('')}</div>
@@ -99,7 +103,10 @@ function sessionSheet(existing, done, toast) {
       s.minutes = +sheet.querySelector('[data-min]').value || null; s.note = sheet.querySelector('[data-note]').value.trim();
       const dv = sheet.querySelector('[data-date]').value; if (dv) s.date = new Date(`${dv}T12:00:00`).getTime();
       const other = sheet.querySelector('[data-other]').value.trim();
-      s.items = s.items.filter((it) => it.workId); if (other) s.items.push({ workId: null, title: other, drills: [] });
+      const D = s.items.filter((it) => it.drillId);
+      sheet.querySelectorAll('[data-ds]').forEach((el) => { const it = D[+el.dataset.ds]; if (it) it.score = el.value === '' ? null : +el.value; });
+      sheet.querySelectorAll('[data-do]').forEach((el) => { const it = D[+el.dataset.do]; if (it) it.of = +el.value || null; });
+      s.items = s.items.filter((it) => it.workId || it.drillId); if (other) s.items.push({ workId: null, title: other, drills: [] });
     };
     sheet.querySelectorAll('[data-w]').forEach((b) => b.onclick = () => { read(); s.where = b.dataset.w; draw(); });
     sheet.querySelectorAll('[data-feel]').forEach((b) => b.onclick = () => { read(); s.feel = s.feel === +b.dataset.feel ? null : +b.dataset.feel; draw(); });
@@ -109,10 +116,12 @@ function sessionSheet(existing, done, toast) {
       else s.items = s.items.filter((it) => it.workId !== w.id);
       draw();
     });
+    sheet.querySelectorAll('[data-drm]').forEach((b) => b.onclick = () => { read(); const D = s.items.filter((it) => it.drillId); s.items = s.items.filter((it) => it !== D[+b.dataset.drm]); draw(); });
+    sheet.querySelector('[data-adddrill]').onclick = () => { read(); openLibrary({ toast, onPick: (d) => { s.items.push({ drillId: d.id, title: d.name, score: null, of: d.metric.of || null, at: Date.now(), drills: [] }); if (!existing) s.where = ({ putting: 'putting', chipping: 'short', wedges: 'short', bunker: 'short' })[d.area] || s.where; draw(); } }); };
     sheet.querySelectorAll('[data-dr]').forEach((c) => c.onchange = () => { const [wid, k] = c.dataset.dr.split(':'); const it = s.items.find((x) => x.workId === wid); if (it?.drills?.[+k]) it.drills[+k].done = c.checked; });
     sheet.querySelector('[data-close]').onclick = () => sheet.remove();
-    sheet.querySelector('[data-del]')?.addEventListener('click', async () => { await deleteSession(s.id); sheet.remove(); done(); });
-    sheet.querySelector('[data-ok]').onclick = async () => { read(); await putSession(s); sheet.remove(); toast(existing ? 'Session updated.' : 'Session logged.'); done(); };
+    sheet.querySelector('[data-del]')?.addEventListener('click', async () => { await deleteSession(s.id); sheet.remove(); done(); window.dispatchEvent(new CustomEvent('practice-changed')); });
+    sheet.querySelector('[data-ok]').onclick = async () => { read(); await putSession(s); sheet.remove(); toast(existing ? 'Session updated.' : 'Session logged.'); done(); window.dispatchEvent(new CustomEvent('practice-changed')); };
   };
   draw(); document.body.appendChild(sheet);
 }

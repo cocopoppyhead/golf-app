@@ -1,0 +1,1519 @@
+{
+"version": 1,
+"areas": [
+[
+"putting",
+"Putting"
+],
+[
+"chipping",
+"Chipping"
+],
+[
+"wedges",
+"Pitching & wedges"
+],
+[
+"bunker",
+"Bunker"
+],
+[
+"swing",
+"Full swing"
+],
+[
+"irons",
+"Irons"
+],
+[
+"driver",
+"Driver"
+],
+[
+"games",
+"Range games"
+]
+],
+"drills": [
+{
+"name": "Clock drill (Around the World)",
+"area": "putting",
+"sub": "short putts",
+"purpose": "Groove 3-footers from every break angle so no short putt looks unfamiliar.",
+"setup": "One hole. 12 balls (or 4–12 tees) in a ring 3 ft from the cup, like a clock face. Golf Digest's version uses 12 balls at 2–3 ft intervals (4 per distance); Pelz's version uses 12 stickers at 3 ft on a 2–4% slope with two on the fall line.",
+"how": "Start at one position and putt each ball, moving round the circle. Each position has a different break (fall-line putts are straight, 3 and 9 o'clock have the most break). A miss restarts the circle in the strict version; for a pre-round warm-up just hole all 12 once.",
+"score": "Makes out of 12 (or out of 24 for two laps). Strict version: longest streak of consecutive makes. MyGolfSpy's one-ball variant (4 tees at 12/3/6/9, 3 laps = 12 putts) sets a target of 8/12 for beginners. Pelz target: all 12 in a row.",
+"reps": "12–36 putts, 5–10 minutes.",
+"level": "all",
+"sources": [
+"https://www.golfdigest.com/story/the-15-best-golf-practice-games",
+"https://www.synlawngolf.com/?p=1420",
+"https://mygolfspy.com/news-opinion/instruction/the-first-3-putting-drills-beginners-should-learn/",
+"https://golf.com/?p=15509905"
+],
+"id": "clock-drill-around-the-world",
+"metric": {
+"type": "count",
+"higher": true,
+"of": 12
+}
+},
+{
+"name": "Phil Mickelson's 100 three-footers",
+"area": "putting",
+"sub": "pressure",
+"purpose": "Make 3-footers automatic under cumulative pressure.",
+"setup": "10 tees (or markers) in a circle 3 ft from the hole, one ball per spot.",
+"how": "Go round the circle clockwise, holing every putt. Keep going until you have made 100 in a row; Mickelson doesn't leave the green until he reaches it. Clear the cup after 5 makes.",
+"score": "Consecutive makes before a miss (target 100). Alternative for the app: makes out of 100. Source target is 97–100% from 3 ft.",
+"reps": "100+ putts, 20–30 minutes. Mickelson does it 3–4 times a week in competition weeks.",
+"level": "advanced (scale to 25 or 50 in a row for beginners)",
+"sources": [
+"https://golf.com/instruction/phil-mickelson-key-3-footer-play-smart/",
+"https://www.golf365.com/golf-instruction/phil-mickelson-putting-drill-three-footers"
+],
+"id": "phil-mickelson-s-100-three-footers",
+"metric": {
+"type": "streak",
+"higher": true
+}
+},
+{
+"name": "Tiger's tee-gate drill",
+"area": "putting",
+"sub": "start line",
+"purpose": "Centre-face contact and a square face at impact; Tiger does it \"incessantly before every round\".",
+"setup": "Straight 3–4 ft putt. Two tees in the ground just outside the heel and toe of the putter head (gate just wider than the head). Beginners widen the gap and narrow over time.",
+"how": "Swing through the gate without touching either tee. Start right-hand only (feel the release), then both hands, alternating. Golf Digest version: alternate 12 right-hand-only putts with 6 two-handed putts, keep going until 50 or 100 in a row; a miss means start over.",
+"score": "Consecutive makes through the gate before a miss (Tiger's target 50–100). Simpler: clean gate passes + makes out of 20 right-handed and 20 two-handed.",
+"reps": "40–60 putts, 10 minutes.",
+"level": "all",
+"sources": [
+"https://www.golfdigest.com/story/tigertip_gd0710",
+"https://www.golfdigest.com/story/tiger-woods-putting-drill-gate-two-tees",
+"https://golf.com/instruction/tigers-timeless-putting-drill-explained"
+],
+"id": "tiger-s-tee-gate-drill-and-100-in-a-row",
+"metric": {
+"type": "streak",
+"higher": true
+}
+},
+{
+"name": "Start-line gate (coin/tee gate)",
+"area": "putting",
+"sub": "start line",
+"purpose": "Isolate whether the ball starts on line, independent of whether it drops.",
+"setup": "Straight 3 ft putt (Kenyon uses a 10 ft test). Two coins or tees about 12 in in front of the ball, just wide enough for a ball to pass (Kenyon: 5 cm gate, 12 in from the ball, on the target line with a string). Golf Digest \"Gate Crasher\": 8–10 ft straight putt, two ball markers halfway to the hole.",
+"how": "Roll the ball through the gate. A rep counts if it passes cleanly even if it misses the hole. Note which side you clip to learn your miss bias.",
+"score": "Gate passes out of 10. MyGolfSpy: narrow the gate only after 7/10 clean. Gate Crasher scoring: ½ point through gate, 1 point holed.",
+"reps": "10–20 putts, 5 minutes.",
+"level": "beginner / all",
+"sources": [
+"https://mygolfspy.com/news-opinion/instruction/the-first-3-putting-drills-beginners-should-learn/",
+"https://todays-golfer.com/features/instruction-features/2020/september/phil-kenyon-golf-putting-tips",
+"https://www.golfdigest.com/story/the-15-best-golf-practice-games",
+"https://pga.com/story/golf-tips-the-best-putting-drills-to-improve-your-stroke"
+],
+"id": "start-line-gate-coin-tee-gate",
+"metric": {
+"type": "count",
+"higher": true,
+"of": 10
+}
+},
+{
+"name": "Pelz Putting Tutor",
+"area": "putting",
+"sub": "start line",
+"purpose": "Face-angle feedback via two marbles the ball must pass between.",
+"setup": "Putting Tutor board on a straight putt; marbles on the beginner/intermediate/pro setting. Start with a straight 4–6 ft putt (beginner) or 5–10 ft.",
+"how": "Eyes over the ball, face flush to the straight edge, stroke, hold head still 2 s after contact. Routine: three 10-ft sets of 10 — straight, moderate L-to-R, moderate R-to-L. Knocking a marble off = face/stroke fault.",
+"score": "Clean passes between the marbles out of 10 per set (record setting used). Work up to the pro setting.",
+"reps": "3 sets of 10, a few minutes, 2–3 times a week.",
+"level": "all",
+"sources": [
+"https://thediygolfer.com/putting-tutor-golf"
+],
+"id": "pelz-putting-tutor",
+"metric": {
+"type": "count",
+"higher": true,
+"of": 10
+}
+},
+{
+"name": "String line",
+"area": "putting",
+"sub": "start line",
+"purpose": "Check eyes over the ball, see the stroke arc and visualise the start line; many pros use it.",
+"setup": "Elevated string on two pegs over a straight 6–10 ft putt, running over the ball, putter and hole. A chalk line does the same job minus the eye check.",
+"how": "Address under the string, putt along it. Watch whether the ball holds the line or drifts off it early (face) vs late (speed/read).",
+"score": "Makes out of 10 (or balls that hold the line to the hole out of 10).",
+"reps": "10–20 putts, 5 minutes.",
+"level": "all",
+"sources": [
+"https://golf.com/instruction/putting/10-pga-tour-player-approved-putting-drills-you-can-try/"
+],
+"id": "string-line",
+"metric": {
+"type": "count",
+"higher": true,
+"of": 10
+}
+},
+{
+"name": "3-6-9 drill",
+"area": "putting",
+"sub": "short putts",
+"purpose": "Make-rate test across the scoring distances.",
+"setup": "Three balls at 3, 6 and 9 ft from one hole. Repeat at 5 different holes (varying break).",
+"how": "Putt the 3, then 6, then 9. Move to the next hole. Count makes over 15 putts.",
+"score": "Makes out of 15. Brady Riggs' target: 10/15 (66%), \"anything less and you start over\".",
+"reps": "15 putts, 10 minutes.",
+"level": "all",
+"sources": [
+"https://golf.com/instruction/putting/this-putting-game-is-must-make-more-putts",
+"https://todays-golfer.com/tips-and-tuition/putting2/video-tips/2015/may/putting-3-6-9-drill"
+],
+"id": "3-6-9-drill",
+"metric": {
+"type": "count",
+"higher": true,
+"of": 15
+}
+},
+{
+"name": "Brad Faxon's 4-6-8 compass drill",
+"area": "putting",
+"sub": "pressure",
+"purpose": "Simulate par and birdie putts under a score-to-par pressure test.",
+"setup": "Three balls at 4, 6 and 8 ft from the hole. Repeat from N, S, E and W of the hole (12 putts). 4 ft and 6 ft are \"par\" putts, 8 ft is a \"birdie\" putt.",
+"how": "Putt all three from each compass point. Make every 4- and 6-footer and at least one of the four 8-footers. A missed short putt must be recovered with an extra 8-footer made.",
+"score": "Score vs par over 12 putts (miss on 4/6 ft = +1, made 8 ft = −1). Faxon's Tour target: 2-under. Alternative: makes out of 12.",
+"reps": "12 putts, 10 minutes.",
+"level": "all",
+"sources": [
+"https://golf.com/instruction/putting/brad-faxon-pressure-putting-drill/"
+],
+"id": "brad-faxon-s-4-6-8-compass-drill",
+"metric": {
+"type": "number",
+"higher": false,
+"label": "score vs par over 12 putts (e.g. -2)"
+}
+},
+{
+"name": "Hurricane (David Orr)",
+"area": "putting",
+"sub": "pressure",
+"purpose": "Consecutive-make pressure on short putts with mixed break.",
+"setup": "8 balls circled at 3 ft; 2 more on opposite sides at 4 and 5 ft. Hole is the \"eye of the storm\".",
+"how": "Hole all 10 in a row. Variant \"The Mushroom\": 6 breaking putts scattered around the hole then 3 straight 5-footers, all 9 in a row.",
+"score": "Consecutive makes before a miss (target 10/10). App alternative: attempts needed to complete a clean 10.",
+"reps": "10–30 putts, 5–10 minutes.",
+"level": "all",
+"sources": [
+"https://www.golf.com/Instruction/2019/02/11/pressure-putting-drills-practice-golf-tips-david-orr"
+],
+"id": "hurricane-david-orr",
+"metric": {
+"type": "streak",
+"higher": true
+}
+},
+{
+"name": "Leapfrog speed ladder",
+"area": "putting",
+"sub": "speed/lag",
+"purpose": "Fine distance control — each putt must go past the last but stay inside a zone.",
+"setup": "Golf Digest three-tee test: flat 30–45 ft area; tee 1 at your feet, tee 2 seven paces away, tee 3 three paces further. HackMotion version: sticks at 20 ft and 23 ft.",
+"how": "First putt must reach tee 2. Every following putt must finish past the previous ball but short of tee 3. Drill ends when a putt is shorter than the previous one or passes tee 3.",
+"score": "Number of balls in sequence. Golf Digest benchmarks: high-hcp 0–2, mid-hcp 2–3, single-digit 3–4, scratch 4–6, pro 6+.",
+"reps": "3–5 attempts, 10–15 minutes.",
+"level": "all",
+"sources": [
+"https://www.golfdigest.com/how-to/stress-tests/three-tee-putting-test",
+"https://hackmotion.com/lag-putting-drills/",
+"https://myavidgolfer.com/instruction-leap-frog/",
+"https://www.golfmonthly.com/tips/putting/putting-drills-for-speed-63445"
+],
+"id": "ladder-leapfrog-speed-drill",
+"metric": {
+"type": "count",
+"higher": true,
+"label": "balls in sequence"
+},
+"bands": [
+"0–2",
+"2–3",
+"3–4",
+"4–6",
+"6+"
+]
+},
+{
+"name": "Pelz 20-ft safe zone",
+"area": "putting",
+"sub": "speed/lag",
+"purpose": "Build a repeatable 20-ft reference stroke at Pelz's optimal speed (would finish ~17 in past).",
+"setup": "Two cups (or tees) exactly 20 ft apart, 3 balls. Safe zone = half-circle of 34 in radius (about one putter length) from the back edge of the hole.",
+"how": "Putt 3 balls to the far cup. If all 3 finish holed or in the safe zone, walk over and putt back. Any ball short of the hole or past the zone resets the streak. Alternating direction mixes uphill/downhill.",
+"score": "Longest streak of consecutive putts in the safe zone (target 10). Pelz's older 20-ft version: 10 in a row within one putter-length past the back of the cup, none short, or 15 minutes.",
+"reps": "15 minutes.",
+"level": "all",
+"sources": [
+"https://www.synlawngolf.com/?p=1428",
+"https://golf.com/instruction/putting/timeless-tips-dave-pelz-putting-system/"
+],
+"id": "pelz-20-foot-safe-zone-drill-17-inches-past",
+"metric": {
+"type": "streak",
+"higher": true
+}
+},
+{
+"name": "Club-behind-the-hole lag drill",
+"area": "putting",
+"sub": "speed/lag",
+"purpose": "Never short, never past the \"tap-in\" zone.",
+"setup": "Club, flagstick or alignment rod laid flat about 2 ft behind the hole. Start 20 ft away with 3 balls. Golf Digest variant: balls at 1, 2 and 3 putter-lengths from the hole, adding one putter-length each time you pass.",
+"how": "Each putt must go in or finish past the hole without touching the club. Short = fail. Hitting the club = fail.",
+"score": "Balls holed or in the zone (past hole, short of club) out of 10. Golf Digest variant: make all 6 without leaving one short; a short putt restarts.",
+"reps": "10–20 putts, 10 minutes.",
+"level": "beginner / all",
+"sources": [
+"https://golf.com/instruction/putting/10-pga-tour-player-approved-putting-drills-you-can-try/",
+"https://www.golfdigest.com/story/the-15-best-golf-practice-games",
+"https://golf.com/instruction/putting/how-to-stop-3-putting-speed-drill-tim-cooke/"
+],
+"id": "club-behind-the-hole-lag-drill-edge-of-hole",
+"metric": {
+"type": "count",
+"higher": true,
+"of": 10
+}
+},
+{
+"name": "Three-distance finish zone (10/20/30 ft)",
+"area": "putting",
+"sub": "speed/lag",
+"purpose": "Lag from the distances that cause most three-putts.",
+"setup": "Spots at 10, 20 and 30 ft on roughly the same line. Tee or towel edge 2 ft past the hole as a back marker. Zone = front edge of cup to the marker.",
+"how": "One ball from 10, then 20, then 30. Repeat the sequence 3 times (9 putts).",
+"score": "Points out of 9 (1 point = holed or stopped in the zone; 0 = short or past the marker). MyGolfSpy targets: 5/9 is a good start; at 7/9 change slope or distances.",
+"reps": "9 putts, 5 minutes.",
+"level": "beginner / all",
+"sources": [
+"https://mygolfspy.com/news-opinion/instruction/the-first-3-putting-drills-beginners-should-learn/"
+],
+"id": "three-distance-finish-zone-10-20-30-ft",
+"metric": {
+"type": "points",
+"higher": true,
+"of": 9
+}
+},
+{
+"name": "Pelz long lag drill (40/50/60 ft)",
+"area": "putting",
+"sub": "speed/lag",
+"purpose": "Long-range feel — leave yourself inside the \"guaranteed two-putt\" circle.",
+"setup": "Marks at 40, 50 and 60 ft from one hole, 3 balls.",
+"how": "3 balls from 40 ft aiming to stop within 4 ft; 3 from 60 ft within 6 ft; 3 from 50 ft within 5 ft. Repeat the full sequence 3 times (27 balls), then a final 3 from 60 ft.",
+"score": "Balls inside the target circle out of 27. Finisher: all 3 from 60 ft inside 6 ft, repeat until achieved. Fawcett's rule of thumb: first putt inside 5 ft makes a two-putt \"virtually guaranteed\".",
+"reps": "30 balls, 15 minutes.",
+"level": "all",
+"sources": [
+"https://golf.com/instruction/putting/timeless-tips-dave-pelz-putting-system/",
+"https://golf.com/instruction/putting/improve-speed-putting-fawcett-top-100-summit/"
+],
+"id": "pelz-long-lag-drill-40-50-60-ft",
+"metric": {
+"type": "count",
+"higher": true,
+"of": 27
+}
+},
+{
+"name": "Pull-back (Drawback) game",
+"area": "putting",
+"sub": "pressure",
+"purpose": "Punish lazy lags; make the 3–6 footers that follow.",
+"setup": "9 (or 18) holes on the practice green, each a par 2, first putt 15–50 ft. Vary distances.",
+"how": "Putt. Any miss is pulled back one putter length (about 3 ft) directly away from the hole before the next putt. Keep going until holed. \"Safety Pullback\" variant: no pull-back if the first putt reaches the hole and stops within 3 ft past it.",
+"score": "Total putts for 9 holes vs par 18. PGA.com target: even par (18) means you're really rolling it.",
+"reps": "9 holes, 15–20 minutes.",
+"level": "advanced (Safety Pullback for all)",
+"sources": [
+"https://www.pga.com/story/putting-games-that-lead-to-big-gains-part-1",
+"https://golf.com/instruction/putting/challenging-drill-make-you-better-putter/"
+],
+"id": "pull-back-drawback-game",
+"metric": {
+"type": "strokes",
+"higher": false,
+"par": 18
+}
+},
+{
+"name": "Par-18 putting course",
+"area": "putting",
+"sub": "speed/lag",
+"purpose": "On-course simulation — one ball, different holes, count every stroke.",
+"setup": "9 holes on the practice green, each par 2, 15–50 ft apart, as much variety of length and slope as possible. One ball.",
+"how": "Play the course like a round: read, routine, putt, hole out. No raking balls back. (Kenyon's \"Hole 100 ft of putts\" is a related test: one putt each from 5/10/15/20 ft at 5 hole locations, total the footage of holed putts out of 250 ft.)",
+"score": "Total putts for 9 holes vs par 18 (also log number of 3-putts). Kenyon's 100 ft test: footage holed; 100 ft = \"PGA Tour winner level\", best seen 145 ft (Henrik Stenson).",
+"reps": "9 holes, 15 minutes.",
+"level": "all",
+"sources": [
+"https://www.pga.com/story/putting-games-that-lead-to-big-gains-part-1",
+"https://todays-golfer.com/features/instruction-features/2020/september/phil-kenyon-golf-putting-tips"
+],
+"id": "par-18-putting-course",
+"metric": {
+"type": "strokes",
+"higher": false,
+"par": 18
+}
+},
+{
+"name": "Eyes-closed speed drill",
+"area": "putting",
+"sub": "speed/lag",
+"purpose": "Strip visual noise and learn to feel distance (Pelz's 1990 blindfold drill).",
+"setup": "Balls at several distances (e.g. 5, 15, 25 ft). Set up with eyes open, pick line, then close eyes just before taking the putter back.",
+"how": "Stroke by feel. Before opening your eyes, say where you think the ball finished (short/long/left/right), then look. Alternate open/closed putts.",
+"score": "Balls finishing within 3 ft of the hole out of 10 (eyes closed), plus makes. GOLF.com test format: 10 open + 10 closed from each distance; compare.",
+"reps": "20 putts, 5–10 minutes.",
+"level": "all",
+"sources": [
+"https://golf.com/instruction/putting/timeless-tips-dave-pelz-putting-system/",
+"https://golf.com/instruction/putting/can-eyes-closed-putting-work-for-average-golfer/"
+],
+"id": "eyes-closed-speed-drill",
+"metric": {
+"type": "count",
+"higher": true,
+"of": 10
+}
+},
+{
+"name": "Green-reading clock + high-point gate",
+"area": "putting",
+"sub": "green reading",
+"purpose": "Calibrate how much a putt breaks, and whether your read matches reality.",
+"setup": "Sloped hole. Walk the circle at 6–10 ft to find the fall line, then place balls at clock positions on that radius (Kenyon). Gate variant (Golf Monthly): tees one putter-head wide about 3 ft from the ball, aimed at the putt's high point; barrier stick 2 ft behind the hole; 6 balls.",
+"how": "Putt from each clock position and watch the full path to build a memory bank of break. Gate version: ignore the hole, start the ball through the gate at the apex, and let the slope do the rest.",
+"score": "Golf Monthly points per ball: 1 through the gate, 1 for finishing past the hole but short of the barrier, 2 for holing; deduct for short or past the barrier. Log total over 6 balls. Kenyon version: makes out of 12.",
+"reps": "6–12 putts per hole location, 10 minutes.",
+"level": "all",
+"sources": [
+"https://todays-golfer.com/features/instruction-features/2020/september/phil-kenyon-golf-putting-tips",
+"https://golfmonthly.com/tips/i-get-asked-how-to-read-greens-all-the-time-heres-a-simple-drill-to-help"
+],
+"id": "green-reading-clock-high-point-gate",
+"metric": {
+"type": "points",
+"higher": true,
+"of": 12
+}
+},
+{
+"name": "Two-ball drill (Bradshaw's Balls)",
+"area": "putting",
+"sub": "speed/lag",
+"purpose": "Match line and pace to a target that isn't a hole.",
+"setup": "Two balls, no hole needed. Any 15–30 ft stretch of green.",
+"how": "Putt ball 1 to a spot on the green. Then putt ball 2 with exactly the pace to roll up and nudge ball 1. If ball 2 dislodges ball 1, line and pace were right.",
+"score": "Hits out of 10 attempts.",
+"reps": "10 attempts, 5 minutes.",
+"level": "all",
+"sources": [
+"https://www.nationalclubgolfer.com/golf-tips/putting/try-this-two-ball-drill-improve-your-putting/"
+],
+"id": "two-ball-drill-bradshaw-s-balls",
+"metric": {
+"type": "count",
+"higher": true,
+"of": 10
+}
+},
+{
+"name": "Pre-putt routine drill (Stockton-style)",
+"area": "putting",
+"sub": "routine",
+"purpose": "Make the routine the thing you judge, not the result.",
+"setup": "Any 6–15 ft putts; a written 4–5 step routine (read, visualise, feel-strokes looking at the target, address, one final look, stroke within 1–2 s of eyes returning to the ball). Stockton: step straight in, keep the putter moving, one last look, roll it over a spot 1 in ahead of the ball.",
+"how": "Hit 10 putts. After each, grade only whether every routine step was executed in order and on time. Result is irrelevant.",
+"score": "Routine-compliant putts out of 10 (and, separately, makes out of 10). Target: 10/10 routine compliance.",
+"reps": "10 putts, 15–20 minutes (can be done at home).",
+"level": "all",
+"sources": [
+"https://golf.com/instruction/putting/dave-stockton-putting-tips-secrets-2021-pga-championship/",
+"https://www.golfwrx.com/165507/the-ultimate-putting-program-part-5-the-pre-shot-routine/"
+],
+"id": "pre-putt-routine-drill-stockton-style",
+"metric": {
+"type": "count",
+"higher": true,
+"of": 10
+}
+},
+{
+"name": "Towel low-point drill",
+"area": "chipping",
+"sub": "contact",
+"purpose": "Train ball-first contact by making a fat strike impossible to ignore.",
+"setup": "Flat lie, 5–15 yd chip. Folded towel a hand-width behind the ball. 10 balls.",
+"how": "Chip normally. Towel undisturbed = good strike; a thump = contact behind the ball. Weight lead side, handle slightly ahead. Move the towel closer as you improve.",
+"score": "Clean strikes (towel untouched) out of 10.",
+"reps": "10–20 balls, 5–10 min",
+"level": "all",
+"sources": [
+"https://thegolfwire.com/towel-drill-ball-contact",
+"https://www.golfmonthly.com/tips/i-can-help-you-strike-the-golf-ball-better-than-ever-before-and-all-you-need-is-a-towel"
+],
+"id": "towel-low-point-drill",
+"metric": {
+"type": "count",
+"higher": true,
+"of": 10
+}
+},
+{
+"name": "Centre-strike (rubber band) drill",
+"area": "chipping",
+"sub": "contact",
+"purpose": "Centre-face chips; instant feedback on toe/heel/hosel.",
+"setup": "Two rubber bands round the wedge face, one just outside the grooves at the toe, one at the heel. 5–15 yd chips, 10 balls.",
+"how": "A centred strike feels and sounds clean; off-centre strikes make the bands jump. Move the bands closer together as you improve.",
+"score": "Centred strikes out of 10.",
+"reps": "10–20 balls",
+"level": "all",
+"sources": [
+"https://www.golf.com/instruction/2020/01/21/improve-chipping-consistency-simple-drill/"
+],
+"id": "centre-strike-rubber-band-drill",
+"metric": {
+"type": "count",
+"higher": true,
+"of": 10
+}
+},
+{
+"name": "One-handed chipping",
+"area": "chipping",
+"sub": "contact",
+"purpose": "Stop the wrist flip, keep the leading edge down, feel the club drop through impact.",
+"setup": "Good lie, 5–10 yd chip, lots of green. Lead-arm version (Dan Grieve \"release one\"): trail hand off, grip butt finishes at the lead hip. Trail-hand version (Grieve \"release two\" / Ben Emerson): lead hand on thigh, grip butt swings toward the belt buckle.",
+"how": "Brush the grass without a ball first, then add a ball. Small swings, let gravity drop the club. After 5 one-handed chips, both hands back on lightly for 5 more with the same feel.",
+"score": "One-handed chips struck clean and finishing on the green out of 10; then a two-handed proximity score (inside 6 ft out of 10).",
+"reps": "10 + 10, ~10 min",
+"level": "all",
+"sources": [
+"https://www.golfmonthly.com/tips/4-chipping-drills-guaranteed-lower-scores-178437",
+"https://www.golfmonthly.com/tips/dan-grieves-5-best-chipping-drills"
+],
+"id": "one-handed-chipping-lead-arm-only-trail-hand-onl",
+"metric": {
+"type": "count",
+"higher": true,
+"of": 10
+}
+},
+{
+"name": "Landing zones (towel drill)",
+"area": "chipping",
+"sub": "landing spot",
+"purpose": "Pick a landing spot and hit it; learn how each club rolls out.",
+"setup": "Hole ~30 ft away. 5 balls 1 yd apart. Towel 5 steps from the pin, roughly halfway between the green edge and the flag.",
+"how": "Part 1: 5 chips with a pitching wedge. Part 2: same spot, highest-lofted wedge, every ball must land past the towel. Variation (MyGolfSpy landing-spot ladder): 3–4 markers progressively further onto the green, one club, land on each in order; miss and start over.",
+"score": "Per ball: birdie = inside 6 ft, par = inside 9 ft, bogey = outside 9 ft or didn't land past the towel. Record birdies+pars out of 5 (or balls landing on/past the towel out of 10).",
+"reps": "2 × 5 balls, 10 min",
+"level": "all",
+"sources": [
+"https://golfburnaby.ca/blog/chipping-drill-landing-zones",
+"https://mygolfspy.com/news-opinion/instruction/5-golf-chipping-games-that-make-practice-way-more-fun/"
+],
+"id": "landing-zones-towel-drill",
+"metric": {
+"type": "count",
+"higher": true,
+"of": 5
+}
+},
+{
+"name": "Chipping distance-control ladder",
+"area": "chipping",
+"sub": "distance control",
+"purpose": "Progressively shorter chips with one club.",
+"setup": "Green at least 25 yd long. A few yards off the green, tee on the green 25 yd away as the far marker. One wedge, 5–10 balls.",
+"how": "First ball as close to the far tee as possible without going past it. Each following ball must finish shorter than the previous one and as close to it as possible. Ends when a ball passes a previous ball.",
+"score": "Balls fitted on the green before one passes a previous shot. Golf Digest: high-hcp <3, mid 3–4, single-digit 4–6, scratch 6–8, pro 8+.",
+"reps": "3 attempts, 10 min",
+"level": "all",
+"sources": [
+"https://www.golfdigest.com/how-to/stress-tests/the-chipping-distance-control-test",
+"https://golf.com/instruction/drew-stoltz-ladder-drill-cobra-wedges/"
+],
+"id": "chipping-ladder",
+"metric": {
+"type": "count",
+"higher": true,
+"label": "balls on the green"
+},
+"bands": [
+"<3",
+"3–4",
+"4–6",
+"6–8",
+"8+"
+]
+},
+{
+"name": "Darts (random-lie proximity game)",
+"area": "chipping",
+"sub": "lie",
+"purpose": "Chip from whatever lie you get, one attempt, to a tight circle.",
+"setup": "6 balls. 4-ft circle round a hole marked with tees. Throw the balls to random spots (fringe, rough, tight, slopes); play each as it lies.",
+"how": "One attempt per session only, to mimic on-course pressure. Lie-specific versions: greenside rough only (Today's Golfer: under 30 yd, drop don't place), or a downslope (shoulders parallel to the slope, ball just forward of centre, handle ahead).",
+"score": "Balls inside 4 ft out of 6; beat your best.",
+"reps": "6 balls, once per session",
+"level": "all",
+"sources": [
+"https://www.golfmonthly.com/tips/4-chipping-drills-guaranteed-lower-scores-178437",
+"https://todays-golfer.com/features/instruction-features/january/may/what-is-your-short-game-handicap-",
+"https://www.golfdigest.com/how-to/2-minute-clinic/how-to-chip-off-a-downslope"
+],
+"id": "darts-random-lie-proximity-game",
+"metric": {
+"type": "count",
+"higher": true,
+"of": 6
+}
+},
+{
+"name": "High / medium / low (three-club trajectory)",
+"area": "chipping",
+"sub": "trajectory",
+"purpose": "Learn which club to use when you have green to work with.",
+"setup": "One hole 10–20 yd away. 3 balls: lofted hybrid (or 7/8-iron), pitching wedge, highest-lofted wedge.",
+"how": "Hit the three in that order to the same hole, each with a different flight/roll. Repeat the trio 3 times.",
+"score": "Per ball: birdie inside 6 ft, par inside 9 ft, bogey outside. Birdies+pars out of 9.",
+"reps": "3 × 3 balls, 10 min",
+"level": "all",
+"sources": [
+"https://www.golfburnaby.ca/whats-new/chipping-drill-high-medium-low"
+],
+"id": "high-medium-low-three-club-trajectory",
+"metric": {
+"type": "count",
+"higher": true,
+"of": 9
+}
+},
+{
+"name": "Two-ball worst-ball",
+"area": "chipping",
+"sub": "distance control",
+"purpose": "Reward consistency, not one lucky chip.",
+"setup": "8 balls, 4 random targets round the practice green from different spots/lies.",
+"how": "One ball to each of the 4 targets, then a second ball to each. At each target pace off the WORST of your two balls.",
+"score": "Total of the four worst-ball distances in feet; under 20 ft = win. Lower the target 1 ft at a time or use tougher lies.",
+"reps": "8 balls per round, 2–3 rounds",
+"level": "all",
+"sources": [
+"https://titleist.com/instruction/two-ball-chipping-game",
+"https://mygolfspy.com/news-opinion/instruction/5-golf-chipping-games-that-make-practice-way-more-fun/"
+],
+"id": "two-ball-worst-ball",
+"metric": {
+"type": "feet",
+"higher": false
+}
+},
+{
+"name": "Easy up-and-down",
+"area": "chipping",
+"sub": "up-and-down",
+"purpose": "Baseline up-and-down skill from easy spots just off the green.",
+"setup": "One ball, wedge, putter. Each \"hole\" starts no more than 3 paces off the green edge, fairway or light rough.",
+"how": "Drop a ball, chip or putt, normal routine, hole out every putt. New hole/spot each time. 10 holes, par 2 each.",
+"score": "Total strokes over 10 holes. Golf Digest: high-hcp 30–32, mid 27–29, single-digit 24–26, scratch 21–23, pro ≤20.",
+"reps": "10 holes, 20–30 min",
+"level": "all",
+"sources": [
+"https://www.golfdigest.com/how-to/stress-tests/easy-up-and-down-stress-test"
+],
+"id": "easy-up-and-down-golf-digest-stress-test",
+"metric": {
+"type": "strokes",
+"higher": false,
+"par": 20,
+"label": "total over 10 holes"
+},
+"bands": [
+"30–32",
+"27–29",
+"24–26",
+"21–23",
+"≤20"
+]
+},
+{
+"name": "Short-sided up-and-down",
+"area": "chipping",
+"sub": "up-and-down",
+"purpose": "Get up and down when short-sided without blowing up.",
+"setup": "Pin near one edge. 10 balls at varied spots just off the green on the short side; no favourable lies.",
+"how": "Play each ball through the hole. Par 2 per ball. Key: avoid costly mistakes from being too aggressive.",
+"score": "Strokes over par for 10 balls. Golf Digest: high-hcp 15+, mid 9–14, single-digit 5–8, scratch 3–5, pro ≤3.",
+"reps": "10 balls, 20 min",
+"level": "all",
+"sources": [
+"https://www.golfdigest.com/how-to/stress-tests/short-sided-stress-test"
+],
+"id": "short-sided-up-and-down-golf-digest-stress-test",
+"metric": {
+"type": "number",
+"higher": false,
+"label": "strokes over par (10 balls)"
+},
+"bands": [
+"15+",
+"9–14",
+"5–8",
+"3–5",
+"≤3"
+]
+},
+{
+"name": "Par-18 short-game course (21 Game)",
+"area": "chipping",
+"sub": "up-and-down",
+"purpose": "Simulate a round where you missed every green; score it like golf.",
+"setup": "Scatter 9 balls round the green (Titleist \"21 Game\"), or play 18 holes with one ball from a different spot each time, ≤5 yd off the green (GolfWRX). Include a bunker shot where possible. Par 2 per hole.",
+"how": "Play each ball as it lies: chip/pitch/bunker shot then putt out. Chip-in = 1, up-and-down = 2, 3 = bogey. Harder: slopes, rough, someone else scatters the balls.",
+"score": "Total strokes for 9 holes (par 18) or 18 (par 36). Titleist target: 21 for 9 holes (6 of 9 up-and-downs). Also record up-and-downs out of 9.",
+"reps": "9 holes 20 min",
+"level": "all",
+"sources": [
+"https://www.titleist.com/videos/instruction/21-game-for-better-short-game-practice",
+"https://www.golfwrx.com/?p=324260"
+],
+"id": "9-hole-par-2-short-game-course-21-game",
+"metric": {
+"type": "strokes",
+"higher": false,
+"par": 18,
+"label": "9-hole total"
+}
+},
+{
+"name": "Pelz short-game test",
+"area": "chipping",
+"sub": "up-and-down",
+"purpose": "Full short-game audit across chip, pitch, lob and bunker; a repeatable total to re-test monthly.",
+"setup": "10 balls, two rings of tees at 3 ft and 6 ft round a hole. Stations (Golf Insider's adaptation, 10 shots each, 80 total): 10-yd chip-and-run; 20-yd chip-and-run from light rough; 30-yd pitch; 50-yd pitch; 15-yd pitch with 5 yd of green; 15-yd flop over an obstacle; 10-yd bunker shot; 20-yd bunker shot.",
+"how": "One station at a time, collect, write the score, move on. Review the miss pattern per station.",
+"score": "Per ball: 4 holed, 2 inside 3 ft, 1 inside 6 ft, 0 otherwise. Total out of 320 and each station's sub-total. Golf Insider: above 80 is solid; above 100 earns an extra challenge.",
+"reps": "80 balls, ~60 min; monthly",
+"level": "all",
+"sources": [
+"https://golfinsideruk.com/short-game-practice-challenge/",
+"https://forums.golfmonthly.com/threads/pelz-short-game-test.13242/"
+],
+"id": "pelz-short-game-test-short-game-handicap",
+"metric": {
+"type": "points",
+"higher": true,
+"of": 320,
+"label": "total points"
+}
+},
+{
+"name": "Pressure points (one attempt each)",
+"area": "chipping",
+"sub": "pressure",
+"purpose": "One attempt, no do-overs.",
+"setup": "A: 5 short-game scenarios you dread (short-sided, rough, downhill, bunker, long chip), one ball each. B (Golf Monthly ring test): rings at 3 ft and 6 ft; 4 shots: 40-yd bunker, 30-yd pitch, greenside flop, chip-and-run. C: consecutive up-and-downs from easy spots.",
+"how": "A: play each through the hole, one attempt. B: 1 pt inside 6 ft, 2 inside 3 ft, 4 holed. C: keep going until you fail; a miss resets.",
+"score": "A: up-and-downs out of 5 (PGA.com \"win\" = 3 of 5). B: points out of 16. C: longest streak.",
+"reps": "5–10 min, once per session",
+"level": "all",
+"sources": [
+"https://www.pga.com/story/neal-shipleys-4-short-game-secrets-that-will-save-you-strokes",
+"https://golfmonthly.com/tips/practise-chipping-under-pressure-159458"
+],
+"id": "pressure-points-consecutive-up-and-downs-ring-te",
+"metric": {
+"type": "count",
+"higher": true,
+"of": 5,
+"label": "up-and-downs"
+}
+},
+{
+"name": "Clock-system calibration (7:30 / 9:00 / 10:30)",
+"area": "wedges",
+"sub": "distance control",
+"purpose": "Three repeatable carries per wedge so every yardage inside 100 has a stock swing.",
+"setup": "Range or short-game area with a rangefinder. Each wedge. Lead arm as the hour hand. Blackburn: half 7:30–9:00, three-quarter 9:00–10:30, full 10:30–12:00.",
+"how": "3–5 balls per length, same rhythm, full follow-through (Pelz: never decelerate). Measure average carry, write it on the shaft. Matrix of 9–12 numbers. Re-test every few weeks.",
+"score": "Average carry per wedge × length. Scored version (Addison Craig): pick a yardage, 10 balls, count balls landing in a 10–15-yd-deep zone; shrink the zone as you improve.",
+"reps": "~30 min to build; 10-ball check-ins after",
+"level": "all",
+"sources": [
+"https://www.titleist.com/instruction/dial-in-your-distance-wedges",
+"https://golf.com/instruction/10-brilliant-short-game-tips-dave-pelz-timeless-tips/",
+"https://golf.com/instruction/wedge-method-pros-use-pinpoint-accuracy-inside-100-yards/"
+],
+"id": "clock-system-calibration-7-30-9-00-10-30",
+"metric": {
+"type": "count",
+"higher": true,
+"of": 10,
+"label": "balls in the zone"
+}
+},
+{
+"name": "Distance wedge precision test (60 yd)",
+"area": "wedges",
+"sub": "distance control",
+"purpose": "Precision from the classic half-wedge yardage.",
+"setup": "60 yd from a hole, ideally fairway. Tees 5 yd from the hole in four directions (10-yd box). 10 balls, one wedge.",
+"how": "10 shots at the hole. Each ball inside the box scores.",
+"score": "Balls inside the box out of 10. Golf Digest: high-hcp 0–1, mid 1–2, single-digit 3–4, scratch 4–6, pro 7+.",
+"reps": "10 balls, 10 min",
+"level": "all",
+"sources": [
+"https://www.golfdigest.com/how-to/stress-tests/the-distance-wedge-precision-test"
+],
+"id": "distance-wedge-precision-test-60-yd",
+"metric": {
+"type": "count",
+"higher": true,
+"of": 10
+},
+"bands": [
+"0–1",
+"1–2",
+"3–4",
+"4–6",
+"7+"
+]
+},
+{
+"name": "Wedge ladder 25/50/75/100",
+"area": "wedges",
+"sub": "distance control",
+"purpose": "Control carry across the whole wedge range.",
+"setup": "Markers at 25, 50, 75, 100 yd (or 30/50/70). 12 balls.",
+"how": "3 balls to each target up the ladder. Harder: 25, 50, 37.5, 62.5, 50, 75, 62.5, 87.5, 75, 100. Leapfrog: each shot must carry past the previous one; stop when one falls short or passes 75. On-course (Thoresz): an extra ball from 30–50, 50–70 or 70–100 yd on every hole, par 3 per extra ball.",
+"score": "Points per ball (DIY Golfer test): holed 3, inside 2 paces 2, 2–4 paces 1, 4–5 paces 0, over 5 paces −1, out of 12 balls. Benchmarks: 4 = 22+ hcp, 5 = 17–22, 8 = 12–17, 11 = 7–12, 15 = 3–7, 29 = scratch. Leapfrog: successful shots between 25 and 75. On-course: strokes vs par 27 for 9 holes, by distance band.",
+"reps": "12–20 balls, 15 min",
+"level": "all",
+"sources": [
+"https://www.golfburnaby.ca/blog/short-game-wedge-drills",
+"https://www.golfburnaby.ca/blog/test-your-short-game-and-improve-your-scores",
+"https://golf.com/?p=15506629"
+],
+"id": "wedge-ladder-25-50-75-100-and-leapfrog",
+"metric": {
+"type": "points",
+"higher": true,
+"of": 36,
+"label": "points (12 balls)"
+}
+},
+{
+"name": "Three-trajectory pitch (low / mid / high, same yardage)",
+"area": "wedges",
+"sub": "trajectory",
+"purpose": "One yardage three ways with the same wedge, to suit lie, wind and pin.",
+"setup": "Target 20–40 yd, one lofted wedge, 9 balls. Mid: hands under shoulders. Low: closer, shaft upright, less wrist set. High: further away, handle lower, more wrist set, face slightly open.",
+"how": "Low, mid, high in rotation, 3 trios. Note landing point and rollout for each.",
+"score": "Balls inside 9 ft out of 9, split by trajectory.",
+"reps": "9–15 balls, 10 min",
+"level": "advanced",
+"sources": [
+"https://scramble.golftec.com/blog/2023/08/three-must-have-golf-shots-with-your-wedge/"
+],
+"id": "three-trajectory-pitch-low-mid-high-same-yardage",
+"metric": {
+"type": "count",
+"higher": true,
+"of": 9
+}
+},
+{
+"name": "Lob / flop over an obstacle",
+"area": "wedges",
+"sub": "trajectory",
+"purpose": "A safe, repeatable high shot over a bunker or mound to a close pin.",
+"setup": "15 yd to the hole over an obstacle (Pelz-test station). Decent lie in light rough. Lob wedge: open the face before gripping, ball inside lead heel, extra knee flex, weight lead side (Howells). Pelz cut-lob: aim ~five steps left, leading edge points right of target, swing harder than feels normal to a full finish.",
+"how": "Long, relaxed, rhythmic swing, light grip, finish over the shoulder. Common fault: quitting on it.",
+"score": "Pelz scale (4 holed / 2 inside 3 ft / 1 inside 6 ft) out of 10 balls; also balls on the green out of 10.",
+"reps": "10–20 balls",
+"level": "advanced",
+"sources": [
+"https://golfmonthly.com/tips/how-to-play-the-long-lazy-lob-shot",
+"https://golf.com/instruction/10-brilliant-short-game-tips-dave-pelz-timeless-tips/"
+],
+"id": "lob-flop-over-an-obstacle",
+"metric": {
+"type": "points",
+"higher": true,
+"of": 40,
+"label": "Pelz points (10 balls)"
+}
+},
+{
+"name": "Line in the sand (entry-point drill)",
+"area": "bunker",
+"sub": "contact",
+"purpose": "Control where the club enters the sand; the entry point, not the ball, is the target.",
+"setup": "Draw a line across your stance (Walters: ball at the end of the line, inside lead foot). Pelz: two lines ~5 in apart, front-foot instep on the front line, enter on the back line. No ball to start.",
+"how": "Face slightly open, hands low, sit into the knees, pressure on the lead leg. Enter just before the line and break it, shallow consistent divot. 2–3 line swings, then a ball imagining the line.",
+"score": "Swings entering on/just before the line out of 10; then sand shots finishing on the green out of 10.",
+"reps": "10 practice swings + 10 balls",
+"level": "beginner",
+"sources": [
+"https://www.golfmonthly.com/tips/banish-bad-bunker-shots-with-these-3-expert-drills",
+"https://golf.com/instruction/bunker-shots/two-best-drills-practicing-bunker-shots/",
+"https://www.golfmagic.com/bunker-play/best-bunker-shot-practice-drills"
+],
+"id": "line-in-the-sand-entry-point-drill",
+"metric": {
+"type": "count",
+"higher": true,
+"of": 10
+}
+},
+{
+"name": "Dollar-bill splash drill",
+"area": "bunker",
+"sub": "contact",
+"purpose": "The right length and depth of sand divot using the bounce.",
+"setup": "A bill (or bill-sized card) flat on the sand, ball on the middle (or no ball). 10 yd to a grass target.",
+"how": "Slide the club under the whole bill so it flutters out toward the target; that's the length of drag. Then a ball on the bill, then a ball alone imagining the bill.",
+"score": "Bills (or ball + bill) splashed onto the grass out of 10.",
+"reps": "10–15 swings",
+"level": "beginner",
+"sources": [
+"https://golf.com/instruction/bunker-shots/100-bill-bunker-drill-brech-spradley/"
+],
+"id": "dollar-bill-splash-drill",
+"metric": {
+"type": "count",
+"higher": true,
+"of": 10
+}
+},
+{
+"name": "Tee-under-ball drill",
+"area": "bunker",
+"sub": "contact",
+"purpose": "Low point just under the ball so the sand lifts it out.",
+"setup": "Greenside bunker, 10 yd target. Ball teed in the sand. Face open ~45°, body rotated left until the face is square to target, feet wriggled in, 65% weight lead side.",
+"how": "Baile's three stages: (1) tee high, clip the tee without hitting ball or sand; (2) tee deeper, clip it with the club entering the sand; (3) tee pressed in, swing to remove the tee, not the ball. Then a normal lie imagining the tee base 1.5 in behind/under the ball.",
+"score": "Balls popped out and on the green out of 10 at each stage.",
+"reps": "3 × 5–10 balls",
+"level": "beginner",
+"sources": [
+"https://golf.com/instruction/bunker-shots/simple-bunker-drill-blast-ball-out-with-ease/",
+"https://www.golfmonthly.com/videos/short-game-tips/tee-peg-bunker-drill-for-golf"
+],
+"id": "tee-under-ball-drill",
+"metric": {
+"type": "count",
+"higher": true,
+"of": 10
+}
+},
+{
+"name": "Short / medium / long bunker shots",
+"area": "bunker",
+"sub": "distance control",
+"purpose": "Control bunker carry with one swing length and three finishes (the 10/20/30-yd shots in every short-game test).",
+"setup": "Targets at ~10, 20, 30 yd. 5–10 balls per distance. Ball forward, weight front foot, shaft neutral.",
+"how": "Dempsey: same three-quarter backswing; distance comes from the follow-through. Short: grip butt finishes at the lead hip pocket. Medium: mid-body, ribcage. Long: shoulder height. Rehearse the finish outside the bunker, hold it, reproduce it.",
+"score": "Sand shots finishing on the green out of 10 at each distance; also proximity in feet. Pelz-scale option (4 / 2 / 1) out of 10.",
+"reps": "15–30 balls, 15 min",
+"level": "all",
+"sources": [
+"https://www.golfdigest.com/story/adjust-your-follow-through-to-hit-short--medium-and-long-bunker-",
+"https://todays-golfer.com/features/instruction-features/january/may/what-is-your-short-game-handicap-"
+],
+"id": "short-medium-long-bunker-shots-finish-position-l",
+"metric": {
+"type": "count",
+"higher": true,
+"of": 10
+}
+},
+{
+"name": "Buried / fried-egg lie",
+"area": "bunker",
+"sub": "lie",
+"purpose": "Get a plugged ball out and on the green reliably; accept it will run.",
+"setup": "Greenside bunker, 10–15 yd target. Press 10 balls partially into the sand.",
+"how": "McLachlin's 5 steps: open the face, stand 4–5 in closer, narrow stance, quick hingey backswing to hip height with little torso turn, follow-through stops short (chunk-and-run feel), shaft neutral at impact. Expect a low runner.",
+"score": "Balls out and on the green out of 10.",
+"reps": "10 balls",
+"level": "advanced",
+"sources": [
+"https://golf.com/instruction/bunker-shots/how-to-hit-fried-egg-bunker-shot-5-easy-steps/"
+],
+"id": "buried-fried-egg-lie",
+"metric": {
+"type": "count",
+"higher": true,
+"of": 10
+}
+},
+{
+"name": "Towel behind the ball",
+"area": "swing",
+"sub": "contact / low point",
+"purpose": "Force ball-first contact by moving the swing's low point in front of the ball.",
+"setup": "Lay a towel flat on the ground 3–5 inches behind the ball (Kostis). Any iron; start with a short iron.",
+"how": "Hit the ball and miss the towel. Catching the towel means you swayed off the ball or scooped. Start slow and short, lengthen the swing as misses disappear. Divot should land well past the towel.",
+"score": "Clean strikes (ball first, towel untouched) out of 10.",
+"reps": "10-ball sets, 2–3 sets; 5–10 min.",
+"level": "all",
+"sources": [
+"https://golf.com/instruction/approach-shots/use-towel-better-ball-striking-peter-kostis/",
+"https://www.golfmonthly.com/tips/i-can-help-you-strike-the-golf-ball-better-than-ever-before-and-all-you-need-is-a-towel",
+"https://www.golfdigest.com/story/ball-striking-consistency-drlls-tips-golf-digest"
+],
+"id": "towel-behind-the-ball",
+"metric": {
+"type": "count",
+"higher": true,
+"of": 10
+}
+},
+{
+"name": "Foot-spray strike check",
+"area": "swing",
+"sub": "contact",
+"purpose": "See exactly where on the face you strike so you fix the real fault (heel/toe/low).",
+"setup": "Spray the clubface with foot spray (or Strike Spray), let dry ~30 s. Irons and driver.",
+"how": "Hit 5–10 balls, note where marks cluster. Heel cluster: place a headcover just outside the ball. Toe cluster: a towel/headcover just inside. Adam Young variant: aim for a specific groove, 10 shots per target.",
+"score": "Centre strikes out of 10 by spray (goal is a tight cluster, not one perfect mark).",
+"reps": "10 balls per check, re-spray every 3–5 balls; 5 min.",
+"level": "all",
+"sources": [
+"https://golfmonthly.com/tips/how-to-hit-your-driver-out-the-middle-and-find-more-fairways",
+"https://practical-golf.com/strike-is-king",
+"https://mygolfspy.com/news-opinion/instruction/hit-more-fairways-7-driving-accuracy-tips-that-actually-work/",
+"https://golfdigest.com/story/adam-young-practice-methods-golf-digest-tips"
+],
+"id": "foot-spray-strike-check",
+"metric": {
+"type": "count",
+"higher": true,
+"of": 10
+}
+},
+{
+"name": "Tee-in-front low-point drill",
+"area": "swing",
+"sub": "low point",
+"purpose": "Train the divot to start after the ball.",
+"setup": "Push a tee into the turf a couple of inches in front of the ball (Oldham). Variant (Cameron McCormick): two towels, one ~1.5–2 ft behind the ball and one ~2 clubheads in front; miss the back towel, clip the front one.",
+"how": "Hit the ball before the ground and clip the tee/front towel on the way through. Check the divot starts in front of the ball mark.",
+"score": "Shots that clip the front tee/towel with ball-first contact out of 10.",
+"reps": "10 balls, 2 sets.",
+"level": "all",
+"sources": [
+"https://golf.com/instruction/30-ball-drill-efficient-golf-practice-ed-oldham/",
+"https://golf.com/instruction/approach-shots/cameron-mccormick-tour-pro-iron-drill/"
+],
+"id": "tee-in-front-low-point-drill",
+"metric": {
+"type": "count",
+"higher": true,
+"of": 10
+}
+},
+{
+"name": "Feet-together drill (Pete Cowen)",
+"area": "swing",
+"sub": "contact / tempo",
+"purpose": "Stabilise the swing centre so the bottom of the arc repeats; forces arms and body to sync.",
+"setup": "7-iron, ball on a tee peg to start, feet touching.",
+"how": "Hit groups of 10 with feet together, then 10 with normal stance and compare strike. Cowen says ~90% of players would benefit and lose only ~10% distance.",
+"score": "Solid strikes out of 10 feet together.",
+"reps": "2–3 groups of 10; 10 min.",
+"level": "all",
+"sources": [
+"https://golf.com/instruction/approach-shots/pete-cowen-golf-coach-swing-feet-together-drill/",
+"https://www.pga.com/story/feet-together-drill-to-improve-balance-and-tempo"
+],
+"id": "feet-together-drill-pete-cowen",
+"metric": {
+"type": "count",
+"higher": true,
+"of": 10
+}
+},
+{
+"name": "Step drill",
+"area": "swing",
+"sub": "tempo / sequencing",
+"purpose": "Train weight transfer, balance and lower-body-first downswing.",
+"setup": "Address with feet together or 1–2 in apart, mid-iron.",
+"how": "Start the club ~2 ft ahead of the ball, swing back and step the trail foot into position, then step the lead foot into position as the downswing starts, swing through and hold the finish. Rehearse without a ball first, then add balls and speed.",
+"score": "Balanced finishes held 3 s with solid contact out of 10.",
+"reps": "10 rehearsals + 10 balls.",
+"level": "all",
+"sources": [
+"https://hackmotion.com/step-drill/",
+"https://golf.com/instruction/driving/tour-winner-shares-weight-shift-drill-timeless-tips/"
+],
+"id": "step-drill",
+"metric": {
+"type": "count",
+"higher": true,
+"of": 10
+}
+},
+{
+"name": "Pump drill (Butch Harmon)",
+"area": "swing",
+"sub": "contact (lag / anti-cast)",
+"purpose": "Stop casting; rehearse the halfway-down position so you hit down on the ball.",
+"setup": "Iron or wedge, normal address.",
+"how": "Swing to the top, come halfway down and pause, return to the top. Do two pumps, then on the third swing hit the ball. Keep a full body turn.",
+"score": "Solid, compressed strikes out of 10.",
+"reps": "10 balls; 5 min. Fine as a warm-up.",
+"level": "all",
+"sources": [
+"https://www.golfdigest.com/story/improve-your-iron-consistency-with-one-of-butch-harmons-favorite-drills",
+"https://hackmotion.com/pump-drill/"
+],
+"id": "pump-drill-butch-harmon",
+"metric": {
+"type": "count",
+"higher": true,
+"of": 10
+}
+},
+{
+"name": "9-to-3 half swing",
+"area": "swing",
+"sub": "contact",
+"purpose": "Clean up impact with a short, controllable swing; fix casting and flipping.",
+"setup": "Short or mid iron, normal address, picture a clock face.",
+"how": "Swing hands back to 9 o'clock with wrists hinged, through to 3 o'clock without re-hinging. Keep the clubhead low and the face square through the ball.",
+"score": "Solid, straight strikes out of 10; combine with spray for centre strikes.",
+"reps": "10–20 balls, start of every session.",
+"level": "beginner / all",
+"sources": [
+"https://golf.com/instruction/approach-shots/9-to-3-drill-casting-issues-trillium-rose/",
+"https://hackmotion.com/9-to-3-golf-drill/"
+],
+"id": "9-to-3-half-swing",
+"metric": {
+"type": "count",
+"higher": true,
+"of": 10
+}
+},
+{
+"name": "Impact bag",
+"area": "swing",
+"sub": "contact (impact position)",
+"purpose": "Feel hands-ahead, weight-forward impact.",
+"setup": "Impact bag on the floor (or against a wall for the static press), mid-iron.",
+"how": "(1) Press into the bag from address until the shaft flexes, 3–6 presses × 3 sets. (2) Take the club back ~6 in and drive into the bag, pushing it forward; build swing length slowly. Then hit 50% and 75% shots on the range. Avoid many full swings into the bag.",
+"score": "Not scoreable by itself; log sets completed, then log the 9-to-3 or spray score that follows.",
+"reps": "3 sets of 3–6; 5 min.",
+"level": "beginner / all",
+"sources": [
+"https://golfinsideruk.com/best-golf-impact-bags-including-tips-drills/"
+],
+"id": "impact-bag",
+"metric": {
+"type": "count",
+"higher": true,
+"label": "sets done"
+}
+},
+{
+"name": "Clock-system wedges (7:30 / 9:00 / 10:30)",
+"area": "wedges",
+"sub": "distance control",
+"purpose": "Build three repeatable partial distances per wedge.",
+"setup": "One wedge at a time, rangefinder or launch monitor, range with flags.",
+"how": "Lead arm as the clock hand: 7:30 ≈ half, 9:00 ≈ 75%, 10:30 ≈ 90% (Sprecher). Blackburn: hit 3–5 balls at each length, measure average carry, write it on the shaft. Same rhythm at every length.",
+"score": "Calibration: average carry per position. Test: shots within 5 yds of the stated number out of 10.",
+"reps": "3–5 balls × 3 positions × each wedge; ~30 min to map a full set.",
+"level": "all",
+"sources": [
+"https://golf.com/instruction/short-game/clever-trick-wedge-distance-control/",
+"https://titleist.com/instruction/dial-in-your-distance-wedges"
+],
+"id": "clock-system-wedges-7-30-9-00-10-30",
+"metric": {
+"type": "count",
+"higher": true,
+"of": 10,
+"label": "within 5 yds"
+}
+},
+{
+"name": "Wedge gapping matrix",
+"area": "wedges",
+"sub": "distance control",
+"purpose": "A carry chart for every wedge × three swing lengths; find gaps and overlaps.",
+"setup": "All wedges (PW, GW, SW, LW), launch monitor (carry, not total). Start with highest loft.",
+"how": "Three swings per club: waist-high, three-quarter (lead arm at 9 o'clock), full. 3 balls per swing length, discard chunks/skulls, average the carries, record. Look for gaps (e.g. 60 → 85), overlaps and outliers. Redo once or twice a year.",
+"score": "The matrix itself (9–12 carry numbers). Progress metric: spread of the 3 balls per cell.",
+"reps": "~20 min, 27–36 balls.",
+"level": "all",
+"sources": [
+"https://mygolfspy.com/news-opinion/the-sneaky-hack-to-hit-every-green-and-it-only-takes-20-minutes/"
+],
+"id": "wedge-gapping-matrix",
+"metric": {
+"type": "number",
+"higher": false,
+"unit": "yds",
+"label": "spread of 3 balls (yds)"
+}
+},
+{
+"name": "Wedge ladder",
+"area": "wedges",
+"sub": "distance control",
+"purpose": "Feel speed/length changes by hitting each shot farther than the last.",
+"setup": "Towel or flag targets; one wedge. Rick Shiels version: 10 balls, first at 25-yd minimum carry.",
+"how": "Each ball must carry farther than the previous one (Shiels) or: land on the towel, then just short, then just past (Longfield). MyGolfSpy pressure version: each shot must finish in its own distance window.",
+"score": "Shots that landed in their assigned window / beat the previous ball out of 10. Track the score and beat it next visit.",
+"reps": "10 balls per ladder; 2 ladders.",
+"level": "all",
+"sources": [
+"https://golfmonthly.com/tips/rick-shiels-ultimate-30-minute-range-session",
+"https://golf.com/instruction/approach-shots/wedge-shots-distance-control-ladder-drill/",
+"https://mygolfspy.com/news-opinion/the-5-types-of-golf-practice-and-when-you-should-use-each-one/"
+],
+"id": "wedge-ladder",
+"metric": {
+"type": "count",
+"higher": true,
+"of": 10
+}
+},
+{
+"name": "Random-yardage wedge test",
+"area": "wedges",
+"sub": "distance control / transfer",
+"purpose": "Reproduce on-course randomness; one shot per distance, no repeats.",
+"setup": "Range with flags or launch monitor; all wedges. Cycle yardages 20–80 (or 30–100), different target every ball; full pre-shot routine.",
+"how": "App calls a random number (e.g. 43, 71, 58, 90, 66). Hit one ball to it, pick club and swing length yourself, move on. Practical Golf's \"Wedge Test\" is 5 shots; pass = 5/5 green-hits.",
+"score": "Balls within 10 yds of the number out of 10 (a 5-ft window is unrealistic; green-hit is the realistic bar). Shot Scope proximity: scratch avg 26 ft from 50–100 yds, 10 hcp 41 ft, 20 hcp 49 ft, so \"inside 10 yds\" is roughly a 10-hcp average result.",
+"reps": "10 balls; 10 min; 10–20% of practice time on awkward yardages.",
+"level": "all",
+"sources": [
+"https://practical-golf.com/the-ultimate-wedge-practice-drill",
+"https://practical-golf.com/effective-wedge-practice",
+"https://www.golfmonthly.com/features/scratch-vs-10-vs-20-handicap-how-the-stats-compare"
+],
+"id": "random-yardage-wedge-test",
+"metric": {
+"type": "count",
+"higher": true,
+"of": 10
+}
+},
+{
+"name": "Second-ball inside 100 (on-course)",
+"area": "wedges",
+"sub": "distance control / transfer",
+"purpose": "Diagnose which wedge band (30–50, 50–70, 70–100) costs you shots.",
+"setup": "Casual 9 holes, a spare ball.",
+"how": "On each hole drop a second ball at one of the three bands and play it out. Par for the second ball is 3.",
+"score": "Second-ball total vs par 27 over 9 holes; log strokes per band to pick the next range focus.",
+"reps": "9 holes.",
+"level": "all",
+"sources": [
+"https://golf.com/?p=15506629"
+],
+"id": "second-ball-inside-100-on-course",
+"metric": {
+"type": "strokes",
+"higher": false,
+"par": 27
+}
+},
+{
+"name": "Tiger's 9-shot drill",
+"area": "irons",
+"sub": "shape / trajectory",
+"purpose": "Control start line, curve and height on demand.",
+"setup": "7- or 8-iron, an alignment stick on the target line. Picture a tic-tac-toe grid down the target line.",
+"how": "Setup-only changes: low = ball back, grip down, shaft lean; high = ball forward, neutral handle; fade = ball slightly forward, body left, face closer to target; draw = ball back, body right, face closer to target. Order: centre column (low/stock/high straight), then middle row (fade/straight/draw), then corners. Call the shot before each ball.",
+"score": "Shots executed out of 9 (right shape AND height). Beginners: middle row only, out of 3.",
+"reps": "One pass = 9 balls; 2–3 passes.",
+"level": "advanced (middle row: all)",
+"sources": [
+"https://mygolfspy.com/news-opinion/the-9-shot-matrix-how-to-practice-every-shot-shape-you-need/",
+"https://www.golfdigest.com/story/why-tiger-woods-doesnt-beat-balls-at-tour-events"
+],
+"id": "tiger-s-9-shot-nine-windows-drill",
+"metric": {
+"type": "count",
+"higher": true,
+"of": 9
+}
+},
+{
+"name": "Trajectory ladder (low to high)",
+"area": "irons",
+"sub": "trajectory",
+"purpose": "Flight control for wind and tucked pins.",
+"setup": "7-iron, 100-yd minimum carry (Shiels).",
+"how": "10 balls, first one with ball back in stance for a low flight, each subsequent ball flown higher than the last, finishing with a high ball.",
+"score": "Balls that flew higher than the previous one out of 10.",
+"reps": "10 balls.",
+"level": "all",
+"sources": [
+"https://golfmonthly.com/tips/rick-shiels-ultimate-30-minute-range-session"
+],
+"id": "trajectory-ladder-low-to-high",
+"metric": {
+"type": "count",
+"higher": true,
+"of": 10
+}
+},
+{
+"name": "Start-line gate",
+"area": "irons",
+"sub": "start line",
+"purpose": "Train face control so the ball starts where you intend.",
+"setup": "Two alignment sticks in the ground ~3 yds in front of the ball, ~1.5 ft apart, on the start line. Variant: one upright stick 10 yds out, start the ball just right of it. Malaska: several gates side by side, change which gate you start through by adjusting arm path.",
+"how": "Hit 10 balls through the gate. For a draw/fade, set the gate right/left of the target.",
+"score": "Balls through the gate out of 10; beat last session's count.",
+"reps": "10 balls per club; 2 clubs.",
+"level": "all",
+"sources": [
+"https://www.nationalclubgolfer.com/golf-tips/driving-tips/improve-your-driving-with-these-5-drills/",
+"https://golf.com/instruction/three-ways-practice-alignment-stick-play-smart",
+"https://app.malaskagolf.com/discover/drill-center/item/path-drill-gates"
+],
+"id": "start-line-gate",
+"metric": {
+"type": "count",
+"higher": true,
+"of": 10
+}
+},
+{
+"name": "Target game: 10 balls inside 30 ft",
+"area": "irons",
+"sub": "dispersion",
+"purpose": "Pressure-score your stock iron shot to one target.",
+"setup": "One flag/target, your usual club for that distance, full pre-shot routine each ball (Oldham's \"game\" pile of the 30-ball drill).",
+"how": "10 balls, same target, full routine, judge finish position.",
+"score": "Balls finishing within 30 ft of the target out of 10. Reference: scratch avg proximity 38 ft from 100–150 yds, 10 hcp 57 ft, 20 hcp 81 ft (Shot Scope), so 30 ft is a stiff bar.",
+"reps": "10 balls.",
+"level": "all",
+"sources": [
+"https://golf.com/instruction/30-ball-drill-efficient-golf-practice-ed-oldham/",
+"https://www.golfmonthly.com/features/scratch-vs-10-vs-20-handicap-how-the-stats-compare"
+],
+"id": "target-game-10-balls-inside-30-ft",
+"metric": {
+"type": "count",
+"higher": true,
+"of": 10
+}
+},
+{
+"name": "Fairway finder (scored window)",
+"area": "driver",
+"sub": "dispersion",
+"purpose": "Count fairways on the range the way you count them on the course.",
+"setup": "(a) GOLF.com: alignment club on the ground, a noodle on a stick 10 yds out, ~50-yd simulated fairway, 10 balls. (b) Golf Digest/McCormick: two range targets 30 yds apart, 14 balls, full routine, visualise a real hole. (c) MyGolfSpy: corridor from two range targets, 10 drives, log strike location.",
+"how": "Hit every ball with full routine. Give yourself a 30–40-yd window (\"roughly the width of most holes\").",
+"score": "Fairways hit out of 10 in a 30-yd window. Point systems: McCormick +10 hit / −10 miss / 0 safe-side miss over 14 balls; MyGolfSpy 2 in corridor / 1 playable miss / 0 penalty miss over 10 drives. Benchmarks: scratch 50%, 10 hcp 48%, 20 hcp 45% fairways (Shot Scope); PGA Tour 58–59%.",
+"reps": "10–14 balls; 10 min.",
+"level": "all",
+"sources": [
+"https://golf.com/instruction/driving/the-high-pressure-range-drill-will-help-you-hit-more-fairways/",
+"https://www.golfdigest.com/story/day-17-bring-the-course-to-the-range",
+"https://mygolfspy.com/news-opinion/instruction/hit-more-fairways-7-driving-accuracy-tips-that-actually-work/",
+"https://golf.com/instruction/driving/develop-your-fairway-finder-drive-easy-drill/",
+"https://www.nationalclubgolfer.com/golf-tips/mental-game/golf-tips-how-to-practise-finding-more-fairways/"
+],
+"id": "fairway-finder-scored-window",
+"metric": {
+"type": "count",
+"higher": true,
+"of": 10
+}
+},
+{
+"name": "Balanced-finish driver",
+"area": "driver",
+"sub": "tempo",
+"purpose": "Find the fastest swing you can still finish in balance and strike centre with.",
+"setup": "Driver, teed normally. Optional foot spray.",
+"how": "Swing at the speed that lets you hold the finish 3 s with weight on the lead foot and chest at target. Count \"one-two\". Emerson variant: 25%-speed swings hitting deliberate slice, hook, then straight, to feel the face; build speed only on the straight one.",
+"score": "Balanced 3-second finishes with centre strike out of 10.",
+"reps": "10 balls.",
+"level": "all",
+"sources": [
+"https://mygolfspy.com/news-opinion/instruction/hit-more-fairways-7-driving-accuracy-tips-that-actually-work/",
+"https://www.golfmonthly.com/tips/how-awareness-speed-swings-are-the-key-to-better-clubface-control-in-2024"
+],
+"id": "smooth-swing-balanced-finish-driver",
+"metric": {
+"type": "count",
+"higher": true,
+"of": 10
+}
+},
+{
+"name": "Tee-height strike test",
+"area": "driver",
+"sub": "contact",
+"purpose": "Stop low-face strikes; find the tee height that gives centre/high-centre contact.",
+"setup": "Driver, foot spray, tees at low / medium / high.",
+"how": "5 drives at each height, record strike location each time. Keep the height that gives the tightest centre/high-centre cluster. Practical Golf shows a low strike launching 6.2°, 2,606 rpm, 213 carry vs a high strike 14.3°, 1,864 rpm, 250 carry (~40 yds).",
+"score": "Centre/above-centre strikes out of 5 per tee height; log best height.",
+"reps": "15 balls.",
+"level": "all",
+"sources": [
+"https://practical-golf.com/strike-is-king",
+"https://www.nationalclubgolfer.com/golf-tips/driving-tips/improve-your-driving-with-these-5-drills/"
+],
+"id": "tee-height-strike-test",
+"metric": {
+"type": "count",
+"higher": true,
+"of": 5
+}
+},
+{
+"name": "Learn your dispersion (DECADE-style)",
+"area": "driver",
+"sub": "dispersion",
+"purpose": "Measure your real shot pattern width so course targets (DECADE) are chosen from data.",
+"setup": "Launch monitor range mode (or Toptracer bay); ~30 drives.",
+"how": "Hit ~30 full-routine drives at one target. Record widest left-to-right spread, typical carry, total. Fawcett: tour patterns are ~70 yds wide left edge to right edge; a 10-hcp who hits it ~200 yds often has a pattern \"about the same width as tour players\".",
+"score": "Pattern width in yards (left-most to right-most of 30) plus median carry. Target: tighten width session to session; ≤70 yds at tour-length carry is the published reference.",
+"reps": "30 balls; 20 min; repeat quarterly.",
+"level": "all",
+"sources": [
+"https://www.golfdigest.com/story/course-management-expert-scott-fawcett-tips-smarter-golf",
+"https://practical-golf.com/driver-dispersion"
+],
+"id": "learn-your-dispersion-decade-style",
+"metric": {
+"type": "yards",
+"higher": false
+}
+},
+{
+"name": "Split your session: technique / skill / game",
+"area": "games",
+"sub": "transfer",
+"purpose": "Use block practice only for a specific change; use random/variable practice for anything you want to show up on the course.",
+"setup": "Oldham's 30-ball split: 10 technique (slow, exaggerated, video), 10 skill (face open/closed/square, low-point tee, spray), 10 game (target score with routine). Shiels: 3 × 10 min (technique, skills challenges, pressure game).",
+"how": "Block = same club, same target. Random = change club and target every ball. Variable = same skill, different parameters (e.g. 40/60/30-yd pitches). Block creates an \"illusion of practice\"; random looks worse in the session but transfers better. Titleist/Greg Rose: devote a significant amount of time to random.",
+"score": "Log the split (balls in block / random / game) and the game score. Evidence: 30-novice RCT, 6 days × 180 putts: random group worse during practice, more accurate on a 1-week retention test (PubMed 28449601). Golf Insider UK: contextual-interference effect replicated in golf putting; retention advantage at 2/12/48 h and 14 days; estimated 3–8% faster learning; strongest evidence in beginners.",
+"reps": "30–60 balls.",
+"level": "all",
+"sources": [
+"https://meandmygolf.com/golf-tips/irons-tips/random-practice-vs-blocked-practice/",
+"https://www.titleist.com/instruction/random-vs-block-practice",
+"https://pubmed.ncbi.nlm.nih.gov/28449601/",
+"https://golfinsideruk.com/golf-practice-variability-improve-golf/",
+"https://todays-golfer.com/news-and-events/general-news/new-study-reveals-why-you-re-not-getting-better-at-golf-and-how-to-get-better-at-golf",
+"https://golfdigest.com/story/adam-young-practice-methods-golf-digest-tips",
+"https://golf.com/instruction/30-ball-drill-efficient-golf-practice-ed-oldham/",
+"https://practical-golf.com/blocked-vs-random-practice"
+],
+"id": "block-vs-random",
+"metric": {
+"type": "count",
+"higher": true,
+"of": 10,
+"label": "game score"
+}
+},
+{
+"name": "Play a round on the range",
+"area": "games",
+"sub": "transfer",
+"purpose": "Simulate 18 holes; change club every shot; full routine every ball (Faldo did this before rounds).",
+"setup": "Scorecard of a course you know. Pick range targets as fairways and greens.",
+"how": "Hole 1: tee shot to a fairway window, then the approach club the result calls for, judge finish distance; next hole. Never the same club twice in a row.",
+"score": "Breaking Eighty rules: approach inside 10 ft = par/birdie chance, 10–20 ft = bogey, 30+ ft = double; tee shot in window required for par. Log the 9/18-hole total and fairways + greens hit.",
+"reps": "9 holes ≈ 20–25 balls; 18 ≈ 40–50.",
+"level": "all",
+"sources": [
+"https://pga.com/story/three-great-practice-games-to-help-you-play-better-golf-under-pressure",
+"https://breakingeighty.com/driving-range-games",
+"https://meandmygolf.com/golf-tips/irons-tips/random-practice-vs-blocked-practice/"
+],
+"id": "play-a-round-on-the-range",
+"metric": {
+"type": "strokes",
+"higher": false,
+"par": 36,
+"label": "9-hole total"
+}
+},
+{
+"name": "Pressure game to finish",
+"area": "games",
+"sub": "transfer",
+"purpose": "Add consequence so range skills survive the first tee.",
+"setup": "Any scored drill above; a partner if possible. Shiels: last 10 min nearest-the-pin, long-drive or putting contest with a small forfeit. Breaking Eighty: HORSE (call a shot, partner must repeat it) and \"Wrong Club\" (hit a 100-yd target with a 7-iron, play to 10 points).",
+"how": "Set the target before the first ball, limit the ball count, record, try to beat it next visit.",
+"score": "The drill's own score plus win/loss; streak of consecutive successes (Adam Young: \"how many in a row\").",
+"reps": "10 min at the end of every session.",
+"level": "all",
+"sources": [
+"https://golfmonthly.com/tips/rick-shiels-ultimate-30-minute-range-session",
+"https://breakingeighty.com/driving-range-games",
+"https://mygolfspy.com/news-opinion/the-5-types-of-golf-practice-and-when-you-should-use-each-one/"
+],
+"id": "pressure-games-beat-your-number-head-to-head",
+"metric": {
+"type": "streak",
+"higher": true
+}
+},
+{
+"name": "Trackman Combine (benchmark test)",
+"area": "games",
+"sub": "dispersion / distance control",
+"purpose": "Standardised 0–100 skills score comparable to tour and handicap peers.",
+"setup": "Trackman bay. Targets at 60, 70, 80, 90, 100, 120, 140, 160, 180 yds plus driver.",
+"how": "3 balls per distance (60 shots). Each shot scored 0–100 by distance from target; left/right/short/long penalised equally.",
+"score": "Aggregate 0–100. Benchmarks: Luke Donald record 86; PGA Tour average ~83, 9–12 hcp 54–57, 18 hcp ~47 (forum-cited Trackman newsletter, unofficial). A 4-hcp writer scored 65.",
+"reps": "60 shots, ~1 h.",
+"level": "all",
+"sources": [
+"https://www.golfdigest.com/story/golf-johnson-equipment-0816",
+"https://georgepinnell.com/trackman-combine/",
+"https://thesandtrap.com/forums/topic/84063-trackman-combine"
+],
+"id": "trackman-combine",
+"metric": {
+"type": "points",
+"higher": true,
+"of": 100,
+"label": "combine score"
+}
+}
+]
+}

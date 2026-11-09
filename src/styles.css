@@ -423,3 +423,22 @@ table.t5, table.dk { width: 100%; border-collapse: collapse; font-size: 13px; } 
 .sitem { padding: 6px 0; border-top: 1px solid var(--line); } .sitem .drills { padding: 4px 0 0 26px; display: flex; flex-direction: column; gap: 4px; }
 .seg10 { display: grid; grid-template-columns: repeat(10, 1fr); gap: 3px; margin-bottom: 8px; } .seg10 button { padding: 8px 0; border-radius: 8px; border: 1px solid var(--line); background: var(--panel2); color: var(--ink); font-weight: 700; } .seg10 button.on { background: var(--acc); color: var(--acc-ink); border-color: var(--acc); }
 .plog .tagrow { cursor: pointer; }
+
+.drow { display: grid; grid-template-columns: 1fr 90px auto; gap: 8px; align-items: center; width: 100%; background: none; border: 0; border-top: 1px solid var(--line); padding: 8px 0; color: var(--ink); text-align: left; font: inherit; }
+.drow .dn { display: flex; flex-direction: column; gap: 1px; min-width: 0; } .drow .dn b { font-size: 14px; }
+.drow .dl, .ditem .dl { font-weight: 800; font-variant-numeric: tabular-nums; white-space: nowrap; text-align: right; display: flex; flex-direction: column; align-items: flex-end; } .ditem .dl small { font-weight: 500; color: var(--mute); font-size: 10px; }
+.mspark { width: 90px; height: 24px; }
+.areatrend { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 6px; margin: 6px 0 10px; }
+.areatrend > div { background: var(--panel2); border-radius: 10px; padding: 8px; display: flex; flex-direction: column; gap: 2px; } .areatrend b { font-size: 20px; }
+.drilllib .libq { width: 100%; margin: 8px 0; }
+.areatabs { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 6px; margin-bottom: 6px; scrollbar-width: none; } .areatabs button { flex: 0 0 auto; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--panel2); color: var(--ink); font: 600 13px Inter, system-ui; } .areatabs button.on { background: var(--acc); color: var(--acc-ink); border-color: var(--acc); }
+.dlist { display: flex; flex-direction: column; gap: 8px; padding-bottom: 30px; }
+.ditem { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: center; width: 100%; text-align: left; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; color: var(--ink); font: inherit; }
+.ditem > span:first-child { display: flex; flex-direction: column; gap: 2px; min-width: 0; } .ditem b { font-size: 15px; }
+.drillsheet .sheet-in { max-height: 92dvh; } .drillsheet p { margin: 2px 0 6px; line-height: 1.4; }
+.tag { display: inline-block; padding: 2px 8px; border-radius: 999px; background: var(--panel2); font-size: 11px; font-weight: 700; color: var(--mute); }
+.bands { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; margin: 4px 0 8px; } .bands span { background: var(--panel2); border-radius: 8px; padding: 6px 4px; text-align: center; display: flex; flex-direction: column; } .bands small { font-size: 9.5px; color: var(--mute); } .bands b { font-size: 13px; }
+.drillrow2 .row { margin-top: 4px; align-items: center; }
+
+.sheet.drillsheet { z-index: 60; }
+.onb.drilllib { z-index: 55; }
