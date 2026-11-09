@@ -141,24 +141,28 @@ export async function openProfileEditor({ first = false, prof = null, user = nul
     });
   };
 
+  let saving = false;
   const save = async () => {
-    readStep();
+    if (saving) return; saving = true;
+    try { readStep(); } catch (e) { console.warn('onboarding read', e); }
     const s2 = getSettings();
     Object.assign(s2, { name: p.name, nickname: p.nickname, avatar: p.avatar, handicap: p.handicap, homeCourse: p.homeCourse, hand: p.hand, heightIn: p.heightIn, system: p.system, onboarded: true });
     if (first || step === 3 || bag.some((b) => b.carry)) s2.bag = bag;
-    saveSettings(s2);
-    if (user) {
-      const row = { name: p.name, handicap_index: p.handicap, nickname: p.nickname, avatar: p.avatar || null, home_course: p.homeCourse, handed: p.hand, height_in: p.heightIn ? Math.round(p.heightIn * 10) / 10 : null, onboarded: true };
-      try { await saveProfile(user.id, row); }
-      catch (e) {
-        // Older database without the new columns: keep the basics in the cloud, the rest syncs with settings.
-        console.warn('profile save', e);
-        await saveProfile(user.id, { name: p.name, handicap_index: p.handicap }).catch(() => {});
-      }
-    }
+    try { saveSettings(s2); } catch (e) { console.warn('onboarding settings', e); toast('Could not save on this phone: storage is full or blocked.'); }
+    // Close straight away; the phone has everything. The cloud copy goes up in the background.
     el.remove();
     toast(first ? `You're all set${p.nickname || p.name ? `, ${(p.nickname || p.name).split(' ')[0]}` : ''}.` : 'Profile saved.');
     onDone(p);
+    if (user) {
+      const row = { name: p.name, handicap_index: p.handicap, nickname: p.nickname, avatar: p.avatar || null, home_course: p.homeCourse, handed: p.hand, height_in: p.heightIn ? Math.round(p.heightIn * 10) / 10 : null, onboarded: true };
+      const withTimeout = (pr, ms = 8000) => Promise.race([pr, new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), ms))]);
+      try { await withTimeout(saveProfile(user.id, row)); }
+      catch (e) {
+        // Older database without the new columns, or a slow network: keep the basics in the cloud; the rest syncs with settings.
+        console.warn('profile save', e);
+        withTimeout(saveProfile(user.id, { name: p.name, handicap_index: p.handicap })).catch(() => {});
+      }
+    }
   };
 
   const draw = () => {
