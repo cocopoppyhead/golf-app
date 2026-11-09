@@ -1,7 +1,7 @@
 {
   "id": "./",
-  "name": "ohsolo",
-  "short_name": "ohsolo",
+  "name": "osolo",
+  "short_name": "osolo",
   "description": "Swing coach, round stats and your bag, with Bushnell laser support. Learns your game over time.",
   "start_url": "./",
   "scope": "./",

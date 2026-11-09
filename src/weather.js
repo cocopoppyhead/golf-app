@@ -23,7 +23,7 @@ function position() {
       await new Promise((r) => { permWait = r; nativeSend({ type: 'location.permission' }); setTimeout(() => r(true), 8000); });
     }
     navigator.geolocation.getCurrentPosition((p) => resolve({ lat: p.coords.latitude, lon: p.coords.longitude }),
-      () => reject(new Error('Location is off, so no weather. Allow location for ohsolo.')), { timeout: 10000, maximumAge: 300000 });
+      () => reject(new Error('Location is off, so no weather. Allow location for osolo.')), { timeout: 10000, maximumAge: 300000 });
   });
 }
 
