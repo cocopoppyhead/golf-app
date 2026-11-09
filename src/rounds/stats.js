@@ -13,7 +13,7 @@ export const CODES = {
   // execution
   cause: [['TAC', 'Tactical'], ['SWE', 'Swing error'], ['FOC', 'Focus / prep'], ['BAC', 'Back problem']],
   // ball flight
-  flight: [['STR', 'Straight'], ['HK', 'Hook'], ['PL', 'Pull'], ['SL', 'Slice'], ['PU', 'Push']],
+  flight: [['STR', 'Straight'], ['DRW', 'Draw'], ['FAD', 'Fade'], ['HK', 'Hook'], ['SL', 'Slice'], ['PL', 'Pull'], ['PU', 'Push']],
   // strike
   strike: [['THN', 'Thin'], ['FAT', 'Chunk / fat'], ['TOE', 'Toe'], ['HEL', 'Heel']],
   // positioning

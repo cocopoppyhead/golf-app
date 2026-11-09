@@ -158,9 +158,14 @@
 
     <!-- HISTORY -->
     <section id="tab-history" class="tab">
-      <div id="coachPanel" class="card coachcheck"></div>
-      <div id="trend" class="card"></div>
-      <div id="historyList"></div>
+      <div class="seg seg2 progseg" id="progSeg"><button data-p="scoring" class="on">Scoring</button><button data-p="practice">Practice</button></div>
+      <div id="progScoring"></div>
+      <div id="progPractice" hidden>
+        <div id="practiceRounds"></div>
+        <div id="coachPanel" class="card coachcheck"></div>
+        <div id="trend" class="card"></div>
+        <div id="historyList"></div>
+      </div>
       <div id="historyDetail" hidden></div>
     </section>
 

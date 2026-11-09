@@ -21,6 +21,7 @@ import { initRounds, roundsHome, recentRoundAggregate } from './rounds/ui.js';
 import { roundTendencies } from './rounds/stats.js';
 import { savePlan as savePlanX } from './coach/profile.js';
 import { renderAccount } from './cloud/account.js';
+import { renderScoring, practiceFromRounds } from './progress.js';
 import { maybeOnboard, avatarHtml, localProfile, openProfileEditor } from './onboarding.js';
 import { startSync } from './cloud/sync.js';
 import { tendencies, focusProgress, updatePlan, checkIn, getPlan, setFocus, addCoachNote, coachContext, metricLabel, metricCue } from './coach/profile.js';
@@ -772,7 +773,15 @@ async function renderCoachPanel(all) {
   });
 }
 
+// Progress has two halves: Scoring (rounds) and Practice (what to work on: rounds + swing coach)
+let progTab = 'scoring';
+document.querySelectorAll('#progSeg button').forEach((b) => b.addEventListener('click', () => { progTab = b.dataset.p; renderHistory(); }));
 async function renderHistory() {
+  document.querySelectorAll('#progSeg button').forEach((b) => b.classList.toggle('on', b.dataset.p === progTab));
+  $('#progSeg').hidden = false;
+  $('#progScoring').hidden = progTab !== 'scoring'; $('#progPractice').hidden = progTab !== 'practice';
+  if (progTab === 'scoring') { $('#historyDetail').hidden = true; return renderScoring($('#progScoring')); }
+  practiceFromRounds().then((h) => { $('#practiceRounds').innerHTML = h; }).catch(() => {});
   $('#historyDetail').hidden = true; $('#historyList').hidden = false; $('#trend').hidden = false; $('#coachPanel').hidden = false;
   const all = await listSwings().catch(() => []);
   const mine = all.filter((s) => !s.golfer);
@@ -782,12 +791,16 @@ async function renderHistory() {
     $('#historyList').innerHTML = '';
     return;
   }
-  const rows = mine.slice(0, 8).map((s) => {
-    const f = (v, d = 1) => (v == null ? '–' : d === 1 && isMetric() ? Math.round(v * 2.54) : (+v).toFixed(d));
-    return `<tr><td>${new Date(s.date).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}</td><td>${f(val(s, 'top', 'Head'))}</td><td>${f(val(s, 'impact', 'Head'))}</td><td>${f(val(s, 'impact', 'Hips'))}</td><td>${f(val(s, 'impact', 'Spine tilt'), 0)}°</td></tr>`;
-  }).join('');
-  $('#trend').innerHTML = `<h2>Trend</h2><div class="trend"><table><tr><th></th><th>Head @top</th><th>Head @impact</th><th>Hips @impact</th><th>Tilt @impact</th></tr>${rows}</table></div>
-  <p class="mute small">${isMetric() ? 'cm' : 'Inches'}; + = toward target. Tour: head ≤ 0 at impact, hips ${isMetric() ? '+3 to +15' : '+1 to +6'}.</p>`;
+  // swing score over time, and the face-on numbers (implausible values = tracking glitch, shown as –)
+  const face = mine.filter((s) => s.view !== 'dtl').slice(0, 8);
+  const sc = mine.slice(0, 15).map((s) => s.summary.score10).filter((v) => v != null).reverse();
+  const W = 280, H = 44, mn = Math.min(...sc, 0), mx = Math.max(...sc, 10);
+  const line = sc.length > 1 ? `<svg viewBox="0 0 ${W} ${H}" class="spark"><polyline points="${sc.map((v, i) => `${(i / (sc.length - 1)) * W},${H - 4 - ((v - mn) / (mx - mn || 1)) * (H - 8)}`).join(' ')}" fill="none" stroke="var(--acc)" stroke-width="2.5"/></svg>` : '';
+  const f = (v, d = 1) => (v == null || Math.abs(v) > (d === 0 ? 60 : 20) ? '–' : d === 1 && isMetric() ? Math.round(v * 2.54) : (+v).toFixed(d));
+  const rows = face.map((s) => `<tr><td>${new Date(s.date).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}</td><td><b>${s.summary.score10 != null ? s.summary.score10.toFixed(1) : '–'}</b></td><td>${f(val(s, 'top', 'Head'))}</td><td>${f(val(s, 'impact', 'Hips'))}</td><td>${f(val(s, 'impact', 'Spine tilt'), 0)}${f(val(s, 'impact', 'Spine tilt'), 0) === '–' ? '' : '°'}</td></tr>`).join('');
+  $('#trend').innerHTML = `<h2>Swing trend</h2>${line ? `<p class="mute small" style="margin:0">Swing score, last ${sc.length} swings</p>${line}` : ''}
+    ${rows ? `<div class="trend"><table><tr><th></th><th>Score</th><th>Head move @top</th><th>Hip shift @impact</th><th>Spine tilt @impact</th></tr>${rows}</table></div>
+    <p class="mute small">Face-on swings. ${isMetric() ? 'cm' : 'Inches'}; + = toward the target. Tour: hips shifted ${isMetric() ? '+3 to +15' : '+1 to +6'} at impact. – = tracking glitch.</p>` : ''}`;
   $('#historyList').innerHTML = all.map((s) => `
     <div class="hist" data-id="${s.id}">
       <img src="${s.thumbs?.[2] || ''}" alt="" />
@@ -800,7 +813,7 @@ async function renderHistory() {
 async function showDetail(id) {
   const s = await getSwing(id);
   if (!s) return;
-  $('#historyList').hidden = true; $('#trend').hidden = true; $('#coachPanel').hidden = true;
+  $('#progPractice').hidden = true; $('#progSeg').hidden = true;
   const d = $('#historyDetail'); d.hidden = false;
   d.innerHTML = `<button class="btn" id="backBtn">‹ Back</button>
     <div class="card summary"><h2>${esc(s.summary.headline)}</h2><p>${esc(s.summary.advice)}</p><span class="score">${esc(s.summary.score)} checks on target</span><p class="mute small">${fmtDate(s.date)} · ${esc(s.club)}</p></div>

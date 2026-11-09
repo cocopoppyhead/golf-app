@@ -5,7 +5,7 @@ import { putRound, getRound, deleteRound, listRounds, putCourse, getCourse, list
 import { readCard, reviewRound, md, aiFrom, aiReady } from '../coach/ai.js';
 import { coachContext, addCoachNote } from '../coach/profile.js';
 import { dist, toYards, du, duLong, PUTT_FT, puttLabel, puttUnit } from '../units.js';
-import { checkRules, rulesCard, DEFAULT_RULES } from './tiger.js';
+import { checkRules, rulesCard, DEFAULT_RULES, tiger5, TIGER5_LABEL } from './tiger.js';
 import { LIES, roundSG, holeSG, SG_LABELS } from './sg.js';
 import { onLaser } from '../laser.js';
 import { getBag } from '../bag.js';
@@ -196,10 +196,12 @@ const save = () => putRound(cur.round).catch(() => {});
 // so it starts with the expected number for the par (par 3: 1, par 4: 2, par 5: 3) and you add more.
 // Score, fairway, GIR, approach miss and green-side bunker are all worked out from the panels.
 // Where a shot ended up, which side it missed, and what kind of swing it was
-const ENDED = [['G', 'Green'], ['FR', 'Fringe'], ['RG', 'Rough'], ['BK', 'Bunker'], ['WS', 'Waste'], ['FW', 'Fairway'], ['TR', 'Trees'], ['PN', 'OB / water'], ['HO', 'Holed']];
+const ENDED = [['G', 'Green'], ['FR', 'Fringe'], ['RG', 'Rough'], ['BK', 'Green bunker'], ['FB', 'Fwy bunker'], ['WS', 'Waste'], ['FW', 'Fairway'], ['TR', 'Trees'], ['PN', 'OB / water'], ['HO', 'Holed']];
 const TEE_EXTRA = [['FB', 'Fairway bunker'], ['WS', 'Waste'], ['PN', 'OB / water']];
 const DIRS = [['S', 'Short'], ['L', 'Long'], ['LF', 'Left'], ['R', 'Right']];
-export const SWING_TYPES = [['full', 'Full'], ['3q', '¾'], ['half', '½'], ['pitch', 'Pitch'], ['chip', 'Chip'], ['splash', 'Bunker'], ['punch', 'Punch'], ['putter', 'Putter']];
+export const SWING_TYPES = [['full', 'Full'], ['3q', '¾'], ['half', '½'], ['pitch', 'Pitch'], ['chip', 'Chip'], ['splash', 'Bunker'], ['punch', 'Punch'], ['putter', 'Putt']];
+// what you meant to hit (tee shots and full swings); what actually happened goes in Details → ball flight
+export const INTENT = [['D', 'Draw'], ['S', 'Straight'], ['F', 'Fade']];
 const autoSwing = (x, k) => {
   if (k === 0) return 'full';
   const d = x.dist ?? null, lie = x.lie || x.lieAuto;
@@ -209,7 +211,7 @@ const autoSwing = (x, k) => {
   return d < 30 ? 'chip' : d < 80 ? 'pitch' : 'full';
 };
 // lie for the next shot from where this one ended
-const LIE_FROM = { FW: 'fw', LR: 'rgh', RR: 'rgh', LT: 'wst', RT: 'wst', FB: 'bnk', FR: 'frg', RG: 'rgh', BK: 'bnk', WS: 'wst', TR: 'rec' };
+const LIE_FROM = { FW: 'fw', LR: 'rgh', RR: 'rgh', LT: 'wst', RT: 'wst', FB: 'fbk', FR: 'frg', RG: 'rgh', BK: 'bnk', WS: 'wst', TR: 'rec' };
 const blankHole = () => ({ score: null, putts: null, tee: null, gir: null, miss: null, bunker: false, firstPutt: null, tags: [], shots: null });
 
 function upgradeShot(x) {
@@ -230,11 +232,12 @@ function defaultLie(h, k) {
   if (from && LIE_FROM[from]) return LIE_FROM[from];
   return k === 1 ? 'fw' : 'rgh';
 }
-const autoShotType = (s, k, par) => {
+export const autoShotType = (s, k, par) => {
   const club = (s.d?.club || '').toLowerCase();
   if (k === 0 && par >= 4) return /driver/.test(club) || !club ? 'DRV' : 'TEE';
   const d = s.dist ?? 0;
   if (s.sw === 'splash' || (s.lie === 'bnk' && d <= 50)) return 'BKR';
+  if (s.lie === 'fbk' && d > 50) return d > 150 ? 'IRN' : 'APP';
   if (s.sw === 'putter') return 'PT';
   if (s.sw === 'chip' || s.sw === 'pitch' || (d && d < 30)) return 'CHP';
   if (/wood|hybrid/.test(club)) return 'FWY';
@@ -250,7 +253,8 @@ function derive(h, par) {
   const as = h.shots[a];
   h.miss = as && as.res !== 'G' && as.res !== 'HO' && as.dir ? as.dir : null;
   h.shortSided = h.shots.some((x) => x.ss);
-  h.bunker = h.shots.some((x, k) => k > 0 && (x.lie || '') === 'bnk' && (x.dist == null || x.dist <= 50));
+  h.bunker = h.shots.some((x, k) => k > 0 && (x.lie || '') === 'bnk');
+  h.fwBunker = h.shots[0]?.res2 === 'FB' || h.shots.some((x, k) => k > 0 && x.lie === 'fbk');
   const det = h.shots.map((x, k) => (x.d ? { shot: x.d.shot || autoShotType(x, k, par), cause: x.d.cause || null, flight: x.d.flight || null, strike: x.d.strike || null, result: x.d.result || null, cost: x.d.cost } : null)).filter(Boolean);
   if (det.length) h.tags = det.filter((t) => t.cost != null).map((t) => ({ ...t, cost: t.cost || 0 }));
 }
@@ -290,8 +294,9 @@ function renderHole() {
       ${tee ? '' : `<div class="lbl">From</div>
         <div class="lies6">${LIES.map(([v, l]) => `<button class="${lie === v ? 'on' : ''} ${!x.lie && lie === v ? 'auto' : ''}" data-lie="${k}" data-v="${v}">${l}</button>`).join('')}</div>
         <div class="srow1"><input inputmode="numeric" data-sd="${k}" placeholder="to pin" value="${x.dist != null ? dist(x.dist) : ''}" /><span class="mute small">${du()} to the pin${x.src === 'laser' ? ' · 📍 laser' : ''}</span></div>`}
-      <div class="lbl">Swing</div>
-      <div class="swings">${SWING_TYPES.filter(([v]) => !tee || ['full', '3q', 'half', 'punch'].includes(v)).map(([v, l]) => `<button class="${sw === v ? 'on' : ''} ${!x.sw && sw === v ? 'auto' : ''}" data-sw="${k}" data-v="${v}">${l}</button>`).join('')}</div>
+      ${tee ? '' : `<div class="lbl">Swing</div>
+      <div class="swings">${SWING_TYPES.map(([v, l]) => `<button class="${sw === v ? 'on' : ''} ${!x.sw && sw === v ? 'auto' : ''}" data-sw="${k}" data-v="${v}">${l}</button>`).join('')}</div>`}
+      ${tee || sw === 'full' ? `<div class="lbl">Planned shape</div><div class="intent">${INTENT.map(([v, l]) => `<button class="${x.intent === v ? 'on' : ''}" data-int="${k}" data-v="${v}">${l}</button>`).join('')}</div>` : ''}
       <div class="lbl">Ended up</div>${res}
       <div class="sp-f"><button class="link" data-pen="${k}">${x.pen ? '<span class="pen">+1 penalty ✕</span>' : '+ penalty stroke'}</button>${k > 0 && k === h.shots.length - 1 ? `<button class="link" data-rm="${k}">Remove shot</button>` : ''}</div>
     </div>`;
@@ -340,6 +345,7 @@ function renderHole() {
   root.querySelectorAll('[data-res2]').forEach((b) => b.onclick = () => { const x = h.shots[+b.dataset.res2]; x.res2 = x.res2 === b.dataset.v ? null : b.dataset.v; if (x.res2 === 'PN' && !x.pen) x.pen = true; redo(); });
   root.querySelectorAll('[data-dir]').forEach((b) => b.onclick = () => { const x = h.shots[+b.dataset.dir]; x.dir = x.dir === b.dataset.v ? null : b.dataset.v; redo(); });
   root.querySelectorAll('[data-ss]').forEach((b) => b.onclick = () => { const x = h.shots[+b.dataset.ss]; x.ss = !x.ss; redo(); });
+  root.querySelectorAll('[data-int]').forEach((b) => b.onclick = () => { const x = h.shots[+b.dataset.int]; x.intent = x.intent === b.dataset.v ? null : b.dataset.v; redo(); });
   root.querySelectorAll('[data-sw]').forEach((b) => b.onclick = () => { h.shots[+b.dataset.sw].sw = b.dataset.v; redo(); });
   root.querySelectorAll('[data-lie]').forEach((b) => b.onclick = () => { h.shots[+b.dataset.lie].lie = b.dataset.v; redo(); });
   root.querySelectorAll('[data-sd]').forEach((el) => el.addEventListener('change', () => { const x = h.shots[+el.dataset.sd]; x.dist = toYards(el.value); x.src = el.value ? 'manual' : null; redo(); }));
@@ -541,7 +547,7 @@ function practiceCard(r, c) {
 }
 
 /** Strokes gained card: one bar per category, centred on the tour baseline. */
-function sgCard(G, title, sub = '') {
+export function sgCard(G, title, sub = '') {
   if (!G) return '';
   const keys = ['ott', 'app', 'arg', 'putt'];
   const max = Math.max(2, ...keys.map((k) => Math.abs(G[k])));
@@ -601,6 +607,9 @@ async function renderSummary(r, c) {
     ${statsCard(S, `${S.score} (${toParStr(S.toPar)})`)}
     ${practiceCard(r, c)}
     ${(() => { const G = roundSG(r, c); return G && G.complete >= Math.min(9, G.holes) ? sgCard(G, 'This round', G.complete < G.holes ? `${G.complete} of ${G.holes} holes have full shot data` : '') : '<div class="card"><h2>Strokes gained</h2><p class="mute small">Log shot distances and lies (they fill in from the rangefinder) plus the first-putt distance, and strokes gained shows here.</p></div>'; })()}
+    ${(() => { const T = tiger5(r, c); return `<div class="card"><div class="sechead" style="margin:0 0 6px"><h2 style="margin:0">Tiger 5</h2><span class="sgpill ${T.total <= 6 ? 'pos' : 'neg'}" style="float:none">${T.total}</span></div>
+      <p class="mute small" style="margin:0 0 6px">${T.total <= 6 ? 'Six or fewer: a round you can win with.' : 'Over six: these cost the round.'}</p>
+      ${T.res.map((x) => `<div class="rule"><span class="${x.holes.length ? 'x' : 'ok'}">${x.holes.length || '✓'}</span><div><b>${TIGER5_LABEL[x.id]}</b>${x.holes.length ? `<div class="mute small">Hole${x.holes.length > 1 ? 's' : ''} ${x.holes.join(', ')}</div>` : ''}</div></div>`).join('')}</div>`; })()}
     ${rulesCard(checkRules(r, c, ctx.settings().roundRules || DEFAULT_RULES), esc)}
     <div class="card debrief"><h2>Debrief</h2>
       <p class="mute small">What really decided this round? The coach reads this alongside the numbers.</p>
@@ -644,7 +653,7 @@ async function renderSummary(r, c) {
         const recent = (await listRounds()).filter((x) => x.finished && x.id !== r.id && x.learning !== false).slice(0, 8);
         const A = await aggStats(recent);
         const swings = await listSwings().catch(() => []);
-        const holeLog = r.holes.map((h, i) => h ? `H${i + 1} par ${c.holes[i].par}: ${h.score} (${h.putts ?? '?'} putts${h.tee ? `, tee ${h.tee}` : ''}${h.miss ? `, missed green ${h.miss}` : ''}${h.bunker ? ', bunker' : ''}${(h.tags || []).length ? `, tags: ${h.tags.map((t) => [t.shot, t.cause, t.flight, t.strike, t.result].filter(Boolean).join('/') + (t.cost ? ` +${t.cost}` : ' saved')).join('; ')}` : ''}${(h.shots || []).some((x) => x.d || x.res || x.dist) ? `, shots: ${h.shots.map((x, k) => `${k + 1}${x.lie && x.lie !== 'tee' ? ` from ${x.lie}` : ''}${x.dist ? ` ${Math.round(x.dist)}y` : ''}${x.sw ? ` ${x.sw}` : ''}${x.res ? ` → ${x.res}${x.dir ? ` missed ${x.dir}` : ''}${x.ss ? ' short-sided' : ''}` : ''}${x.d ? ` [${[x.d.club, x.d.flight, x.d.strike, x.d.cause, x.d.result].filter(Boolean).join('/')}]` : ''}`).join('; ')}` : ''}${h.note ? `, golfer's note: "${h.note}"` : ''})` : null).filter(Boolean).join('\n');
+        const holeLog = r.holes.map((h, i) => h ? `H${i + 1} par ${c.holes[i].par}: ${h.score} (${h.putts ?? '?'} putts${h.tee ? `, tee ${h.tee}` : ''}${h.miss ? `, missed green ${h.miss}` : ''}${h.bunker ? ', bunker' : ''}${(h.tags || []).length ? `, tags: ${h.tags.map((t) => [t.shot, t.cause, t.flight, t.strike, t.result].filter(Boolean).join('/') + (t.cost ? ` +${t.cost}` : ' saved')).join('; ')}` : ''}${(h.shots || []).some((x) => x.d || x.res || x.dist) ? `, shots: ${h.shots.map((x, k) => `${k + 1}${x.lie && x.lie !== 'tee' ? ` from ${x.lie}` : ''}${x.dist ? ` ${Math.round(x.dist)}y` : ''}${x.sw ? ` ${x.sw}` : ''}${x.intent ? ` (planned ${({ D: 'draw', S: 'straight', F: 'fade' })[x.intent]})` : ''}${x.res ? ` → ${x.res}${x.dir ? ` missed ${x.dir}` : ''}${x.ss ? ' short-sided' : ''}` : ''}${x.d ? ` [${[x.d.club, x.d.flight, x.d.strike, x.d.cause, x.d.result].filter(Boolean).join('/')}]` : ''}`).join('; ')}` : ''}${h.note ? `, golfer's note: "${h.note}"` : ''})` : null).filter(Boolean).join('\n');
         const roundText = `${c.name}${c.tees ? ` (${c.tees})` : ''}: ${S.score} (${toParStr(S.toPar)}). ${moodLine(r) ? moodLine(r) + ' (1 = lethargic, 5 = calm/focused ideal, 10 = agitated). ' : ''}${roundSummaryText(aggregate([{ round: r, course: c, stats: S }]))}\nRules the golfer plays by: ${checkRules(r, c, ctx.settings().roundRules || DEFAULT_RULES).map((x) => `${x.label}: ${x.holes.length ? `broken on ${x.holes.join(',')}` : 'kept'}`).join('; ')}.\nHole by hole:\n${holeLog}${r.debrief?.tags?.length || r.debrief?.notes ? `\nGolfer's debrief: ${[...(r.debrief.tags || []), r.debrief.notes].filter(Boolean).join('; ')}` : ''}`;
         const { text, meta } = await reviewRound({ ...aiFrom(s), roundText, recentText: A ? roundSummaryText(A) : '', history: coachContext(swings, recent.length ? A : null), golfer: s.golfer });
         r.ai = text; await putRound(r);
