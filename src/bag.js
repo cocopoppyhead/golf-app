@@ -5,6 +5,8 @@ import { getSettings, saveSettings, listShots } from './store.js';
 import { saveShotSheet, renderClubPage, trueDistance } from './shots.js';
 import { dist as D, toYards, du, duLong } from './units.js';
 import { isNative } from './native.js';
+import { getConditions, windComponents, carryFactor, playsLike, condText } from './weather.js';
+import { isMetric } from './units.js';
 import { connectLaser, disconnectLaser, onLaser, laserConnected, laserName, laserLog, laserSupported, isIOS, scanLasers, teachLaser, laserNeedsTeaching, forgetLaser } from './laser.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -102,6 +104,8 @@ export async function renderBag(root) {
   let shots = await listShots().catch(() => []);
   let dist = '', shot = null, status = laserConnected() ? `Connected to ${laserName()}` : '';
   let found = null, scanning = false, teachMsg = '', showAll = false;
+  let cond = null, wxErr = '', rel = null;
+  const loadWx = (force) => getConditions({ force }).then((c) => { cond = c; wxErr = ''; }).catch((e) => { wxErr = e.message; }).finally(() => root.isConnected && draw());
   const comp = () => getSettings().competition === true;
 
   const draw = () => {
@@ -109,7 +113,12 @@ export async function renderBag(root) {
     const ny = toYards(n);
     const eff = effectiveBag(bag, shots);
     const partials = getSettings().partials === true;
-    const pick = ny && !comp() ? pickClub(eff, ny, partials) : null;
+    // weather: temperature + wind turn the number into a plays-like distance
+    const heading = shot?.heading != null && Number.isFinite(shot.heading) && shot.heading !== 0 ? shot.heading : null;
+    const wind = windComponents(cond, { heading, rel });
+    const factor = comp() ? 1 : carryFactor(cond, wind);
+    const play = ny ? playsLike(ny, factor) : null;
+    const pick = ny && !comp() ? pickClub(eff, play, partials) : null;
     const sw = (s) => (s === 'full' ? '' : ` ${s}`);
     const sorted = bag.filter((c) => c.carry).sort((a, b) => b.carry - a.carry);
     const gaps = sorted.slice(1).map((c, k) => ({ a: sorted[k], b: c, gap: sorted[k].carry - c.carry })).filter((g) => g.gap >= 18);
@@ -118,12 +127,15 @@ export async function renderBag(root) {
         <div class="sechead" style="margin:0 0 8px"><h2 style="margin:0">Which club?</h2>
           <label class="check small"><input type="checkbox" id="compBox" ${comp() ? 'checked' : ''}/> Competition</label></div>
         <input id="distIn" inputmode="numeric" placeholder="Distance in ${duLong()}" value="${esc(dist)}" />
+        <div class="wx">${cond ? `<span>${condText(cond, heading != null || rel ? wind : null, isMetric())}</span>` : `<span class="mute">${wxErr ? esc(wxErr) : 'Getting the weather…'}</span>`}<button class="link" id="wxRefresh" aria-label="Refresh weather">↻</button></div>
+        ${cond && cond.windMph >= 2 && heading == null && !comp() ? `<div class="wxrel"><span class="mute small">Wind is</span>${[['into', 'Into me'], ['behind', 'Behind'], ['across', 'Across']].map(([v, l]) => `<button class="${rel === v ? 'on' : ''}" data-rel="${v}">${l}</button>`).join('')}</div>` : ''}
         ${shot ? `<p class="small mute" style="margin:6px 0 0">Laser: ${D(shot.raw)} ${du()}${shot.slope != null ? ` · slope ${shot.slope.toFixed(1)}% · plays ${D(shot.playsAs)} ${du()}${comp() ? '' : ' · using plays-as'}` : ''}</p>` : ''}
         ${comp() ? '<p class="mute small">Competition mode: distance only, no club advice (Rules of Golf).</p>'
           : `${pick ? `<div class="pickbox"><div class="big">${esc(pick.best.club)}${pick.best.swing !== 'full' ? ` <span style="font-size:20px">${pick.best.swing}</span>` : ''}</div>
             <div class="mute small">${eff.find((c) => c.club === pick.best.club)?.learned[pick.best.swing === 'full' ? 'carry' : pick.best.swing === '¾' ? 'three' : 'half'] ? 'your true distance ' : 'carries '}${D(pick.best.carry)} ${du()}${Math.round(D(Math.abs(pick.off))) ? ` · ${D(Math.abs(pick.off))} ${du()} ${pick.off > 0 ? 'long' : 'short'}` : ''}</div>
             ${pick.gap ? `<div class="small" style="color:var(--ok);margin-top:4px">Gap: nothing between ${esc(pick.gap.below.club)} and ${esc(pick.gap.above.club)}</div>` : ''}</div>` : ''}
-            ${ladderHtml(shotOptions(eff, partials), ny, showAll, pick?.best)}
+            ${play && Math.abs(play - ny) >= 1 ? `<p class="playslike">Plays like <b>${D(play)} ${du()}</b> <span class="mute">(${D(ny)} ${du()} on the laser)</span></p>` : ''}
+            ${ladderHtml(shotOptions(eff, partials), play, showAll, pick?.best)}
             <label class="check mini" style="margin-top:8px"><input type="checkbox" id="partialBox" ${partials ? 'checked' : ''} /> Include ¾ and ½ swings (wedges)</label>`}
 
         ${ny ? `<button class="btn primary big" id="saveShot" style="margin-top:10px">Hit it? Save shot</button>` : ''}
@@ -170,7 +182,7 @@ export async function renderBag(root) {
     din.addEventListener('input', () => { sync(); dist = din.value; shot = null; draw(); const d = root.querySelector('#distIn'); d.focus(); d.setSelectionRange(d.value.length, d.value.length); });
     root.querySelector('#saveShot')?.addEventListener('click', () => {
       sync();
-      saveShotSheet({ club: pick?.best?.club || bag[0]?.club, target: ny, laser: shot, clubs: bag.map((c) => c.club).filter(Boolean),
+      saveShotSheet({ club: pick?.best?.club || bag[0]?.club, target: ny, laser: shot, clubs: bag.map((c) => c.club).filter(Boolean), cond, wind: cond ? { ...wind, rel, heading } : null, factor,
         onSaved: async (s) => { shots = await listShots(); root.dispatchEvent(new CustomEvent('toast', { detail: `Saved: ${s.club} ${D(s.result)} ${du()}`, bubbles: true })); draw(); } });
     });
     root.querySelectorAll('[data-open]').forEach((b) => (b.onclick = () => {
@@ -179,6 +191,8 @@ export async function renderBag(root) {
       renderClubPage(root, c.club, { carry: c.carry, onBack: () => renderBag(root), onUseCarry: (y) => { c.carry = y; saveBag(bag); renderBag(root); } });
     }));
     root.querySelectorAll('[data-mode]').forEach((b) => (b.onclick = () => { sync(); mode = b.dataset.mode; draw(); }));
+    root.querySelector('#wxRefresh')?.addEventListener('click', () => { sync(); cond = null; wxErr = ''; draw(); loadWx(true); });
+    root.querySelectorAll('[data-rel]').forEach((b) => b.addEventListener('click', () => { sync(); rel = rel === b.dataset.rel ? null : b.dataset.rel; draw(); }));
     root.querySelector('#partialBox')?.addEventListener('change', (e) => { const st = getSettings(); st.partials = e.target.checked; saveSettings(st); sync(); draw(); });
     root.querySelector('#ladderAll')?.addEventListener('click', () => { sync(); showAll = !showAll; draw(); });
     root.querySelector('#compBox').onchange = (e) => { const s = getSettings(); s.competition = e.target.checked; saveSettings(s); sync(); draw(); };
@@ -210,9 +224,10 @@ export async function renderBag(root) {
   unsub = onLaser((r) => {
     if (!r) { status = 'Disconnected'; return draw(); }
     if (!root.isConnected) return;
-    shot = r; showAll = false;
+    shot = r; showAll = false; rel = null; loadWx(false);
     dist = String(D(getSettings().competition ? r.raw : r.playsAs || r.raw));
     draw();
   });
   draw();
+  loadWx(false);
 }

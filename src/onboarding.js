@@ -4,6 +4,7 @@
 import { getSettings, saveSettings, listCourses } from './store.js';
 import { currentUser, getProfile, saveProfile } from './cloud/supabase.js';
 import { getBag } from './bag.js';
+import { loadLibrary } from './rounds/library.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
@@ -76,7 +77,8 @@ export async function openProfileEditor({ first = false, prof = null, user = nul
   const p = { ...localProfile(), ...(prof ? fromRow(prof, s) : {}) };
   const metric = () => p.system === 'metric';
   const bag = getBag().map((c) => ({ ...c }));
-  const courses = [...new Set([...(await listCourses().catch(() => [])).map((c) => c.name), ...UAE_COURSES])];
+  const libNames = (await loadLibrary().catch(() => [])).map((c) => c.name);
+  const courses = [...new Set([...(await listCourses().catch(() => [])).map((c) => c.name), ...(libNames.length ? libNames : UAE_COURSES)])];
   let step = 0;
   const STEPS = ['You', 'Your game', 'Home course', 'Distances'];
 

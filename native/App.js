@@ -159,6 +159,18 @@ function Shell() {
     let msg; try { msg = JSON.parse(e.nativeEvent.data); } catch { return; }
     if (msg.type === 'laser.connect') laserConnect(msg);
     else if (msg.type === 'laser.scan') laserScan();
+    else if (msg.type === 'location.permission') {
+      // the web app's geolocation needs the app-level permission on Android (iOS asks by itself)
+      (async () => {
+        let granted = true;
+        if (Platform.OS === 'android') {
+          const P = PermissionsAndroid.PERMISSIONS;
+          const res = await PermissionsAndroid.requestMultiple([P.ACCESS_FINE_LOCATION, P.ACCESS_COARSE_LOCATION]).catch(() => ({}));
+          granted = Object.values(res).some((v) => v === PermissionsAndroid.RESULTS.GRANTED);
+        }
+        send({ type: 'location.permission', granted });
+      })();
+    }
     else if (msg.type === 'laser.disconnect') laserDisconnect();
     else if (msg.type === 'share.file') shareFile(msg);
   }, [laserConnect, laserScan, laserDisconnect, shareFile]);
@@ -183,6 +195,7 @@ function Shell() {
         onError={() => setError(true)}
         onNavigationStateChange={(n) => { canGoBack.current = n.canGoBack; }}
         javaScriptEnabled
+        geolocationEnabled
         domStorageEnabled
         allowFileAccess
         allowsInlineMediaPlayback

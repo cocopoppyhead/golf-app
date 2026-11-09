@@ -311,3 +311,10 @@ img.av { object-fit: cover; }
 .rung.on .cl { color: var(--acc); font-size: 18px; } .rung.on .yd { color: var(--ink); } .rung.on::before { background: var(--acc); border-color: var(--acc); width: 18px; height: 18px; margin-left: -9px; }
 .tline { position: absolute; left: 8%; right: 8%; height: 0; border-top: 2px dashed var(--work); }
 .tline span { position: absolute; right: 0; top: -11px; background: var(--work); color: #fff; font: 800 12px Inter, system-ui; padding: 3px 7px; border-radius: 10px; }
+.wx { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 8px 2px 0; font-size: 13px; font-weight: 600; }
+.wx .link { font-size: 16px; text-decoration: none; }
+.wxrel { display: flex; align-items: center; gap: 6px; margin-top: 8px; } .wxrel button { flex: 1; background: var(--panel); color: var(--ink); border: 1px solid var(--line); border-radius: 18px; padding: 6px 4px; font: 600 12.5px Inter, system-ui; } .wxrel button.on { background: var(--acc); color: var(--acc-ink); border-color: var(--acc); }
+.playslike { text-align: center; margin: 6px 0 0; font-size: 15px; }
+.librow { display: flex; gap: 6px; align-items: stretch; } .librow .libitem { flex: 1; }
+.star { flex: none; width: 48px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; color: var(--mute); font-size: 22px; cursor: pointer; } .star.on { color: #ffd23f; }
+.libhead { font-size: 12px; color: var(--mute); text-transform: uppercase; letter-spacing: .08em; margin: 10px 2px 2px; }

@@ -1,7 +1,8 @@
 // Saved shots: what you aimed at (laser/typed), what you actually hit (+/-), swing type, direction, contact.
 // These build each club's "true distance" — only good strikes count, mishits never pull the numbers down.
 import { putShot, listShots } from './store.js';
-import { dist as D, du, toYards } from './units.js';
+import { dist as D, du, toYards, isMetric } from './units.js';
+import { condText } from './weather.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 export const SWINGS = [['full', 'Full'], ['¾', '¾'], ['½', '½'], ['mishit', 'Mishit']];
@@ -16,7 +17,8 @@ const median = (a) => { const s = [...a].sort((x, y) => x - y); const m = s.leng
  * dropping outliers more than 2.5 × MAD (or 8%) from the median.
  */
 export function trueDistance(shots, club, swing = 'full') {
-  const pool = shots.filter((s) => s.club === club && s.swing === swing).slice(0, 10);
+  // shots saved with weather are converted to a normal day (25 °C, still air) first
+  const pool = shots.filter((s) => s.club === club && s.swing === swing).slice(0, 10).map((s) => ({ ...s, result: s.norm ?? s.result }));
   if (!pool.length) return null;
   const vals = pool.map((s) => s.result);
   const med = median(vals);
@@ -29,7 +31,7 @@ export function trueDistance(shots, club, swing = 'full') {
 }
 
 /** Bottom sheet: save the shot you just hit. */
-export function saveShotSheet({ club, target, laser = null, clubs = [], onSaved = () => {} }) {
+export function saveShotSheet({ club, target, laser = null, clubs = [], cond = null, wind = null, factor = 1, onSaved = () => {} }) {
   const s = { club, target, delta: 0, swing: 'full', dir: null, contact: null, shape: null };
   const sheet = document.createElement('div'); sheet.className = 'sheet';
   const seg = (k, list, cols = list.length) => `<div class="segx" style="grid-template-columns:repeat(${cols},1fr)">${list.map(([v, l]) => `<button class="${s[k] === v ? 'on' : ''}" data-k="${k}" data-v="${v}">${l}</button>`).join('')}</div>`;
@@ -45,6 +47,7 @@ export function saveShotSheet({ club, target, laser = null, clubs = [], onSaved 
         <div class="res"><b>${res}</b><span>${du()} ${s.delta ? `(${s.delta > 0 ? '+' : ''}${s.delta})` : '(on the number)'}</span></div>
         <button data-d="1">+1</button><button data-d="5">+5</button><button data-d="10">+10</button>
       </div>
+      ${cond ? `<p class="mute small" style="margin:6px 0 0">Saved with the weather: ${esc(condText(cond, wind, isMetric()))}</p>` : ''}
       <div class="lbl">Swing</div>${seg('swing', SWINGS)}
       <div class="lbl">Direction</div>${seg('dir', DIRS)}
       <div class="lbl">Contact <span class="mute">(optional)</span></div>${seg('contact', CONTACT)}
@@ -57,7 +60,8 @@ export function saveShotSheet({ club, target, laser = null, clubs = [], onSaved 
     sheet.querySelector('[data-close]').onclick = () => sheet.remove();
     sheet.querySelector('[data-save]').onclick = async () => {
       const result = toYards(D(s.target) + s.delta);
-      const shot = { id: `sh_${Date.now()}`, date: Date.now(), club: s.club, target: s.target, result, swing: s.swing, dir: s.dir, contact: s.contact, shape: s.shape, laser, source: laser ? 'laser' : 'manual' };
+      const shot = { id: `sh_${Date.now()}`, date: Date.now(), club: s.club, target: s.target, result, swing: s.swing, dir: s.dir, contact: s.contact, shape: s.shape, laser, source: laser ? 'laser' : 'manual',
+        cond: cond || null, wind: wind || null, factor: cond ? +factor.toFixed(4) : null, norm: cond && factor ? result / factor : null };
       await putShot(shot);
       sheet.remove();
       onSaved(shot);

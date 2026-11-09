@@ -1,6 +1,6 @@
 // Rounds module UI: courses, hole-by-hole logging (Conor's shot codes), scorecard photo import, summaries.
 import { CODES, TEE_ZONES, MISS, isGir, roundStats, aggregate, roundTendencies, roundSummaryText, pct, top, played } from './stats.js';
-import { openLibrary } from './library.js';
+import { openLibrary, isHome, starred } from './library.js';
 import { putRound, getRound, deleteRound, listRounds, putCourse, getCourse, listCourses, deleteCourse, listSwings } from '../store.js';
 import { readCard, reviewRound, md, aiFrom, aiReady } from '../coach/ai.js';
 import { coachContext, addCoachNote } from '../coach/profile.js';
@@ -22,7 +22,10 @@ export function initRounds(el, opts) { root = el; ctx = { ...ctx, ...opts }; }
 // ---------------- Home ----------------
 export async function roundsHome() {
   cur = null;
-  const [rounds, courses] = await Promise.all([listRounds().catch(() => []), listCourses().catch(() => [])]);
+  const [rounds, allCourses] = await Promise.all([listRounds().catch(() => []), listCourses().catch(() => [])]);
+  const st = starred();
+  const rk = (c) => (isHome(c) ? 0 : st.has(c.libId) ? 1 : 2);
+  const courses = allCourses.map((c, i) => ({ c, i })).sort((a, b) => rk(a.c) - rk(b.c) || a.i - b.i).map((x) => x.c);
   const open = rounds.find((r) => !r.finished);
   const done = rounds.filter((r) => r.finished);
   await aggStats(done); // attaches per-round stats for the list
