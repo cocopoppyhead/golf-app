@@ -16,11 +16,12 @@ const T = {
 // Dubai waste areas / scruff play somewhere between rough and sand
 const WASTE = (d) => (expected('rgh', d) + expected('bnk', d)) / 2;
 
-export const LIES = [['fw', 'Fairway'], ['rgh', 'Rough'], ['bnk', 'Bunker'], ['wst', 'Waste'], ['rec', 'Trees / recovery']];
+export const LIES = [['fw', 'Fairway'], ['rgh', 'Rough'], ['bnk', 'Bunker'], ['wst', 'Waste'], ['frg', 'Fringe'], ['rec', 'Trees']];
 
 export function expected(lie, d) {
   if (d == null || !Number.isFinite(d)) return null;
   if (lie === 'wst') return WASTE(d);
+  if (lie === 'frg') lie = 'fw'; // fringe / green surround plays like a short fairway shot
   const t = T[lie] || T.rgh;
   if (d <= t[0][0]) return t[0][1];
   for (let i = 1; i < t.length; i++) {

@@ -8,6 +8,7 @@ import { dist, toYards, du, duLong, PUTT_FT, puttLabel, puttUnit } from '../unit
 import { checkRules, rulesCard, DEFAULT_RULES } from './tiger.js';
 import { LIES, roundSG, holeSG, SG_LABELS } from './sg.js';
 import { onLaser } from '../laser.js';
+import { getBag } from '../bag.js';
 
 const DEBRIEF_TAGS = ['Driver into trouble', 'Risky shot choice', 'Approach misses', 'Short game', '3-putts', 'Lost focus', 'Back problem', 'Tired', 'Wind / conditions', 'Bad luck'];
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -32,7 +33,7 @@ onLaser(async (r) => {
   if (!course) return;
   const i = round.curHole ?? Math.max(0, round.holes.findIndex((x) => !x || x.score == null));
   const h = round.holes[i] || (round.holes[i] = { score: null, putts: null, tee: null, gir: null, miss: null, bunker: false, firstPutt: null, tags: [] });
-  h.shots ||= [{ lie: 'tee', dist: course.holes[i]?.yds ?? null }];
+  if (!h.shots?.length) ensureShots(h, course.holes[i]?.par ?? 4, course.holes[i]?.yds);
   const last = h.shots.reduce((m, x, k) => (x?.src === 'laser' ? k : m), -1);
   let k = last >= 1 && Date.now() - (h.shots[last].t || 0) < 45000 ? last : h.shots.findIndex((x, n) => n >= 1 && (!x || x.dist == null));
   if (k < 1) k = Math.max(1, h.shots.length);
@@ -110,7 +111,7 @@ async function homeAction(act, id) {
     c.lastPlayed = Date.now(); await putCourse(c);
     await putRound(r);
     cur = { round: r, course: c, hole: 0, review: false };
-    return renderHole();
+    return moodSheet(r, 'start', renderHole);
   }
   if (act === 'import') return importCard(sel);
 }
@@ -190,41 +191,85 @@ async function openRound(id) {
 
 const save = () => putRound(cur.round).catch(() => {});
 
-// Lie for a shot when the golfer hasn't picked one: from where the tee shot finished, or the green-side bunker
-function defaultLie(h, k, n) {
-  if (k === 1 && h.tee) return h.tee === 'FW' ? 'fw' : h.tee === 'LR' || h.tee === 'RR' ? 'rgh' : 'wst';
-  if (k === n - 1 && h.bunker) return 'bnk';
-  return k === 1 ? 'fw' : 'rgh';
-}
-/** Make h.shots match the strokes taken off the green (score − putts − penalties), keeping what's entered. */
-function syncShots(h, score, putts, yds) {
-  h.shots ||= [];
-  const pens = () => h.shots.filter((x) => x?.pen).length;
-  let n = Math.max(1, score - putts - pens());
-  // keep laser/typed rows beyond the count (the score may not be entered yet)
-  const filled = h.shots.reduce((m, x, k) => (x && x.dist != null ? k + 1 : m), 0);
-  n = Math.max(n, filled);
-  for (let k = 0; k < n; k++) h.shots[k] ||= { dist: null, lie: null };
-  h.shots.length = n;
+// ---------------- Hole: one panel per shot, in order ----------------
+// A hole is a list of shots (tee shot first) then putts. We don't know how many shots there'll be,
+// so it starts with the expected number for the par (par 3: 1, par 4: 2, par 5: 3) and you add more.
+// Score, fairway, GIR, approach miss and green-side bunker are all worked out from the panels.
+const RESULT = [['G', 'Green'], ['S', 'Short'], ['L', 'Long'], ['LF', 'Left'], ['R', 'Right']];
+const blankHole = () => ({ score: null, putts: null, tee: null, gir: null, miss: null, bunker: false, firstPutt: null, tags: [], shots: null });
+
+function ensureShots(h, par, yds) {
+  if (!h.shots || !h.shots.length) {
+    const n = h.score != null && h.putts != null ? Math.max(1, h.score - h.putts) : Math.max(1, par - 2);
+    h.shots = Array.from({ length: n }, () => ({ lie: null, dist: null }));
+    if (h.tee && par >= 4) h.shots[0].res = h.tee;
+  }
   h.shots[0] = { ...h.shots[0], lie: 'tee', dist: h.shots[0].dist ?? yds ?? null };
-  return n;
+}
+function defaultLie(h, k) {
+  const prev = h.shots[k - 1]?.res;
+  if (k === 1 && ['FW', 'LR', 'RR', 'LT', 'RT'].includes(prev)) return prev === 'FW' ? 'fw' : prev === 'LR' || prev === 'RR' ? 'rgh' : 'wst';
+  if (prev && prev !== 'G' && (h.shots[k].dist ?? 99) <= 40) return 'frg';
+  return 'fw';
+}
+const autoShotType = (s, k, par) => {
+  const club = (s.d?.club || '').toLowerCase();
+  if (k === 0 && par >= 4) return /driver/.test(club) || !club ? 'DRV' : 'TEE';
+  const d = s.dist ?? 0;
+  if (s.lie === 'bnk' && d <= 50) return 'BKR';
+  if (d && d < 30) return 'CHP';
+  if (/wood|hybrid/.test(club)) return 'FWY';
+  return d > 150 ? 'IRN' : 'APP';
+};
+/** Work out score, fairway, GIR miss, bunker and bogey tags from the panels. */
+function derive(h, par) {
+  const pens = h.shots.filter((x) => x.pen).length;
+  if (h.putts != null) h.score = h.shots.length + pens + h.putts;
+  h.tee = par >= 4 ? (h.shots[0].res || null) : null;
+  h.gir = null;
+  const a = Math.max(0, par - 3); // the shot that should find the green in regulation
+  const ar = h.shots[a]?.res;
+  h.miss = ar && ar !== 'G' && ['S', 'L', 'LF', 'R'].includes(ar) ? ar : null;
+  h.bunker = h.shots.some((x, k) => k > 0 && (x.lie || '') === 'bnk' && (x.dist == null || x.dist <= 50));
+  const det = h.shots.map((x, k) => (x.d ? { shot: x.d.shot || autoShotType(x, k, par), cause: x.d.cause || null, flight: x.d.flight || null, strike: x.d.strike || null, result: x.d.result || null, cost: x.d.cost } : null)).filter(Boolean);
+  if (det.length) h.tags = det.filter((t) => t.cost != null).map((t) => ({ ...t, cost: t.cost || 0 }));
 }
 
 function renderHole() {
   const { round, course, hole: i, review } = cur;
   const ch = course.holes[i];
   const par = ch.par;
-  const h = round.holes[i] || (round.holes[i] = { score: null, putts: null, tee: null, gir: null, miss: null, bunker: false, firstPutt: null, tags: [] });
-  const score = h.score ?? par;
-  const putts = h.putts ?? 2;
-  const g = isGir({ ...h, score, putts }, par);
-  const diff = score - par;
-  const tagCost = (h.tags || []).reduce((a, t) => a + (t.cost || 0), 0);
-  const needTag = diff > 0 && tagCost < diff;
+  const h = round.holes[i] || (round.holes[i] = blankHole());
   round.curHole = i;
-  const nShots = syncShots(h, score, putts, ch.yds);
-  const sg = holeSG({ ...h, score, putts }, par, ch.yds);
+  ensureShots(h, par, ch.yds);
+  for (let k = 1; k < h.shots.length; k++) if (!h.shots[k].lie) h.shots[k].lieAuto = defaultLie(h, k);
+  derive(h, par);
+  const putts = h.putts;
+  const score = h.score;
+  const diff = score != null ? score - par : null;
+  const sg = putts != null ? holeSG({ ...h, shots: h.shots.map((x) => ({ ...x, lie: x.lie || x.lieAuto })) }, par, ch.yds) : null;
   const tot = round.holes.reduce((a, x, k) => (x && x.score != null ? { s: a.s + x.score, p: a.p + course.holes[k].par } : a), { s: 0, p: 0 });
+  const word = diff == null ? '' : diff <= -2 ? 'Eagle' : diff === -1 ? 'Birdie' : diff === 0 ? 'Par' : diff === 1 ? 'Bogey' : diff === 2 ? 'Double' : `+${diff}`;
+  const detBadge = (x) => x.d ? [x.d.club, x.d.flight, x.d.strike, x.d.cause, x.d.result, x.d.cost ? `+${x.d.cost}` : null].filter(Boolean).map(esc).join(' · ') : '';
+
+  const panel = (x, k) => {
+    const tee = k === 0;
+    const lie = x.lie || x.lieAuto;
+    const res = tee && par >= 4
+      ? `<div class="zones">${TEE_ZONES.map(([z, l]) => `<button class="${x.res === z ? 'on' : ''} z${z}" data-res="${k}" data-v="${z}">${z[0] === 'L' ? '◀ ' : ''}${l}${z[0] === 'R' ? ' ▶' : ''}</button>`).join('')}</div>`
+      : `<div class="seg5 res">${RESULT.map(([v, l]) => `<button class="${x.res === v ? 'on' : ''}" data-res="${k}" data-v="${v}">${l}</button>`).join('')}</div>`;
+    return `<div class="card shotpanel">
+      <div class="sp-h"><span class="sn">${k + 1}</span><b>${tee ? 'Tee shot' : `Shot ${k + 1}`}</b>
+        <span class="mute small">${tee ? (x.dist ? `${dist(x.dist)} ${du()}` : '') : ''}</span>
+        <button class="btn sm" data-det="${k}">${x.d ? 'Details ✓' : 'Details'}</button></div>
+      ${detBadge(x) ? `<div class="detline">${detBadge(x)}</div>` : ''}
+      ${tee ? '' : `<div class="lbl">From</div>
+        <div class="lies6">${LIES.map(([v, l]) => `<button class="${lie === v ? 'on' : ''} ${!x.lie && lie === v ? 'auto' : ''}" data-lie="${k}" data-v="${v}">${l}</button>`).join('')}</div>
+        <div class="srow1"><input inputmode="numeric" data-sd="${k}" placeholder="to pin" value="${x.dist != null ? dist(x.dist) : ''}" /><span class="mute small">${du()} to the pin${x.src === 'laser' ? ' · 📍 laser' : ''}</span></div>`}
+      <div class="lbl">Result</div>${res}
+      <div class="sp-f"><button class="link" data-pen="${k}">${x.pen ? '<span class="pen">+1 penalty ✕</span>' : '+ penalty stroke'}</button>${k > 0 && k === h.shots.length - 1 ? `<button class="link" data-rm="${k}">Remove shot</button>` : ''}</div>
+    </div>`;
+  };
 
   root.innerHTML = `
     <div class="holebar">
@@ -235,43 +280,22 @@ function renderHole() {
     <div class="holedots">${round.holes.map((x, k) => `<i class="${k === i ? 'on' : ''} ${x && x.score != null ? (x.score < course.holes[k].par ? 'b' : x.score === course.holes[k].par ? 'p' : 'o') : ''}" data-go="${k}"></i>`).join('')}</div>
     <p class="mute small center">${esc(round.courseName)} · ${tot.s ? `${tot.s} (${toParStr(tot.s - tot.p)}) thru ${played(round).length}` : 'not started'}${review ? ' · reviewing bogeys' : ''}</p>
 
+    <div class="scorebar"><div><span class="mute small">Score</span><b class="${diff < 0 ? 'under' : diff > 0 ? 'over' : ''}">${score ?? '–'}</b><span class="small">${word}</span></div>
+      ${sg && sg.complete ? `<span class="sgpill ${sg.total >= 0 ? 'pos' : 'neg'}" style="float:none">SG ${sg.total >= 0 ? '+' : ''}${sg.total.toFixed(1)}</span>` : ''}</div>
+
+    ${h.shots.map(panel).join('')}
+    <button class="btn addshot" data-add="1">+ Add shot ${h.shots.length + 1}</button>
+
     <div class="card">
-      <div class="lbl">Score</div>
-      <div class="stepper big"><button data-sc="-1">−</button><span class="${diff < 0 ? 'under' : diff > 0 ? 'over' : ''}">${score}</span><button data-sc="1">+</button></div>
       <div class="lbl">Putts</div>
       <div class="seg5">${[0, 1, 2, 3, 4].map((n) => `<button class="${putts === n ? 'on' : ''}" data-pt="${n}">${n}${n === 4 ? '+' : ''}</button>`).join('')}</div>
-      ${putts >= 1 ? `<div class="lbl">1st putt <span class="mute">(${puttUnit()}, optional)</span></div><div class="seg5 sm">${PUTT_FT.map((n) => `<button class="${h.firstPutt === n ? 'on' : ''}" data-fp="${n}">${puttLabel(n)}</button>`).join('')}</div>` : ''}
+      ${putts ? `<div class="lbl">1st putt <span class="mute">(${puttUnit()})</span></div><div class="seg5 sm">${PUTT_FT.map((n) => `<button class="${h.firstPutt === n ? 'on' : ''}" data-fp="${n}">${puttLabel(n)}</button>`).join('')}</div>` : ''}
+      ${putts === 0 ? '<p class="mute small">Holed from off the green. Nice.</p>' : ''}
     </div>
 
-    ${par >= 4 ? `<div class="card"><div class="lbl">Tee shot</div>
-      <div class="zones">${TEE_ZONES.map(([k, l]) => `<button class="${h.tee === k ? 'on' : ''} z${k}" data-tee="${k}">${k[0] === 'L' ? '◀ ' : ''}${l}${k[0] === 'R' ? ' ▶' : ''}</button>`).join('')}</div></div>` : ''}
-
-    <div class="card shotscard">
-      <div class="lbl">Shots <span class="mute">${putts ? `then ${putts} putt${putts > 1 ? 's' : ''}` : ''}</span>${sg && sg.complete ? `<span class="sgpill ${sg.total >= 0 ? 'pos' : 'neg'}">SG ${sg.total >= 0 ? '+' : ''}${sg.total.toFixed(1)}</span>` : ''}</div>
-      ${h.shots.map((x, k) => {
-        if (k === 0) return `<div class="shotrow"><span class="sn">1</span><div class="sb"><b>Tee shot</b> <span class="mute">${x.dist ? `${dist(x.dist)} ${du()}` : ''}</span>${x.pen ? ' <span class="pen">+1 pen</span>' : ''}</div><button class="link" data-pen="0">${x.pen ? 'no penalty' : '+ penalty'}</button></div>`;
-        const lie = x.lie || defaultLie(h, k, h.shots.length);
-        return `<div class="shotrow"><span class="sn">${k + 1}</span><div class="sb">
-          <div class="srow1"><input inputmode="numeric" data-sd="${k}" placeholder="to pin" value="${x.dist != null ? dist(x.dist) : ''}" /><span class="mute small">${du()}${x.src === 'laser' ? ' · 📍 laser' : ''}</span><button class="link" data-pen="${k}">${x.pen ? '<span class="pen">+1 pen</span>' : '+ penalty'}</button></div>
-          <div class="lies">${LIES.map(([v, l]) => `<button class="${lie === v ? 'on' : ''} ${!x.lie && lie === v ? 'auto' : ''}" data-lie="${k}" data-v="${v}">${l.split(' ')[0]}</button>`).join('')}</div></div></div>`;
-      }).join('')}
-      <p class="mute small" style="margin:6px 0 0">Distances fill in from the rangefinder as you play. Type over them if needed.</p>
-    </div>
-
-    <div class="card">
-      <div class="lbl">Green <span class="badge ${g ? 'good' : 'bad'}">${g ? 'GIR ✓' : 'Missed green'}</span> <button class="link" data-gir="1">${h.gir == null ? 'auto' : 'manual'} · change</button></div>
-      ${!g ? `<div class="seg4">${MISS.map(([k, l]) => `<button class="${h.miss === k ? 'on' : ''}" data-miss="${k}">${l}</button>`).join('')}</div>
-      <label class="check" style="margin-top:8px"><input type="checkbox" data-bunker ${h.bunker ? 'checked' : ''}/> Green-side bunker</label>
-      <p class="mute small">${score <= par ? (h.bunker ? 'Sand save ✓' : 'Up and down ✓') : 'No up and down'}</p>` : ''}
-    </div>
-
-    <div class="card ${needTag ? 'needtag' : ''}">
-      <div class="lbl">${diff > 0 ? `${diff === 1 ? 'Bogey' : diff === 2 ? 'Double' : `+${diff}`}: what caused it?` : 'Bad shot you got away with? (optional)'}</div>
-      ${(h.tags || []).map((t, k) => `<div class="tagrow"><span>${esc([t.shot, t.cause, t.flight, t.strike, t.result].filter(Boolean).join(' · '))} ${t.cost ? `<b>+${t.cost}</b>` : '<span class="mute">saved it</span>'}</span><button class="link" data-deltag="${k}">remove</button></div>`).join('')}
-      ${needTag ? `<p class="mute small">${diff - tagCost} stroke${diff - tagCost > 1 ? 's' : ''} not explained yet.</p>` : ''}
-      <button class="btn" data-addtag="1" style="width:100%">+ ${diff > 0 ? 'Tag the shot' : 'Tag a saved shot'}</button>
-      ${diff > 0 || h.note ? `<textarea class="hnote" data-note rows="2" placeholder="What happened? e.g. went for the green over water, should have laid up">${esc(h.note || '')}</textarea>` : ''}
-    </div>
+    ${diff > 0 || h.note ? `<div class="card"><div class="lbl">${word}: what happened? <span class="mute">(optional)</span></div>
+      <textarea class="hnote" data-note rows="2" placeholder="e.g. went for the green over water, should have laid up">${esc(h.note || '')}</textarea>
+      <p class="mute small" style="margin:6px 0 0">Tap Details on the shot that cost you to log how it went (flight, strike, cause).</p></div>` : ''}
 
     <div class="row">
       ${i === course.holes.length - 1 || (review && nextBogey(i) < 0) ? '<button class="btn primary big" data-h="finish">Finish round</button>' : `<button class="btn primary big" data-h="next">${review ? 'Next bogey ›' : `Hole ${i + 2} ›`}</button>`}
@@ -279,35 +303,107 @@ function renderHole() {
     <label class="check small" style="margin-top:12px"><input type="checkbox" data-learn ${round.learning !== false ? 'checked' : ''}/> Count this round toward my coach profile</label>
     <button class="link" data-h="home" style="margin-top:10px">Save & exit</button>`;
 
-  const commit = () => { h.score = score; h.putts = putts; };
-  root.querySelectorAll('[data-sc]').forEach((b) => b.onclick = () => { h.score = Math.max(1, score + +b.dataset.sc); h.putts = putts; save(); renderHole(); });
-  root.querySelectorAll('[data-pt]').forEach((b) => b.onclick = () => { h.putts = +b.dataset.pt; h.score = Math.max(score, h.putts + 1); save(); renderHole(); });
-  root.querySelectorAll('[data-fp]').forEach((b) => b.onclick = () => { commit(); h.firstPutt = h.firstPutt === +b.dataset.fp ? null : +b.dataset.fp; save(); renderHole(); });
-  root.querySelectorAll('[data-tee]').forEach((b) => b.onclick = () => { commit(); h.tee = h.tee === b.dataset.tee ? null : b.dataset.tee; save(); renderHole(); });
-  root.querySelectorAll('[data-miss]').forEach((b) => b.onclick = () => { commit(); h.miss = h.miss === b.dataset.miss ? null : b.dataset.miss; save(); renderHole(); });
-  root.querySelector('[data-bunker]')?.addEventListener('change', (e) => { commit(); h.bunker = e.target.checked; save(); renderHole(); });
-  root.querySelectorAll('[data-sd]').forEach((el) => el.addEventListener('change', () => { commit(); const k = +el.dataset.sd; h.shots[k] = { ...h.shots[k], dist: toYards(el.value), src: el.value ? 'manual' : null }; save(); renderHole(); }));
-  root.querySelectorAll('[data-lie]').forEach((b) => b.onclick = () => { commit(); const k = +b.dataset.lie; h.shots[k] = { ...h.shots[k], lie: b.dataset.v }; save(); renderHole(); });
-  root.querySelectorAll('[data-pen]').forEach((b) => b.onclick = () => { commit(); const k = +b.dataset.pen; h.shots[k] = { ...h.shots[k], pen: !h.shots[k].pen }; save(); renderHole(); });
-  root.querySelector('[data-gir]').onclick = () => { commit(); h.gir = h.gir == null ? !g : null; save(); renderHole(); };
+  const redo = () => { derive(h, par); save(); renderHole(); };
+  root.querySelectorAll('[data-res]').forEach((b) => b.onclick = () => { const x = h.shots[+b.dataset.res]; x.res = x.res === b.dataset.v ? null : b.dataset.v; redo(); });
+  root.querySelectorAll('[data-lie]').forEach((b) => b.onclick = () => { h.shots[+b.dataset.lie].lie = b.dataset.v; redo(); });
+  root.querySelectorAll('[data-sd]').forEach((el) => el.addEventListener('change', () => { const x = h.shots[+el.dataset.sd]; x.dist = toYards(el.value); x.src = el.value ? 'manual' : null; redo(); }));
+  root.querySelectorAll('[data-pen]').forEach((b) => b.onclick = () => { const x = h.shots[+b.dataset.pen]; x.pen = !x.pen; redo(); });
+  root.querySelectorAll('[data-rm]').forEach((b) => b.onclick = () => { h.shots.splice(+b.dataset.rm, 1); redo(); });
+  root.querySelector('[data-add]').onclick = () => { h.shots.push({ lie: null, dist: null }); redo(); setTimeout(() => root.querySelectorAll('.shotpanel')[h.shots.length - 1]?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 50); };
+  root.querySelectorAll('[data-det]').forEach((b) => b.onclick = () => shotDetails(h, +b.dataset.det, par, i, redo));
+  root.querySelectorAll('[data-pt]').forEach((b) => b.onclick = () => { h.putts = +b.dataset.pt; if (!h.putts) h.firstPutt = null; redo(); });
+  root.querySelectorAll('[data-fp]').forEach((b) => b.onclick = () => { h.firstPutt = h.firstPutt === +b.dataset.fp ? null : +b.dataset.fp; redo(); });
   root.querySelector('[data-learn]').onchange = (e) => { round.learning = e.target.checked; save(); };
   root.querySelector('[data-note]')?.addEventListener('input', (e) => { h.note = e.target.value; clearTimeout(window.__noteT); window.__noteT = setTimeout(save, 500); });
-  root.querySelectorAll('[data-deltag]').forEach((b) => b.onclick = () => { h.tags.splice(+b.dataset.deltag, 1); save(); renderHole(); });
-  root.querySelector('[data-addtag]').onclick = () => { commit(); tagSheet(h, par, i, diff - tagCost); };
+  // leaving a hole counts it as played: unpicked putts are taken as 2, unpicked lies as the suggested ones
+  const commit = () => {
+    if (h.putts == null) h.putts = 2;
+    h.shots.forEach((x) => { if (!x.lie && x.lieAuto) x.lie = x.lieAuto; delete x.lieAuto; });
+    derive(h, par);
+  };
   root.querySelectorAll('[data-go]').forEach((b) => b.onclick = () => { commit(); save(); cur.hole = +b.dataset.go; renderHole(); });
   root.querySelectorAll('[data-h]').forEach((b) => b.onclick = async () => {
     const a = b.dataset.h;
-    commit(); await save();
+    if (a !== 'home' && a !== 'prev') commit();
+    await save();
     if (a === 'prev') { cur.hole = Math.max(0, i - 1); return renderHole(); }
     if (a === 'next') {
-      if (review) { const n = nextBogey(i); cur.hole = n < 0 ? i : n; }
-      else cur.hole = Math.min(course.holes.length - 1, i + 1);
-      window.scrollTo(0, 0); return renderHole();
+      const go = () => {
+        if (review) { const n = nextBogey(i); cur.hole = n < 0 ? i : n; }
+        else cur.hole = Math.min(course.holes.length - 1, i + 1);
+        window.scrollTo(0, 0); renderHole();
+      };
+      // at the turn: how are you feeling?
+      if (i === 8 && course.holes.length > 9 && !review && round.mood?.turn == null) return moodSheet(round, 'turn', go);
+      return go();
     }
-    if (a === 'finish') { round.finished = true; await save(); return renderSummary(round, course); }
+    if (a === 'finish') {
+      const done = async () => { round.finished = true; await save(); renderSummary(round, course); };
+      return round.mood?.finish == null ? moodSheet(round, 'finish', done) : done();
+    }
     if (a === 'home') return roundsHome();
   });
 }
+
+/** Optional per-shot details: club and Conor's codes, for practice. Not required. */
+function shotDetails(h, k, par, holeIdx, done) {
+  const x = h.shots[k];
+  const d = { club: null, shot: null, cause: null, flight: null, strike: null, result: null, cost: null, ...(x.d || {}) };
+  const clubs = getBag().map((c) => c.club).filter(Boolean);
+  const sheet = document.createElement('div'); sheet.className = 'sheet';
+  const draw = () => {
+    const auto = autoShotType({ ...x, d }, k, par);
+    const row = (key, list, label) => `<div class="lbl">${label}</div><div class="codes">${list.map(([c, l]) => `<button class="${d[key] === c ? 'on' : ''} ${key === 'shot' && !d.shot && auto === c ? 'auto' : ''}" data-k="${key}" data-v="${c}">${c}${l ? `<small>${l}</small>` : ''}</button>`).join('')}</div>`;
+    sheet.innerHTML = `<div class="sheet-in">
+      <div class="sheet-h"><b>Hole ${holeIdx + 1} · ${k === 0 ? 'tee shot' : `shot ${k + 1}`}</b><button class="link" data-close>Cancel</button></div>
+      <div class="lbl">Club</div><div class="clubchips">${clubs.map((c) => `<button class="${d.club === c ? 'on' : ''}" data-club="${esc(c)}">${esc(c)}</button>`).join('')}</div>
+      ${row('flight', CODES.flight, 'Ball flight')}${row('strike', [['PUR', 'Pure'], ...CODES.strike], 'Strike')}
+      ${row('cause', CODES.cause, 'Execution (if it went wrong)')}${row('result', CODES.result, 'Positioning')}
+      ${row('shot', CODES.shot, 'Shot type')}
+      <div class="lbl">Did it cost you?</div><div class="seg4">${[[null, 'No'], [1, '+1'], [2, '+2'], [0, 'Saved it']].map(([v, l]) => `<button class="${d.cost === v ? 'on' : ''}" data-cost="${v}">${l}</button>`).join('')}</div>
+      <button class="btn primary big" data-ok>Save</button>
+      ${x.d ? '<button class="link" data-clear style="margin-top:10px">Clear details</button>' : ''}</div>`;
+    sheet.querySelectorAll('[data-k]').forEach((b) => b.onclick = () => { d[b.dataset.k] = d[b.dataset.k] === b.dataset.v ? null : b.dataset.v; draw(); });
+    sheet.querySelectorAll('[data-club]').forEach((b) => b.onclick = () => { d.club = d.club === b.dataset.club ? null : b.dataset.club; draw(); });
+    sheet.querySelectorAll('[data-cost]').forEach((b) => b.onclick = () => { d.cost = b.dataset.cost === 'null' ? null : +b.dataset.cost; draw(); });
+    sheet.querySelector('[data-close]').onclick = () => sheet.remove();
+    sheet.querySelector('[data-clear]')?.addEventListener('click', () => { delete x.d; sheet.remove(); done(); });
+    sheet.querySelector('[data-ok]').onclick = () => { x.d = { ...d, shot: d.shot || auto }; sheet.remove(); done(); };
+  };
+  draw();
+  document.body.appendChild(sheet);
+}
+
+// Emotional state, 1–10 (5 = calm, focused, energised). Asked at the start, at the turn and at the end.
+export const MOOD_WORDS = { low: 'Lethargic · uninterested · sluggish', mid: 'Calm · focused · energised', high: 'Agitated · erratic · jumpy' };
+const WARMUP = [['none', 'None'], ['putt', 'Putting only'], ['range', 'Range balls'], ['full', 'Full warm-up']];
+const moodColor = (n) => `hsl(${n <= 5 ? 200 - (n - 1) * 20 : 120 - (n - 5) * 24}, 75%, 50%)`;
+function moodSheet(round, key, done) {
+  round.mood ||= {};
+  let v = round.mood[key] ?? null, w = round.warmup ?? null;
+  const sheet = document.createElement('div'); sheet.className = 'sheet';
+  const title = { start: 'Before you tee off', turn: 'At the turn', finish: 'Round done' }[key];
+  const draw = () => {
+    sheet.innerHTML = `<div class="sheet-in">
+      <div class="sheet-h"><b>${title}</b><button class="link" data-skip>Skip</button></div>
+      <div class="lbl">How do you feel right now?</div>
+      <div class="moodscale">${Array.from({ length: 10 }, (_, n) => `<button class="${v === n + 1 ? 'on' : ''}" data-m="${n + 1}" style="--c:${moodColor(n + 1)}">${n + 1}</button>`).join('')}</div>
+      <div class="moodlbl"><span style="color:${moodColor(1)}">Low<small>${MOOD_WORDS.low}</small></span><span style="color:${moodColor(5)}">Ideal<small>${MOOD_WORDS.mid}</small></span><span style="color:${moodColor(10)}">High<small>${MOOD_WORDS.high}</small></span></div>
+      ${key === 'start' ? `<div class="lbl">Any practice or warm-up before the round?</div><div class="seg4">${WARMUP.map(([k, l]) => `<button class="${w === k ? 'on' : ''}" data-w="${k}">${l}</button>`).join('')}</div>` : ''}
+      <button class="btn primary big" data-ok ${v ? '' : 'disabled'}>${key === 'start' ? 'Start hole 1' : key === 'turn' ? 'On to the back nine' : 'See my round'}</button></div>`;
+    sheet.querySelectorAll('[data-m]').forEach((b) => b.onclick = () => { v = +b.dataset.m; draw(); });
+    sheet.querySelectorAll('[data-w]').forEach((b) => b.onclick = () => { w = b.dataset.w; draw(); });
+    sheet.querySelector('[data-skip]').onclick = () => { round.mood[key] = round.mood[key] ?? 0; sheet.remove(); save(); done(); };
+    sheet.querySelector('[data-ok]').onclick = () => { round.mood[key] = v; if (key === 'start') round.warmup = w; sheet.remove(); save(); done(); };
+  };
+  draw();
+  document.body.appendChild(sheet);
+}
+export const moodLine = (r) => {
+  const m = r.mood || {}; const f = (x) => (x ? `${x}/10` : '–');
+  if (!m.start && !m.turn && !m.finish) return '';
+  return `Emotional state: start ${f(m.start)}, turn ${f(m.turn)}, finish ${f(m.finish)}${r.warmup ? ` · warm-up: ${(WARMUP.find((x) => x[0] === r.warmup) || [, r.warmup])[1].toLowerCase()}` : ''}`;
+};
 
 function nextBogey(i) {
   const { round, course } = cur;
@@ -391,6 +487,22 @@ function confirmCard(c, data) {
 }
 
 // ---------------- Summary ----------------
+/** What the shot details say to take to practice: flight and strike by shot type. */
+function practiceCard(r, c) {
+  const by = {};
+  r.holes.forEach((h, i) => (h?.shots || []).forEach((x, k) => {
+    if (!x.d) return;
+    const t = x.d.shot || autoShotType(x, k, c.holes[i]?.par ?? 4);
+    const b = (by[t] ||= { n: 0, codes: {} }); b.n++;
+    for (const v of [x.d.flight, x.d.strike, x.d.cause]) if (v && v !== 'STR' && v !== 'PUR') b.codes[v] = (b.codes[v] || 0) + 1;
+  }));
+  const rows = Object.entries(by).filter(([, b]) => Object.keys(b.codes).length);
+  if (!rows.length) return '';
+  const name = Object.fromEntries(CODES.shot);
+  const lab = Object.fromEntries([...CODES.flight, ...CODES.strike, ...CODES.cause]);
+  return `<div class="card"><h2>Take to practice</h2>${rows.map(([t, b]) => `<div class="tend"><div><b>${esc(name[t] || t)}</b><div class="mute small">${Object.entries(b.codes).sort((a, z) => z[1] - a[1]).map(([k, v]) => `${esc(lab[k] || k)} ×${v}`).join(' · ')} <span class="mute">(of ${b.n} logged)</span></div></div></div>`).join('')}</div>`;
+}
+
 /** Strokes gained card: one bar per category, centred on the tour baseline. */
 function sgCard(G, title, sub = '') {
   if (!G) return '';
@@ -448,7 +560,9 @@ async function renderSummary(r, c) {
       <tr><th>Par</th>${c.holes.slice(9).map((h) => `<td class="mute">${h.par}</td>`).join('')}<td class="mute">${c.holes.slice(9).reduce((a, h) => a + h.par, 0)}</td></tr>
       <tr><th>You</th>${half(9, 18)}<td><b>${S.back}</b></td></tr>` : ''}</table></div>
     </div>
+    ${moodLine(r) ? `<p class="mute small center">${esc(moodLine(r))}</p>` : ''}
     ${statsCard(S, `${S.score} (${toParStr(S.toPar)})`)}
+    ${practiceCard(r, c)}
     ${(() => { const G = roundSG(r, c); return G && G.complete >= Math.min(9, G.holes) ? sgCard(G, 'This round', G.complete < G.holes ? `${G.complete} of ${G.holes} holes have full shot data` : '') : '<div class="card"><h2>Strokes gained</h2><p class="mute small">Log shot distances and lies (they fill in from the rangefinder) plus the first-putt distance, and strokes gained shows here.</p></div>'; })()}
     ${rulesCard(checkRules(r, c, ctx.settings().roundRules || DEFAULT_RULES), esc)}
     <div class="card debrief"><h2>Debrief</h2>
@@ -493,8 +607,8 @@ async function renderSummary(r, c) {
         const recent = (await listRounds()).filter((x) => x.finished && x.id !== r.id && x.learning !== false).slice(0, 8);
         const A = await aggStats(recent);
         const swings = await listSwings().catch(() => []);
-        const holeLog = r.holes.map((h, i) => h ? `H${i + 1} par ${c.holes[i].par}: ${h.score} (${h.putts ?? '?'} putts${h.tee ? `, tee ${h.tee}` : ''}${h.miss ? `, missed green ${h.miss}` : ''}${h.bunker ? ', bunker' : ''}${(h.tags || []).length ? `, tags: ${h.tags.map((t) => [t.shot, t.cause, t.flight, t.strike, t.result].filter(Boolean).join('/') + (t.cost ? ` +${t.cost}` : ' saved')).join('; ')}` : ''}${h.note ? `, golfer's note: "${h.note}"` : ''})` : null).filter(Boolean).join('\n');
-        const roundText = `${c.name}${c.tees ? ` (${c.tees})` : ''}: ${S.score} (${toParStr(S.toPar)}). ${roundSummaryText(aggregate([{ round: r, course: c, stats: S }]))}\nRules the golfer plays by: ${checkRules(r, c, ctx.settings().roundRules || DEFAULT_RULES).map((x) => `${x.label}: ${x.holes.length ? `broken on ${x.holes.join(',')}` : 'kept'}`).join('; ')}.\nHole by hole:\n${holeLog}${r.debrief?.tags?.length || r.debrief?.notes ? `\nGolfer's debrief: ${[...(r.debrief.tags || []), r.debrief.notes].filter(Boolean).join('; ')}` : ''}`;
+        const holeLog = r.holes.map((h, i) => h ? `H${i + 1} par ${c.holes[i].par}: ${h.score} (${h.putts ?? '?'} putts${h.tee ? `, tee ${h.tee}` : ''}${h.miss ? `, missed green ${h.miss}` : ''}${h.bunker ? ', bunker' : ''}${(h.tags || []).length ? `, tags: ${h.tags.map((t) => [t.shot, t.cause, t.flight, t.strike, t.result].filter(Boolean).join('/') + (t.cost ? ` +${t.cost}` : ' saved')).join('; ')}` : ''}${(h.shots || []).some((x) => x.d) ? `, shots: ${h.shots.map((x, k) => `${k + 1}${x.lie && x.lie !== 'tee' ? ` from ${x.lie}` : ''}${x.dist ? ` ${Math.round(x.dist)}y` : ''}${x.d ? ` [${[x.d.club, x.d.flight, x.d.strike, x.d.cause, x.d.result].filter(Boolean).join('/')}]` : ''}`).join('; ')}` : ''}${h.note ? `, golfer's note: "${h.note}"` : ''})` : null).filter(Boolean).join('\n');
+        const roundText = `${c.name}${c.tees ? ` (${c.tees})` : ''}: ${S.score} (${toParStr(S.toPar)}). ${moodLine(r) ? moodLine(r) + ' (1 = lethargic, 5 = calm/focused ideal, 10 = agitated). ' : ''}${roundSummaryText(aggregate([{ round: r, course: c, stats: S }]))}\nRules the golfer plays by: ${checkRules(r, c, ctx.settings().roundRules || DEFAULT_RULES).map((x) => `${x.label}: ${x.holes.length ? `broken on ${x.holes.join(',')}` : 'kept'}`).join('; ')}.\nHole by hole:\n${holeLog}${r.debrief?.tags?.length || r.debrief?.notes ? `\nGolfer's debrief: ${[...(r.debrief.tags || []), r.debrief.notes].filter(Boolean).join('; ')}` : ''}`;
         const { text, meta } = await reviewRound({ ...aiFrom(s), roundText, recentText: A ? roundSummaryText(A) : '', history: coachContext(swings, recent.length ? A : null), golfer: s.golfer });
         r.ai = text; await putRound(r);
         if (meta?.note && r.learning !== false) addCoachNote(`[round] ${String(meta.note).slice(0, 280)}`);

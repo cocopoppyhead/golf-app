@@ -330,3 +330,22 @@ img.av { object-fit: cover; }
 .sgrow { display: grid; grid-template-columns: 120px 1fr 44px; align-items: center; gap: 8px; margin: 6px 0; font-size: 13px; } .sgrow b { text-align: right; font-variant-numeric: tabular-nums; }
 .sgbar { position: relative; height: 12px; background: var(--panel2); border-radius: 6px; } .sgbar::after { content: ''; position: absolute; left: 50%; top: -3px; bottom: -3px; width: 2px; background: var(--mute); }
 .sgbar i { position: absolute; top: 0; bottom: 0; border-radius: 6px; } .sgbar i.pos { background: var(--good); } .sgbar i.neg { background: var(--work); }
+/* hole: ordered shot panels */
+.scorebar { display: flex; justify-content: space-between; align-items: center; background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); padding: 10px 14px; margin: 10px 0; }
+.scorebar > div { display: flex; align-items: baseline; gap: 10px; } .scorebar b { font-size: 30px; font-weight: 800; } .scorebar b.over { color: var(--work); } .scorebar b.under { color: var(--good); }
+.shotpanel .sp-h { display: flex; align-items: center; gap: 10px; } .shotpanel .sp-h b { font-size: 16px; } .shotpanel .sp-h .btn.sm { margin-left: auto; padding: 6px 12px; font-size: 13px; }
+.shotpanel .sn { flex: none; width: 26px; height: 26px; border-radius: 50%; background: var(--acc); color: var(--acc-ink); display: grid; place-items: center; font-weight: 800; font-size: 13px; }
+.detline { font-size: 12px; color: var(--acc); margin: 6px 0 0 36px; font-weight: 600; }
+.lies6 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; }
+.lies6 button { background: var(--panel2); color: var(--ink); border: 1px solid var(--line); border-radius: 10px; padding: 9px 2px; font: 600 13px Inter, system-ui; }
+.lies6 button.on { background: var(--acc); color: var(--acc-ink); border-color: var(--acc); } .lies6 button.on.auto { background: transparent; color: var(--acc); border-style: dashed; }
+.shotpanel .srow1 { margin-top: 8px; }
+.seg5.res button { font-size: 12.5px; }
+.sp-f { display: flex; justify-content: space-between; margin-top: 10px; }
+.addshot { width: 100%; border-style: dashed; margin: 0 0 10px; }
+.codes button.auto { border-color: var(--acc); border-style: dashed; }
+.moodscale { display: grid; grid-template-columns: repeat(10, 1fr); gap: 4px; }
+.moodscale button { aspect-ratio: 1; border-radius: 50%; border: 2px solid var(--c); background: transparent; color: var(--ink); font: 800 14px Inter, system-ui; padding: 0; }
+.moodscale button.on { background: var(--c); color: #000; transform: scale(1.12); }
+.moodlbl { display: flex; justify-content: space-between; margin: 8px 0 4px; font: 800 12px Inter, system-ui; } .moodlbl span { display: flex; flex-direction: column; max-width: 32%; } .moodlbl span:nth-child(2) { text-align: center; } .moodlbl span:last-child { text-align: right; }
+.moodlbl small { color: var(--mute); font-weight: 500; font-size: 10.5px; margin-top: 2px; }
