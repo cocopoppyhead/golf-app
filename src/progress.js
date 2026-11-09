@@ -7,6 +7,7 @@ import { roundSG, SG_LABELS } from './rounds/sg.js';
 import { tiger5, TIGER5, TIGER5_LABEL, TIGER5_TOUR } from './rounds/tiger.js';
 import { sgCard, autoShotType } from './rounds/ui.js';
 import { CODES } from './rounds/stats.js';
+import { differential, adjustedGross, indexFrom, indexHistory } from './rounds/handicap.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const f1 = (v) => (v == null || !Number.isFinite(v) ? '–' : v.toFixed(1));
@@ -52,13 +53,90 @@ function spark(vals, { good = 'down' } = {}) {
   return `<svg viewBox="0 0 ${W} ${H}" class="spark"><polyline points="${pts}" fill="none" stroke="var(--${better ? 'good' : 'mute'})" stroke-width="2.5" stroke-linejoin="round"/></svg>`;
 }
 
+/**
+ * Handicap trend from every 18-hole round on a rated course. Two passes: gross differentials give a
+ * first index, then hole-by-hole rounds are capped at net double bogey with it (WHS adjusted gross).
+ */
+function handicap(ALL) {
+  const rated = ALL.filter((x) => x.S.holes >= 18 && x.c.rating && x.c.slope);
+  if (!rated.length) return null;
+  let entries = rated.map((x) => ({ date: x.r.date, diff: x.r.quick && x.r.diff != null ? x.r.diff : differential(x.S.score, x.c.rating, x.c.slope), x }));
+  const first = indexHistory(entries).current;
+  if (first) entries = entries.map((e) => (e.x.r.quick ? e : { ...e, diff: differential(adjustedGross(e.x.r, e.x.c, first.index), e.x.c.rating, e.x.c.slope) }));
+  const H = indexHistory(entries);
+  const newest = [...entries].sort((a, b) => b.date - a.date).slice(0, 20);
+  const cur = indexFrom(newest.map((e) => e.diff));
+  return { ...H, newest, counted: new Set((cur?.counted || []).map((i) => newest[i].x.r.id)), current: cur };
+}
+
+const bars = (vals, { hi = null, lo = null, cls = () => '' } = {}) => {
+  const v = vals.map((x) => x.v).filter(Number.isFinite);
+  if (!v.length) return '';
+  const max = hi ?? Math.max(...v), min = lo ?? Math.min(...v); const span = max - min || 1;
+  return `<div class="hbars">${vals.map((x) => `<i class="${cls(x)}" title="${esc(x.t || '')}" style="height:${x.v == null ? 0 : 12 + ((x.v - min) / span) * 88}%"></i>`).join('')}</div>`;
+};
+const ym = (t) => new Date(t).getFullYear();
+
+function handicapCard(Hc) {
+  if (!Hc || !Hc.current) return `<div class="card"><h2>Handicap index</h2><p class="mute small">Shows after 3 rounds of 18 holes on courses with a rating and slope (every UAE library course has them). Post past scores from Play to build it faster.</p></div>`;
+  const hist = Hc.history.filter((h) => h.index != null);
+  const prev5 = hist.length > 5 ? hist[hist.length - 6].index : null;
+  const delta = prev5 != null ? Hc.current.index - prev5 : null;
+  const line = hist.length > 1 ? spark(hist.slice(-20).map((h) => h.index), { good: 'down' }) : '';
+  return `<div class="card">
+    <div class="scorehead"><div><span class="mute small">Handicap index · from your rounds</span><div class="big">${f1(Hc.current.index)}</div>
+      <span class="small ${delta == null ? 'mute' : delta <= 0 ? 'goodc' : 'workc'}">${delta == null ? `${Hc.current.of} of 20 rounds` : `${delta > 0 ? '↑' : '↓'} ${Math.abs(delta).toFixed(1)} over last 5 rounds`}${Hc.low ? ` · low ${f1(Hc.low.index)}` : ''}</span></div>${line}</div>
+    <p class="mute small" style="margin:8px 0 0">Best ${Hc.current.counted.length} of your last ${Hc.current.of} differentials, WHS maths. Tracks GHIN closely; the official number is on GHIN.</p>
+  </div>`;
+}
+
+function scoringHistoryCard(R, Hc) {
+  const full = [...R].filter((x) => x.S.holes >= 18).sort((a, b) => a.r.date - b.r.date).slice(-20);
+  if (!full.length) return '';
+  const sc = full.map((x) => x.S.score);
+  const avg = sc.reduce((a, b) => a + b, 0) / sc.length;
+  const last5 = sc.slice(-5), prior5 = sc.slice(-10, -5);
+  const a5 = last5.reduce((a, b) => a + b, 0) / last5.length, p5 = prior5.length ? prior5.reduce((a, b) => a + b, 0) / prior5.length : null;
+  return `<div class="card">
+    <div class="scorehead"><div><span class="mute small">Average score · last ${sc.length} round${sc.length > 1 ? 's' : ''}</span><div class="big">${f1(avg)}</div>
+      ${p5 != null ? `<span class="small ${a5 <= p5 ? 'goodc' : 'workc'}">last 5: ${f1(a5)} · ${a5 <= p5 ? '↓' : '↑'} ${Math.abs(a5 - p5).toFixed(1)} vs the 5 before</span>` : ''}</div>
+      <div class="hilo"><span><b>${Math.min(...sc)}</b>low</span><span><b>${Math.max(...sc)}</b>high</span></div></div>
+    ${bars(full.map((x) => ({ v: x.S.score, t: `${x.r.courseName} ${x.S.score}`, counted: Hc?.counted.has(x.r.id) })), { lo: Math.min(...sc) - 8, cls: (x) => (x.counted ? 'on' : '') })}
+    <p class="mute small" style="margin:6px 0 0">Oldest to newest. ${Hc?.current ? 'Green bars are the differentials counting toward your index.' : ''}</p>
+  </div>`;
+}
+
+function distributionCard(R) {
+  const H = R.filter((x) => !x.S.quick && x.S.holes);
+  if (!H.length) return '';
+  const tot = H.reduce((a, x) => a + x.S.holes, 0);
+  const rows = [['Birdies or better', H.reduce((a, x) => a + x.S.birdies, 0)], ['Pars', H.reduce((a, x) => a + x.S.pars, 0)], ['Bogeys', H.reduce((a, x) => a + x.S.bogeys, 0)], ['Double bogeys', H.reduce((a, x) => a + x.S.doubles - x.S.triples, 0)], ['Triples or worse', H.reduce((a, x) => a + x.S.triples, 0)]];
+  const max = Math.max(...rows.map((r) => r[1]), 1);
+  return `<div class="card"><h2>Scoring distribution</h2>
+    <div class="bars">${rows.map(([l, n]) => `<div><span>${l}</span><div class="meter"><div style="width:${(100 * n) / max}%;background:var(--acc)"></div></div><span>${Math.round((100 * n) / tot)}%</span></div>`).join('')}</div>
+    <p class="mute small" style="margin:6px 0 0">${tot} holes from ${H.length} hole-by-hole round${H.length > 1 ? 's' : ''}.</p></div>`;
+}
+
+function activityCard(ALL) {
+  const y = new Date().getFullYear();
+  const Y = ALL.filter((x) => ym(x.r.date) === y);
+  if (!Y.length) return '';
+  const by = {}; Y.forEach((x) => { by[x.r.courseName] = (by[x.r.courseName] || 0) + 1; });
+  const list = Object.entries(by).sort((a, b) => b[1] - a[1]);
+  return `<div class="card"><h2>${y}</h2>
+    <div class="kpis k2"><div><b>${Y.length}</b><span>rounds</span></div><div><b>${list.length}</b><span>courses</span></div></div>
+    <details><summary class="mute small">Courses played</summary>${list.map(([n, k]) => `<div class="tagrow"><span>${esc(n)}</span><b>${k}</b></div>`).join('')}</details></div>`;
+}
+
 export async function renderScoring(el) {
-  const R = await loadRounds();
+  const ALL = await loadRounds(200);
+  const R = ALL.slice(0, 20);
   if (!R.length) { el.innerHTML = '<div class="card"><h2>No rounds yet</h2><p class="mute">Log a round in Play. Your scoring, Tiger 5 and strokes gained build up here.</p></div>'; return; }
   const full = R.filter((x) => x.S.holes >= 18);
   const n = R.length;
   const sum = (f) => R.reduce((a, x) => a + (f(x) || 0), 0);
-  const per = (f) => sum(f) / n;
+  const L = R.filter((x) => !x.S.quick); // hole-by-hole rounds, for stats that need holes
+  const per = (f) => (L.length ? L.reduce((a, x) => a + (f(x) || 0), 0) / L.length : null);
   // scoring by par (all holes)
   const byPar = { 3: [0, 0], 4: [0, 0], 5: [0, 0] };
   R.forEach(({ S }) => { for (const p of [3, 4, 5]) { byPar[p][0] += S.byPar[p][0]; byPar[p][1] += S.byPar[p][1]; } });
@@ -68,7 +146,7 @@ export async function renderScoring(el) {
   const sgAvg = G.length ? Object.fromEntries(['ott', 'app', 'arg', 'putt', 'total'].map((k) => [k, G.reduce((a, x) => a + x.G[k] * (18 / x.G.holes), 0) / G.length])) : null;
   // per-18 scaling for counts from 9-hole rounds
   const p18 = (x, v) => v * (18 / Math.max(9, x.S.holes));
-  const t5 = Object.fromEntries(TIGER5.map((id) => [id, R.reduce((a, x) => a + p18(x, x.T.by[id] || 0), 0) / n]));
+  const t5 = Object.fromEntries(TIGER5.map((id) => [id, L.length ? L.reduce((a, x) => a + p18(x, x.T.by[id] || 0), 0) / L.length : 0]));
   const t5tot = Object.values(t5).reduce((a, b) => a + b, 0);
   const recent = [...R].reverse(); // oldest → newest for charts
 
@@ -79,21 +157,21 @@ export async function renderScoring(el) {
   };
   const row = (label, metric, v, fmt = f2) => `<tr><td>${label}</td><td><b>${fmt(v)}</b></td><td>${v == null ? '' : BANDS[band(metric, v)]}</td><td>${mark(metric, v)}</td></tr>`;
 
+  const Hc = handicap(ALL);
   el.innerHTML = `
-    <div class="card scorehead">
-      <div><span class="mute small">Scoring average${full.length ? ` · last ${full.length} full round${full.length > 1 ? 's' : ''}` : ''}</span><div class="big">${f1(avg)}</div></div>
-      ${spark(recent.filter((x) => x.S.holes >= 18).map((x) => x.S.score))}
-    </div>
+    ${handicapCard(Hc)}
+    ${scoringHistoryCard(ALL, Hc)}
+    ${distributionCard(R)}
 
-    <div class="card">
+    ${L.length ? `    <div class="card">
       <div class="sechead" style="margin:0 0 4px"><h2 style="margin:0">Tiger 5</h2><span class="sgpill ${t5tot <= 6 ? 'pos' : 'neg'}" style="float:none">${f1(t5tot)} / round</span></div>
       <p class="mute small" style="margin:0 0 10px">Scott Fawcett's rule: six or fewer of these a round and you're playing to win. Tour top-5 finishers average about 1.6, missed cuts 3.7 (not counting blown saves).</p>
       <table class="t5"><tr><th></th><th>You</th><th>Top 5</th><th>Missed cut</th></tr>
         ${TIGER5.map((id) => `<tr><td>${TIGER5_LABEL[id]}</td><td><b>${f2(t5[id])}</b></td><td>${TIGER5_TOUR[id] ? TIGER5_TOUR[id][0] : '–'}</td><td>${TIGER5_TOUR[id] ? TIGER5_TOUR[id][1] : '–'}</td></tr>`).join('')}
       </table>
-      <div class="t5bars">${recent.map((x) => `<i title="${esc(x.r.courseName)}: ${x.T.total}" style="height:${Math.min(100, x.T.total * 8)}%;background:var(--${x.T.total <= 6 ? 'good' : 'work'})"></i>`).join('')}<span class="goal" style="bottom:48%">6</span></div>
+      <div class="t5bars">${recent.filter((x) => !x.S.quick).map((x) => `<i title="${esc(x.r.courseName)}: ${x.T.total}" style="height:${Math.min(100, x.T.total * 8)}%;background:var(--${x.T.total <= 6 ? 'good' : 'work'})"></i>`).join('')}<span class="goal" style="bottom:48%">6</span></div>
       <p class="mute small" style="margin:6px 0 0">Bars: each round, oldest to newest. Bogeys inside 150 and blown saves need shot distances in the hole log.</p>
-    </div>
+    </div>` : '<div class="card"><h2>Tiger 5</h2><p class="mute small">Needs hole-by-hole rounds. Posted totals only feed the handicap and scoring average.</p></div>'}
 
     ${sgAvg ? sgCard(sgAvg, `Per 18 holes, average of ${G.length} round${G.length > 1 ? 's' : ''} with shot data`) : '<div class="card"><h2>Strokes gained</h2><p class="mute small">Shows once rounds have shot distances (from the rangefinder) and first-putt distances.</p></div>'}
 
@@ -109,7 +187,7 @@ export async function renderScoring(el) {
       </table>
     </div>
 
-    <div class="card">
+    ${L.length ? `    <div class="card">
       <h2>Per round</h2>
       <div class="kpis">
         <div><b>${f1(per((x) => p18(x, x.S.birdies)))}</b><span>birdies</span></div>
@@ -123,8 +201,9 @@ export async function renderScoring(el) {
         <div><b>${pct(sum((x) => x.S.scr), sum((x) => x.S.scrOpp))}</b><span>up & down</span></div>
         <div><b>${f1(per((x) => p18(x, x.S.threePutts)))}</b><span>3-putts</span></div>
       </div>
-      <p class="mute small" style="margin:8px 0 0">${n} round${n > 1 ? 's' : ''}; 9-hole rounds scaled to 18.</p>
-    </div>`;
+      <p class="mute small" style="margin:8px 0 0">${L.length} hole-by-hole round${L.length > 1 ? 's' : ''}; 9-hole rounds scaled to 18.</p>
+    </div>` : ''}
+    ${activityCard(ALL)}`;
 }
 const pct = (a, b) => (b ? `${Math.round((a / b) * 100)}%` : '–');
 

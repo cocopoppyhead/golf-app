@@ -1,6 +1,7 @@
 // Rounds module UI: courses, hole-by-hole logging (Conor's shot codes), scorecard photo import, summaries.
 import { CODES, TEE_ZONES, MISS, isGir, roundStats, aggregate, roundTendencies, roundSummaryText, pct, top, played } from './stats.js';
 import { openLibrary, isHome, starred } from './library.js';
+import { differential, courseHandicap, adjustedGross, indexFrom } from './handicap.js';
 import { putRound, getRound, deleteRound, listRounds, putCourse, getCourse, listCourses, deleteCourse, listSwings } from '../store.js';
 import { readCard, reviewRound, md, aiFrom, aiReady } from '../coach/ai.js';
 import { coachContext, addCoachNote } from '../coach/profile.js';
@@ -67,7 +68,7 @@ export async function roundsHome() {
         ${courses.length ? '<button class="btn" data-act="editcourse">Edit course</button>' : ''}
       </div>
       ${courses.length ? `<button class="btn primary big" data-act="start" style="margin-top:10px">Start logging hole 1</button>` : ''}
-      <button class="btn" data-act="import" style="width:100%;margin-top:8px">📷 Already played? Import a scorecard</button>
+      <div class="row" style="margin-top:8px"><button class="btn" data-act="post">＋ Post a score</button><button class="btn" data-act="import">📷 Import a scorecard</button></div>
     </div>
     ${A ? statsCard(A, `Last ${A.rounds} round${A.rounds > 1 ? 's' : ''}`) : ''}
     ${await (async () => {
@@ -81,7 +82,7 @@ export async function roundsHome() {
     ${tend.length ? `<div class="card"><h2>On the course</h2>${tend.slice(0, 5).map((t) => `<div class="tend"><div><b>${esc(t.text)}</b><div class="mute small">${esc(t.detail)}</div></div></div>`).join('')}<p class="mute small">These feed your coach alongside your swing tendencies.</p></div>` : ''}
     ${done.length ? `<h2 style="margin:18px 0 8px">Rounds</h2>` + done.map((r) => {
       const s = r._stats;
-      return `<div class="hist" data-act="open" data-id="${r.id}"><div class="sc">${s ? s.score : '–'}</div><div><div class="t">${esc(r.courseName)} ${s ? `<span class="mute">${toParStr(s.toPar)}</span>` : ''}</div><div class="s">${fmtD(r.date)}${s ? ` · ${s.putts} putts · FIR ${pct(s.fir, s.firOpp) ?? '–'}% · GIR ${pct(s.gir, s.girOpp) ?? '–'}%` : ''}${r.learning === false ? ' · not counted' : ''}</div></div><div class="mute">›</div></div>`;
+      return `<div class="hist" data-act="open" data-id="${r.id}"><div class="sc">${s ? s.score : '–'}</div><div><div class="t">${esc(r.courseName)} ${s ? `<span class="mute">${toParStr(s.toPar)}</span>` : ''}</div><div class="s">${fmtD(r.date)}${r.quick ? `${r.tees ? ` · ${esc(r.tees)}` : ''}${r.diff != null ? ` · diff ${r.diff.toFixed(1)}` : ''} · score only` : s ? ` · ${s.putts} putts · FIR ${pct(s.fir, s.firOpp) ?? '–'}% · GIR ${pct(s.gir, s.girOpp) ?? '–'}%` : ''}${r.learning === false ? ' · not counted' : ''}</div></div><div class="mute">›</div></div>`;
     }).join('') : ''}`;
   root.querySelectorAll('[data-act]').forEach((b) => b.addEventListener('click', () => homeAction(b.dataset.act, b.dataset.id)));
 }
@@ -116,6 +117,7 @@ async function homeAction(act, id) {
     return moodSheet(r, 'start', renderHole);
   }
   if (act === 'import') return importCard(sel);
+  if (act === 'post') return postScore(sel);
 }
 
 // ---------------- Course editor ----------------
@@ -130,6 +132,8 @@ async function editCourse(id) {
         <input type="file" accept="image/*" id="coursePhoto" hidden />
         <label>Course name<input id="cName" value="${esc(c.name)}" placeholder="e.g. Emirates Majlis" /></label>
         <label>Tees<input id="cTees" value="${esc(c.tees)}" placeholder="e.g. Blue" /></label>
+        <div class="row"><label style="flex:1">Course rating<input id="cRating" inputmode="decimal" value="${c.rating ?? ''}" placeholder="e.g. 72.0" /></label><label style="flex:1">Slope<input id="cSlope" inputmode="numeric" value="${c.slope ?? ''}" placeholder="e.g. 129" /></label></div>
+        <p class="mute small" style="margin:-4px 0 8px">Rating and slope are on the scorecard (or GHIN). They're what turn a score into a handicap differential.</p>
         <div class="row" style="margin-bottom:8px"><button class="btn ${c.holes.length === 18 ? 'primary' : ''}" data-x="h18">18 holes</button><button class="btn ${c.holes.length === 9 ? 'primary' : ''}" data-x="h9">9 holes</button></div>
         <p class="mute small">Tap a par to cycle 3 → 4 → 5. Stroke index and ${duLong()} are optional.</p>
         <div class="cgrid"><span>Hole</span><span>Par</span><span>SI</span><span>${duLong()}</span>
@@ -141,6 +145,7 @@ async function editCourse(id) {
       </div>`;
     const sync = () => {
       c.name = root.querySelector('#cName').value.trim(); c.tees = root.querySelector('#cTees').value.trim();
+      c.rating = parseFloat(root.querySelector('#cRating').value) || null; c.slope = parseInt(root.querySelector('#cSlope').value, 10) || null;
       root.querySelectorAll('[data-si]').forEach((el) => (c.holes[+el.dataset.si].si = +el.value || null));
       root.querySelectorAll('[data-yd]').forEach((el) => (c.holes[+el.dataset.yd].yds = toYards(el.value)));
     };
@@ -185,6 +190,7 @@ async function openRound(id) {
   const r = await getRound(id);
   const c = await getCourse(r.courseId);
   if (!c) { ctx.toast('That round\'s course was deleted.'); return roundsHome(); }
+  if (r.quick) return quickSummary(r, c);
   if (r.finished) return renderSummary(r, c);
   const next = r.holes.findIndex((h) => !h || h.score == null);
   cur = { round: r, course: c, hole: next < 0 ? r.holes.length - 1 : next, review: false };
@@ -503,6 +509,66 @@ function tagSheet(h, par, i, unexplained) {
   };
   draw();
   document.body.appendChild(sheet);
+}
+
+// ---------------- Post a score (total only) ----------------
+// For rounds you didn't log hole by hole: course, tees, date, gross score. Enough for the handicap
+// trend and scoring average; nothing for strokes gained or Tiger 5.
+async function postScore(courseId, pre = {}) {
+  const allCourses = await listCourses().catch(() => []);
+  const st = starred();
+  const courses = allCourses.map((c, i) => ({ c, i })).sort((a, b) => ((isHome(a.c) ? 0 : st.has(a.c.libId) ? 1 : 2) - (isHome(b.c) ? 0 : st.has(b.c.libId) ? 1 : 2)) || a.i - b.i).map((x) => x.c);
+  const sel = courses.find((c) => c.id === (pre.courseId || courseId)) || courses[0] || null;
+  const x = { date: pre.date || dayStr(Date.now()), score: pre.score ?? '', putts: pre.putts ?? '', holesPlayed: pre.holesPlayed || 18 };
+  root.innerHTML = `<button class="btn" data-x="back">‹ Back</button>
+    <div class="card"><h2>${pre.id ? 'Edit score' : 'Post a score'}</h2>
+      <p class="mute small">A round you didn't log hole by hole. Counts for your handicap and scoring average.</p>
+      <label class="small mute">Course and tees${courses.length ? `<select id="psCourse">${courses.map((c) => `<option value="${c.id}" ${sel && c.id === sel.id ? 'selected' : ''}>${esc(c.name)}${c.tees ? ` · ${esc(c.tees)}` : ''}${c.rating ? ` (${c.rating}/${c.slope})` : ''}</option>`).join('')}</select>` : '<p class="mute" style="margin:4px 0">No courses yet.</p>'}</label>
+      <button class="btn" data-x="library" style="width:100%;margin:6px 0 10px">🇦🇪 ${courses.length ? 'Another course or tee' : 'Find the course'}</button>
+      ${sel && !(sel.rating && sel.slope) ? '<p class="small" style="color:var(--work);margin:-4px 0 8px">This course has no rating/slope, so the score won\'t count toward your handicap. Add them in Edit course.</p>' : ''}
+      <label class="small mute">Date played<input type="date" id="psDate" value="${x.date}" max="${dayStr(Date.now())}" /></label>
+      <div class="row"><label class="small mute" style="flex:1">Gross score<input id="psScore" inputmode="numeric" value="${x.score}" placeholder="e.g. 79" /></label><label class="small mute" style="flex:1">Putts (optional)<input id="psPutts" inputmode="numeric" value="${x.putts}" placeholder="e.g. 31" /></label></div>
+      <div class="seg seg2 mini" style="margin:6px 0 10px"><button data-h="18" class="${x.holesPlayed === 18 ? 'on' : ''}">18 holes</button><button data-h="9" class="${x.holesPlayed === 9 ? 'on' : ''}">9 holes</button></div>
+      <p class="mute small" id="psDiff"></p>
+      ${sel ? '<button class="btn primary big" data-x="save">Save score</button>' : ''}
+      ${pre.id ? '<button class="btn" data-x="del" style="width:100%;margin-top:8px;color:var(--work)">Delete</button>' : ''}
+    </div>`;
+  const q = (s) => root.querySelector(s);
+  const showDiff = () => {
+    const c = courses.find((k) => k.id === q('#psCourse')?.value) || sel; const sc = +q('#psScore').value;
+    const d = c && x.holesPlayed === 18 ? differential(sc, c.rating, c.slope) : null;
+    q('#psDiff').textContent = sc && c ? `${sc} on ${c.name}${c.tees ? ` (${c.tees})` : ''}${d != null ? ` · differential ${d.toFixed(1)}` : x.holesPlayed === 9 ? ' · 9-hole scores don\'t count toward the index here' : ''}` : '';
+  };
+  q('[data-x=back]').onclick = roundsHome;
+  q('[data-x=library]').onclick = () => openLibrary({ toast: ctx.toast, onPicked: (c) => postScore(c?.id, { ...pre, ...read(), courseId: c?.id }) });
+  const read = () => ({ courseId: q('#psCourse')?.value, date: q('#psDate').value, score: q('#psScore').value, putts: q('#psPutts').value, holesPlayed: x.holesPlayed });
+  q('#psCourse')?.addEventListener('change', () => postScore(q('#psCourse').value, { ...pre, ...read() }));
+  root.querySelectorAll('[data-h]').forEach((b) => b.onclick = () => { x.holesPlayed = +b.dataset.h; root.querySelectorAll('[data-h]').forEach((k) => k.classList.toggle('on', k === b)); showDiff(); });
+  q('#psScore').addEventListener('input', showDiff); showDiff();
+  q('[data-x=del]')?.addEventListener('click', async () => { await deleteRound(pre.id); ctx.toast('Deleted.'); roundsHome(); });
+  q('[data-x=save]')?.addEventListener('click', async () => {
+    const c = await getCourse(q('#psCourse').value);
+    const score = +q('#psScore').value, putts = q('#psPutts').value === '' ? null : +q('#psPutts').value;
+    const lo = x.holesPlayed === 9 ? 25 : 50, hi = x.holesPlayed === 9 ? 80 : 150;
+    if (!(score >= lo && score <= hi)) return ctx.toast(`Score should be between ${lo} and ${hi}.`);
+    const dv = q('#psDate').value; const when = dv ? new Date(`${dv}T12:00:00`).getTime() : Date.now();
+    const r = { id: pre.id || uid('r'), date: when, courseId: c.id, courseName: c.name, tees: c.tees || '', learning: true, finished: true, quick: true, source: 'post', holesPlayed: x.holesPlayed, score, putts, holes: [],
+      diff: x.holesPlayed === 18 ? differential(score, c.rating, c.slope) : null };
+    c.lastPlayed = Math.max(c.lastPlayed || 0, when); await putCourse(c); await putRound(r);
+    ctx.toast(`Saved: ${score} at ${c.name}${r.diff != null ? ` · diff ${r.diff.toFixed(1)}` : ''}`);
+    roundsHome();
+  });
+}
+
+async function quickSummary(r, c) {
+  const par = c.holes.slice(0, r.holesPlayed || 18).reduce((a, h) => a + h.par, 0);
+  root.innerHTML = `<button class="btn" data-x="back">‹ Rounds</button>
+    <div class="card"><h2>${esc(r.courseName)} <span class="mute small">${fmtD(r.date)}</span></h2>
+      <div class="kpis"><div><b>${r.score}</b><span>${toParStr(r.score - par)} · ${r.holesPlayed || 18} holes</span></div><div><b>${r.diff != null ? r.diff.toFixed(1) : '–'}</b><span>differential</span></div><div><b>${r.putts ?? '–'}</b><span>putts</span></div></div>
+      <p class="mute small">${esc(c.tees || '')}${c.rating ? ` · rating ${c.rating} / slope ${c.slope}` : ' · no rating/slope, so not in the handicap'}. Score only: no shot-by-shot stats for this round.</p>
+      <div class="row"><button class="btn" data-x="edit">Edit</button></div></div>`;
+  root.querySelector('[data-x=back]').onclick = roundsHome;
+  root.querySelector('[data-x=edit]').onclick = () => postScore(r.courseId, { id: r.id, courseId: r.courseId, date: dayStr(r.date), score: r.score, putts: r.putts ?? '', holesPlayed: r.holesPlayed || 18 });
 }
 
 // ---------------- Scorecard photo import ----------------

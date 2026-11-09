@@ -33,17 +33,25 @@ export function roundStats(round, course) {
     girOpp: 0, gir: 0, miss: { S: 0, L: 0, LF: 0, R: 0 },
     threePutts: 0, onePutts: 0, scrOpp: 0, scr: 0, sandOpp: 0, sand: 0,
     byPar: { 3: [0, 0], 4: [0, 0], 5: [0, 0] }, // [strokes, holes]
-    birdies: 0, pars: 0, bogeys: 0, doubles: 0,
+    birdies: 0, pars: 0, bogeys: 0, doubles: 0, triples: 0, quick: !!round.quick,
     cost: 0, saved: 0, byCause: {}, byShot: {}, byStrike: {}, byResult: {}, untagged: 0,
     front: 0, back: 0,
   };
+  if (round.quick) {
+    // posted total only: score and par, nothing hole-by-hole
+    const n = round.holesPlayed || 18;
+    S.holes = n; S.score = round.score ?? 0; S.par = pars.slice(0, n).reduce((a, p) => a + p, 0);
+    if (round.putts != null) { S.putts = round.putts; S.puttsHoles = n; }
+    S.toPar = S.score - S.par;
+    return S;
+  }
   round.holes.forEach((h, i) => {
     if (!h || h.score == null) return;
     const par = pars[i] ?? 4;
     S.holes++; S.score += h.score; S.par += par;
     if (i < 9) S.front += h.score; else S.back += h.score;
     const d = h.score - par;
-    if (d <= -1) S.birdies++; else if (d === 0) S.pars++; else if (d === 1) S.bogeys++; else S.doubles++;
+    if (d <= -1) S.birdies++; else if (d === 0) S.pars++; else if (d === 1) S.bogeys++; else { S.doubles++; if (d >= 3) S.triples++; }
     if (S.byPar[par]) { S.byPar[par][0] += h.score; S.byPar[par][1]++; }
     if (h.putts != null) {
       S.putts += h.putts; S.puttsHoles++;
