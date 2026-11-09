@@ -426,11 +426,11 @@ function moodSheet(round, key, done) {
   const sheet = document.createElement('div'); sheet.className = 'sheet';
   const title = { start: 'Before you tee off', turn: 'At the turn', finish: 'Round done' }[key];
   const draw = () => {
-    sheet.innerHTML = `<div class="sheet-in">
+    sheet.innerHTML = `<div class="sheet-in moodsheet">
       <div class="sheet-h"><b>${title}</b><button class="link" data-skip>Skip</button></div>
       <div class="lbl">How do you feel right now?</div>
       <div class="moodscale">${Array.from({ length: 10 }, (_, n) => `<button class="${v === n + 1 ? 'on' : ''}" data-m="${n + 1}" style="--c:${moodColor(n + 1)}">${n + 1}</button>`).join('')}</div>
-      <div class="moodlbl"><span style="color:${moodColor(1)}">Low<small>${MOOD_WORDS.low}</small></span><span style="color:${moodColor(5)}">Ideal<small>${MOOD_WORDS.mid}</small></span><span style="color:${moodColor(10)}">High<small>${MOOD_WORDS.high}</small></span></div>
+      <div class="moodlbl">${[['Low', MOOD_WORDS.low, 1], ['Ideal', MOOD_WORDS.mid, 5], ['High', MOOD_WORDS.high, 10]].map(([t, w, n]) => `<span style="color:${moodColor(n)}">${t}${w.split(' · ').map((x) => `<small>${x[0].toUpperCase() + x.slice(1)}</small>`).join('')}</span>`).join('')}</div>
       ${key === 'start' ? `<div class="lbl">Any practice or warm-up before the round?</div><div class="seg4">${WARMUP.map(([k, l]) => `<button class="${w === k ? 'on' : ''}" data-w="${k}">${l}</button>`).join('')}</div>` : ''}
       <button class="btn primary big" data-ok ${v ? '' : 'disabled'}>${key === 'start' ? 'Start hole 1' : key === 'turn' ? 'On to the back nine' : 'See my round'}</button></div>`;
     sheet.querySelectorAll('[data-m]').forEach((b) => b.onclick = () => { v = +b.dataset.m; draw(); });

@@ -371,3 +371,9 @@ table.t5, table.dk { width: 100%; border-collapse: collapse; font-size: 13px; } 
 .mk { font-weight: 800; color: var(--mute); } .mk.good { color: var(--good); } .mk.bad { color: var(--work); }
 .prio { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-top: 1px solid var(--line); } .prio:first-of-type { border-top: 0; } .prio b { flex: 1; }
 .prio .pn { width: 24px; height: 24px; border-radius: 50%; background: var(--panel2); display: grid; place-items: center; font-weight: 800; font-size: 12px; }
+.sheet-in.moodsheet { min-height: 56dvh; display: flex; flex-direction: column; gap: 4px; }
+.sheet-in.moodsheet .btn.primary.big { margin-top: auto; }
+.moodsheet .moodscale { margin: 6px 0 4px; }
+.moodlbl { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin: 12px 0 14px; font-size: 15px; }
+.moodlbl span { max-width: none; align-items: flex-start; gap: 3px; } .moodlbl span:nth-child(2) { align-items: center; } .moodlbl span:last-child { align-items: flex-end; }
+.moodlbl small { font-size: 13px; color: var(--ink); opacity: .75; margin: 0; line-height: 1.35; }
