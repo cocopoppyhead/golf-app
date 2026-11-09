@@ -976,7 +976,7 @@ if ('serviceWorker' in navigator && location.protocol === 'https:') {
 renderRecent();
 renderInstall($('#installBanner'));
 onNative('share.error', (m) => toast(m.text, 5000));
-if (isNative()) document.documentElement.classList.add('native');
+if (isNative()) document.documentElement.classList.add('native', ...(window.GolfNative?.platform ? [window.GolfNative.platform] : []));
 
 // Test hook: lets automated tests feed a video URL
 window.__golfTest = { open: async (url) => openVideo(await (await fetch(url)).blob()), session: async (url) => runSession(await (await fetch(url)).blob()), state: () => state, onboard: () => openProfileEditor({ first: true, toast, onDone: () => { settings = getSettings(); renderHeaderAvatar(); } }), scan: async (url) => { const v = await loadVideo(await (await fetch(url)).blob()); document.body.appendChild(v); const r = await findSwings(v, {}); v.remove(); return { ...r, ratio: findSwings.lastRatio, dur: v.duration }; } };

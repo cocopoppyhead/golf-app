@@ -1,3 +1,6 @@
+:root { --sat: env(safe-area-inset-top); }
+/* the Android shell pads the status bar natively, so the page must not pad it again */
+html.native.android { --sat: 0px; }
 :root {
   --bg: #0b1120; --panel: #121a2e; --panel2: #1a2440; --line: #26314f;
   --ink: #eef2fb; --mute: #8b97b3; --acc: #3ddc84; --acc-ink: #04220f;
@@ -20,7 +23,7 @@
 * { box-sizing: border-box; }
 html, body { margin: 0; background: var(--bg); color: var(--ink); }
 body { font: 15px/1.45 Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif; min-height: 100dvh; padding-bottom: calc(70px + env(safe-area-inset-bottom)); }
-header.top { position: sticky; top: 0; z-index: 5; background: var(--bar); backdrop-filter: blur(8px); padding: calc(10px + env(safe-area-inset-top)) 16px 10px; border-bottom: 1px solid var(--line); }
+header.top { position: sticky; top: 0; z-index: 5; background: var(--bar); backdrop-filter: blur(8px); padding: calc(10px + var(--sat)) 16px 10px; border-bottom: 1px solid var(--line); }
 .brand { font-weight: 800; letter-spacing: .2px; display: flex; gap: 6px; align-items: center; }
 .brand .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--acc); box-shadow: 0 0 12px var(--acc); }
 main { max-width: 640px; margin: 0 auto; padding: 14px 16px 24px; }
@@ -220,7 +223,7 @@ svg.target .pt { fill: var(--you); stroke: var(--bg); stroke-width: .8; } svg.ta
 .tile.wide svg { margin: 0; flex: none; } .tile.wide div { display: flex; flex-direction: column; gap: 2px; }
 .rec-host { position: fixed; inset: 0; z-index: 40; background: #000; }
 .recorder { position: absolute; inset: 0; } .recorder video { width: 100%; height: 100%; object-fit: cover; }
-.rec-top { position: absolute; top: calc(12px + env(safe-area-inset-top)); left: 16px; right: 16px; display: flex; justify-content: space-between; }
+.rec-top { position: absolute; top: calc(12px + var(--sat)); left: 16px; right: 16px; display: flex; justify-content: space-between; }
 .rec-top .link { color: #fff; text-decoration: none; font-size: 16px; } .rec-time { color: #ff5a4f; font-weight: 800; }
 .rec-hint { position: absolute; left: 16px; right: 16px; bottom: calc(120px + env(safe-area-inset-bottom)); text-align: center; color: #fff; background: rgba(0,0,0,.5); padding: 10px; border-radius: 12px; font-size: 14px; }
 .rec-bot { position: absolute; bottom: calc(28px + env(safe-area-inset-bottom)); left: 0; right: 0; display: flex; justify-content: center; }
@@ -279,7 +282,7 @@ header.top { display: flex; align-items: center; justify-content: space-between;
 .hdr-av { background: none; border: 0; padding: 0; cursor: pointer; }
 .hav { width: 30px; height: 30px; border-radius: 50%; object-fit: cover; display: grid; place-items: center; background: var(--acc); color: var(--acc-ink); font: 800 13px Inter, system-ui; }
 img.av { object-fit: cover; }
-.onb { position: fixed; inset: 0; z-index: 50; background: var(--bg); overflow-y: auto; padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom); }
+.onb { position: fixed; inset: 0; z-index: 50; background: var(--bg); overflow-y: auto; padding: var(--sat) 0 env(safe-area-inset-bottom); }
 .onb-in { max-width: 520px; margin: 0 auto; min-height: 100%; display: flex; flex-direction: column; padding: 14px 18px 18px; }
 .onb-top { display: flex; align-items: center; gap: 12px; justify-content: space-between; margin-bottom: 8px; }
 .onb-top .steps { display: flex; gap: 5px; flex: 1; max-width: 140px; } .steps i { flex: 1; height: 4px; border-radius: 4px; background: var(--panel2); } .steps i.on { background: var(--acc); }
