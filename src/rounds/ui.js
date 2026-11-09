@@ -524,11 +524,12 @@ async function importCard(courseId, when = null) {
       <label class="small mute">Date played<input type="date" id="impDate" value="${date}" max="${dayStr(Date.now())}" /></label>
       <label class="small mute">Name or initials on your row (optional)<input id="pName" value="${esc(s.cardName || '')}" placeholder="e.g. CM" /></label>
       <p class="mute small" style="margin:8px 0 0">Photograph the scoring side flat and well lit. Tip: a small number next to each score (5²) is read as putts, a dot as a fairway hit.</p>
-      ${sel ? '<label class="btn primary big" for="cardPhoto" style="margin-top:10px">📷 Take or choose photo</label><input type="file" accept="image/*" capture="environment" id="cardPhoto" hidden />' : ''}
+      ${sel ? '<button type="button" class="btn primary big" id="cardBtn" style="margin-top:10px">📷 Take or choose photo</button><input type="file" accept="image/*" id="cardPhoto" style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none" />' : ''}
     </div>`;
   root.querySelector('[data-x=back]').onclick = roundsHome;
   root.querySelector('[data-x=library]').onclick = () => openLibrary({ toast: ctx.toast, onPicked: (c) => importCard(c?.id, root.querySelector('#impDate')?.value) });
   root.querySelector('#impCourse')?.addEventListener('change', (e) => importCard(e.target.value, root.querySelector('#impDate').value));
+  root.querySelector('#cardBtn')?.addEventListener('click', () => root.querySelector('#cardPhoto').click());
   root.querySelector('#cardPhoto')?.addEventListener('change', async (e) => {
     const f = e.target.files?.[0]; if (!f) return;
     const player = root.querySelector('#pName').value.trim();
