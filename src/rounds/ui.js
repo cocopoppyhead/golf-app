@@ -66,8 +66,8 @@ export async function roundsHome() {
         <button class="btn" data-act="newcourse">+ Course by hand</button>
         ${courses.length ? '<button class="btn" data-act="editcourse">Edit course</button>' : ''}
       </div>
-      ${courses.length ? `<button class="btn primary big" data-act="start" style="margin-top:10px">Start logging hole 1</button>
-      <button class="btn" data-act="import" style="width:100%;margin-top:8px">📷 Already played? Import scorecard photo</button>` : ''}
+      ${courses.length ? `<button class="btn primary big" data-act="start" style="margin-top:10px">Start logging hole 1</button>` : ''}
+      <button class="btn" data-act="import" style="width:100%;margin-top:8px">📷 Already played? Import a scorecard</button>
     </div>
     ${A ? statsCard(A, `Last ${A.rounds} round${A.rounds > 1 ? 's' : ''}`) : ''}
     ${await (async () => {
@@ -506,33 +506,50 @@ function tagSheet(h, par, i, unexplained) {
 }
 
 // ---------------- Scorecard photo import ----------------
-async function importCard(courseId) {
+// The scoring side of a card rarely shows the course or the date, so you declare both here first.
+const dayStr = (t) => { const d = new Date(t); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+async function importCard(courseId, when = null) {
   const s = ctx.settings();
   if (!aiReady(s)) return ctx.toast('Reading a scorecard uses AI. Add a Claude, ChatGPT or Gemini key in Settings.', 5000);
-  const c = await getCourse(courseId);
+  const allCourses = await listCourses().catch(() => []);
+  const st = starred();
+  const courses = allCourses.map((c, i) => ({ c, i })).sort((a, b) => ((isHome(a.c) ? 0 : st.has(a.c.libId) ? 1 : 2) - (isHome(b.c) ? 0 : st.has(b.c.libId) ? 1 : 2)) || a.i - b.i).map((x) => x.c);
+  const sel = courses.find((c) => c.id === courseId) || courses[0] || null;
+  const date = when || dayStr(Date.now());
   root.innerHTML = `<button class="btn" data-x="back">‹ Back</button>
-    <div class="card"><h2>Import scorecard</h2><p class="mute">${esc(c.name)}. Photograph the card flat and well lit. Tip: write putts as a small number next to each score (5²) and a dot for a fairway hit, and it reads those too.</p>
-    <label class="small mute">Name or initials on your row (optional)<input id="pName" value="${esc(s.cardName || '')}" /></label>
-    <label class="btn primary big" for="cardPhoto" style="margin-top:10px">📷 Take or choose photo</label><input type="file" accept="image/*" id="cardPhoto" hidden /></div>`;
-  root.querySelector('[data-x]').onclick = roundsHome;
-  root.querySelector('#cardPhoto').onchange = async (e) => {
+    <div class="card"><h2>Import a scorecard</h2>
+      <p class="mute small">The scoring side of a card doesn't say where or when, so set those first.</p>
+      <label class="small mute">Course${courses.length ? `<select id="impCourse">${courses.map((c) => `<option value="${c.id}" ${sel && c.id === sel.id ? 'selected' : ''}>${esc(c.name)}${c.tees ? ` · ${esc(c.tees)}` : ''} (par ${c.holes.reduce((a, h) => a + h.par, 0)})</option>`).join('')}</select>` : '<p class="mute" style="margin:4px 0">No courses yet.</p>'}</label>
+      <button class="btn" data-x="library" style="width:100%;margin:6px 0 10px">🇦🇪 ${courses.length ? 'Another course' : 'Find the course'}</button>
+      <label class="small mute">Date played<input type="date" id="impDate" value="${date}" max="${dayStr(Date.now())}" /></label>
+      <label class="small mute">Name or initials on your row (optional)<input id="pName" value="${esc(s.cardName || '')}" placeholder="e.g. CM" /></label>
+      <p class="mute small" style="margin:8px 0 0">Photograph the scoring side flat and well lit. Tip: a small number next to each score (5²) is read as putts, a dot as a fairway hit.</p>
+      ${sel ? '<label class="btn primary big" for="cardPhoto" style="margin-top:10px">📷 Take or choose photo</label><input type="file" accept="image/*" capture="environment" id="cardPhoto" hidden />' : ''}
+    </div>`;
+  root.querySelector('[data-x=back]').onclick = roundsHome;
+  root.querySelector('[data-x=library]').onclick = () => openLibrary({ toast: ctx.toast, onPicked: (c) => importCard(c?.id, root.querySelector('#impDate')?.value) });
+  root.querySelector('#impCourse')?.addEventListener('change', (e) => importCard(e.target.value, root.querySelector('#impDate').value));
+  root.querySelector('#cardPhoto')?.addEventListener('change', async (e) => {
     const f = e.target.files?.[0]; if (!f) return;
     const player = root.querySelector('#pName').value.trim();
+    const d = root.querySelector('#impDate').value || dayStr(Date.now());
     ctx.saveSetting?.('cardName', player);
+    const c = await getCourse(root.querySelector('#impCourse').value);
     root.innerHTML = `<div class="busy"><div class="spinner"></div><p>Reading your card…</p></div>`;
     try {
       const data = await readCard({ ...aiFrom(s), images: [await shrink(f)], kind: 'scores', player, holes: c.holes.length });
-      confirmCard(c, data);
-    } catch (err) { ctx.toast(err.message, 6000); importCard(courseId); }
-  };
+      confirmCard(c, data, d);
+    } catch (err) { ctx.toast(err.message, 6000); importCard(c.id, d); }
+  });
 }
 
-function confirmCard(c, data) {
+function confirmCard(c, data, day) {
   const n = c.holes.length;
   const sc = Array.from({ length: n }, (_, i) => data.scores?.[i] ?? null);
   const pt = Array.from({ length: n }, (_, i) => data.putts?.[i] ?? null);
   const fw = Array.from({ length: n }, (_, i) => data.fairway?.[i] ?? null);
   root.innerHTML = `<div class="card"><h2>Check the scores</h2>
+    <div class="row" style="justify-content:space-between;align-items:center;margin-bottom:6px"><b>${esc(c.name)}${c.tees ? ` <span class="mute">· ${esc(c.tees)}</span>` : ''}</b><input type="date" id="confDate" value="${day}" max="${dayStr(Date.now())}" style="width:auto" /></div>
     <p class="mute small">Read from ${esc(data.player || 'your row')} · confidence ${esc(data.confidence || '?')}${data.notes ? ` · ${esc(data.notes)}` : ''}. Fix anything wrong.</p>
     <div class="cgrid c4"><span>Hole</span><span>Par</span><span>Score</span><span>Putts</span>
     ${c.holes.map((h, i) => `<span class="hn">${i + 1}</span><span class="mute">${h.par}</span><input inputmode="numeric" data-s="${i}" value="${sc[i] ?? ''}" /><input inputmode="numeric" data-p="${i}" value="${pt[i] ?? ''}" />`).join('')}</div>
@@ -550,8 +567,10 @@ function confirmCard(c, data) {
       const p = root.querySelector(`[data-p="${i}"]`).value;
       return s == null ? null : { score: s, putts: p === '' ? null : +p, tee: fw[i] === true ? 'FW' : null, gir: null, miss: null, bunker: false, firstPutt: null, tags: [] };
     });
-    const r = { id: uid('r'), date: Date.now(), courseId: c.id, courseName: c.name, tees: c.tees || '', learning: true, finished: false, source: 'photo', holes };
-    c.lastPlayed = Date.now(); await putCourse(c); await putRound(r);
+    const dv = root.querySelector('#confDate').value;
+    const when = dv ? new Date(`${dv}T12:00:00`).getTime() : Date.now();
+    const r = { id: uid('r'), date: when, courseId: c.id, courseName: c.name, tees: c.tees || '', learning: true, finished: false, source: 'photo', holes };
+    c.lastPlayed = when; await putCourse(c); await putRound(r);
     const first = holes.findIndex((h, i) => h && h.score > c.holes[i].par);
     cur = { round: r, course: c, hole: first < 0 ? 0 : first, review: first >= 0 };
     if (first < 0) { r.finished = true; await putRound(r); return renderSummary(r, c); }
