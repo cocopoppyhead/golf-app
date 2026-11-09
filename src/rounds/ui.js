@@ -57,7 +57,7 @@ export async function roundsHome() {
   const A = await aggStats(done.filter((r) => r.learning !== false).slice(0, 10));
   const tend = roundTendencies(A);
   root.innerHTML = `
-    ${open ? `<div class="card event-card"><b>Round in progress</b><p class="mute small">${esc(open.courseName)} · ${fmtD(open.date)} · ${played(open).length} holes logged</p><button class="btn primary" data-act="resume" data-id="${open.id}">Resume round</button></div>` : ''}
+    ${open ? `<div class="card event-card"><b>Round in progress</b><p class="mute small">${esc(open.courseName)} · ${fmtD(open.date)} · ${played(open).length} holes logged</p><div class="row"><button class="btn primary" data-act="resume" data-id="${open.id}">Resume round</button><button class="btn" data-act="endopen" data-id="${open.id}">End / discard</button></div></div>` : ''}
     <div class="card">
       <h2>Play a round</h2>
       ${courses.length ? `<label class="small mute">Course</label><select id="courseSel">${courses.map((c) => `<option value="${c.id}">${esc(c.name)}${c.tees ? ` · ${esc(c.tees)}` : ''} (par ${c.holes.reduce((a, h) => a + h.par, 0)})</option>`).join('')}</select>` : '<p class="mute">Pick your course from the UAE list and the scorecard fills in.</p>'}
@@ -102,6 +102,7 @@ async function aggStats(rounds) {
 
 async function homeAction(act, id) {
   const sel = root.querySelector('#courseSel')?.value;
+  if (act === 'endopen') { const r = await getRound(id); const c = await getCourse(r.courseId).catch(() => null); cur = { round: r, course: c, hole: 0, review: false }; return played(r).length && c ? endRoundSheet(r, c) : discardSheet(r); }
   if (act === 'resume' || act === 'open') return openRound(id);
   if (act === 'newcourse') return editCourse(null);
   if (act === 'library') return openLibrary({ toast: ctx.toast, onPicked: () => roundsHome() });
@@ -333,7 +334,7 @@ function renderHole() {
       ${i === course.holes.length - 1 || (review && nextBogey(i) < 0) ? '<button class="btn primary big" data-h="finish">Finish round</button>' : `<button class="btn primary big" data-h="next">${review ? 'Next bogey ›' : `Hole ${i + 2} ›`}</button>`}
     </div>
     <label class="check small" style="margin-top:12px"><input type="checkbox" data-learn ${round.learning !== false ? 'checked' : ''}/> Count this round toward my coach profile</label>
-    <button class="link" data-h="home" style="margin-top:10px">Save & exit</button>`;
+    <div class="exitrow"><button class="link" data-h="home">Save & exit</button><button class="link" data-h="endearly">End round here</button><button class="link" data-h="discard" style="color:var(--work)">Discard round</button></div>`;
 
   const redo = () => { derive(h, par); save(); renderHole(); };
   root.querySelectorAll('[data-res]').forEach((b) => b.onclick = () => {
@@ -385,7 +386,37 @@ function renderHole() {
       return round.mood?.finish == null ? moodSheet(round, 'finish', done) : done();
     }
     if (a === 'home') return roundsHome();
+    if (a === 'endearly') return endRoundSheet(round, course);
+    if (a === 'discard') return discardSheet(round);
   });
+}
+
+/** Finish a round before 18: keep the holes played, mark it finished. */
+function endRoundSheet(round, course) {
+  const n = played(round).length;
+  const sheet = document.createElement('div'); sheet.className = 'sheet';
+  sheet.innerHTML = `<div class="sheet-in"><div class="sheet-h"><b>End the round here?</b><button class="link" data-close>Cancel</button></div>
+    <p class="small">${n ? `${n} hole${n > 1 ? 's' : ''} logged. The round is saved as a ${n}-hole round and counts toward your stats${n < 9 ? ' (per-round numbers are scaled)' : ''}.` : 'No holes logged yet. Use Discard instead.'}</p>
+    <button class="btn primary big" data-ok ${n ? '' : 'disabled'}>End round</button></div>`;
+  sheet.querySelector('[data-close]').onclick = () => sheet.remove();
+  sheet.querySelector('[data-ok]').onclick = async () => {
+    round.finished = true; round.endedEarly = true; round.holes = round.holes.map((h) => (h && h.score != null ? h : null));
+    await save(); sheet.remove();
+    if (round.mood?.finish == null) return moodSheet(round, 'finish', () => renderSummary(round, course));
+    renderSummary(round, course);
+  };
+  document.body.appendChild(sheet);
+}
+
+/** Throw the round away. */
+function discardSheet(round) {
+  const sheet = document.createElement('div'); sheet.className = 'sheet';
+  sheet.innerHTML = `<div class="sheet-in"><div class="sheet-h"><b>Discard this round?</b><button class="link" data-close>Cancel</button></div>
+    <p class="small">Everything logged for it is deleted. This can't be undone.</p>
+    <button class="btn big" data-ok style="color:var(--work)">Discard round</button></div>`;
+  sheet.querySelector('[data-close]').onclick = () => sheet.remove();
+  sheet.querySelector('[data-ok]').onclick = async () => { await deleteRound(round.id); sheet.remove(); cur = null; ctx.toast('Round discarded'); roundsHome(); };
+  document.body.appendChild(sheet);
 }
 
 /** Optional per-shot details: club and Conor's codes, for practice. Not required. */

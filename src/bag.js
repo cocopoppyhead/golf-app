@@ -54,36 +54,33 @@ let connectingNow = false;
 const SW = { full: '', '¾': ' ¾', '½': ' ½' };
 const short = (club) => club.replace(/^(\d) iron$/i, '$1i').replace(/^(\d) wood$/i, '$1w').replace(/^(\d) hybrid$/i, '$1h').replace(/^Driver$/i, 'Dr');
 /**
- * Your clubs on a yardage scale. With a target: zoomed to the 3 shots around it (one short,
- * the pick, one long) with the target line drawn through. Without: the whole bag.
+ * Horizontal distance bars (DECADE style). With a target: the pick plus one club longer and one
+ * shorter, with the target drawn as a line across the bars. Without: the whole bag.
  */
-function ladderHtml(opts, target, showAll, best = null) {
-  if (!opts.length) return '<p class="mute small">Add your carries below and your clubs show here on a scale.</p>';
+function barsHtml(opts, target, showAll, best = null) {
+  if (!opts.length) return '<p class="mute small">Add your carries below and your clubs show here as bars.</p>';
   const all = [...opts].sort((a, b) => b.carry - a.carry);
   let rows = all;
   const pickO = best ? all.find((o) => o.club === best.club && o.swing === best.swing) : null;
   if (target && !showAll && pickO) {
-    // the pick (and anything with the same carry), plus the next shot longer and the next shorter
     const longer = [...all].reverse().find((o) => o.carry > pickO.carry);
     const shorter = all.find((o) => o.carry < pickO.carry);
     rows = all.filter((o) => o === longer || o === shorter || o.carry === pickO.carry);
   }
+  const zoom = target && !showAll;
   const vals = rows.map((o) => o.carry).concat(target ? [target] : []);
-  const pad = target && !showAll ? 6 : 4;
-  const max = Math.max(...vals) + pad, min = Math.min(...vals) - pad;
-  const H = target && !showAll ? 190 : Math.max(220, rows.length * 30);
-  const y = (v) => ((max - v) / (max - min)) * H;
+  // zoomed: bars start near the shortest so the differences are visible; full bag: start at 0
+  const lo = zoom ? Math.min(...vals) - 25 : 0, hi = Math.max(...vals) + (zoom ? 10 : 8);
+  const pct = (v) => Math.max(2, Math.min(100, ((v - lo) / (hi - lo)) * 100));
   const bestKey = pickO ? pickO.club + pickO.swing : null;
-  // keep labels from overlapping in the full view
-  let lastY = -99;
-  const marks = rows.map((o) => {
-    let yy = y(o.carry); if (yy - lastY < 22) yy = lastY + 22; lastY = yy;
-    const on = o.club + o.swing === bestKey;
-    return `<div class="rung ${on ? 'on' : ''} ${o.swing !== 'full' ? 'part' : ''}" style="top:${yy}px"><span class="cl">${esc(target && !showAll ? o.club : short(o.club))}${SW[o.swing]}</span><span class="yd">${D(o.carry)}</span></div>`;
-  }).join('');
-  const tl = target ? `<div class="tline" style="top:${y(target)}px"><span>${D(target)} ${du()}</span></div>` : '';
-  return `<div class="ladder" style="height:${Math.max(H, lastY + 24)}px"><div class="rail"></div>${marks}${tl}</div>
-    ${target ? `<button class="link" id="ladderAll" style="margin-top:4px">${showAll ? 'Zoom to this distance' : 'Show the whole bag'}</button>` : ''}`;
+  return `<div class="dbars ${zoom ? 'zoom' : ''}">
+    ${rows.map((o) => { const on = o.club + o.swing === bestKey; return `<div class="dbar ${on ? 'on' : ''} ${o.swing !== 'full' ? 'part' : ''}">
+      <span class="cl">${esc(zoom ? o.club : short(o.club))}${SW[o.swing]}</span>
+      <div class="trk"><i style="width:${pct(o.carry)}%"></i>${target ? `<b class="tgt" style="left:${pct(target)}%"></b>` : ''}</div>
+      <span class="yd">${D(o.carry)}</span></div>`; }).join('')}
+    ${target ? `<div class="tgtlbl" style="left:calc(var(--cl) + (100% - var(--cl) - var(--yd)) * ${pct(target) / 100})">${D(target)} ${du()}</div>` : ''}
+  </div>
+  ${target ? `<button class="link" id="ladderAll" style="margin-top:4px">${showAll ? 'Back to 3 clubs' : 'Show the whole bag'}</button>` : ''}`;
 }
 
 /** Your numbers, with learned (true) distances replacing typed ones once there are 5+ good shots. */
@@ -104,7 +101,7 @@ export async function renderBag(root) {
   let mode = 'carry';
   let shots = await listShots().catch(() => []);
   let dist = '', shot = null, status = laserConnected() ? `Connected to ${laserName()}` : '';
-  let found = null, scanning = false, teachMsg = '', showAll = false;
+  let found = null, scanning = false, teachMsg = '', showAll = false, editing = false;
   let cond = null, wxErr = '', rel = null;
   const loadWx = (force) => getConditions({ force }).then((c) => { cond = c; wxErr = ''; }).catch((e) => { wxErr = e.message; }).finally(() => root.isConnected && draw());
   const comp = () => getSettings().competition === true;
@@ -137,7 +134,7 @@ export async function renderBag(root) {
             <div class="mute small">${eff.find((c) => c.club === pick.best.club)?.learned[pick.best.swing === 'full' ? 'carry' : pick.best.swing === '¾' ? 'three' : 'half'] ? 'your true distance ' : 'carries '}${D(pick.best.carry)} ${du()}${Math.round(D(Math.abs(pick.off))) ? ` · ${D(Math.abs(pick.off))} ${du()} ${pick.off > 0 ? 'long' : 'short'}` : ''}</div>
             ${pick.gap ? `<div class="small" style="color:var(--ok);margin-top:4px">Gap: nothing between ${esc(pick.gap.below.club)} and ${esc(pick.gap.above.club)}</div>` : ''}</div>` : ''}
             ${play && Math.abs(play - ny) >= 1 ? `<p class="playslike">Plays like <b>${D(play)} ${du()}</b> <span class="mute">(${D(ny)} ${du()} on the laser)</span></p>` : ''}
-            ${ladderHtml(shotOptions(eff, partials), play, showAll, pick?.best)}
+            ${barsHtml(shotOptions(eff, partials), play, showAll, pick?.best)}
             <label class="check mini" style="margin-top:8px"><input type="checkbox" id="partialBox" ${partials ? 'checked' : ''} /> Include ¾ and ½ swings (wedges)</label>`}
 
         ${ny ? `<button class="btn primary big" id="saveShot" style="margin-top:10px">Hit it? Save shot</button>` : ''}
@@ -145,13 +142,29 @@ export async function renderBag(root) {
 
       <div class="card form">
         <div class="sechead" style="margin:0 0 6px"><h2 style="margin:0">Your distances</h2>
-          <div class="seg seg2 mini"><button data-mode="carry" class="${mode === 'carry' ? 'on' : ''}">Carry</button><button data-mode="total" class="${mode === 'total' ? 'on' : ''}">Total</button></div></div>
-        <p class="mute small">${duLong()[0].toUpperCase() + duLong().slice(1)}. Club suggestions use carry. Your best guess for now. Shots you log with the laser, tagged full, ¾, ½ or mishit, will refine these, and mishits won't count.</p>
+          <div class="row" style="gap:6px"><div class="seg seg2 mini"><button data-mode="carry" class="${mode === 'carry' ? 'on' : ''}">Carry</button><button data-mode="total" class="${mode === 'total' ? 'on' : ''}">Total</button></div>
+          <button class="btn sm" id="editBag">${editing ? 'Done' : 'Edit'}</button></div></div>
+        ${editing ? `
+        <p class="mute small">${duLong()[0].toUpperCase() + duLong().slice(1)}. Full, ¾ and ½ swings. Tap ✕ to remove a club.</p>
         <div class="bagrows"><span class="mute small">Club</span><span class="mute small">Full</span><span class="mute small">¾</span><span class="mute small">½</span><span></span><span></span>
-          ${bag.map((c, i) => `<input data-cl="${i}" value="${esc(c.club)}" /><input data-cy="${i}" inputmode="numeric" placeholder="–" value="${D(c[COLS[mode][0]]) ?? ''}" /><input data-th="${i}" inputmode="numeric" placeholder="–" value="${D(c[COLS[mode][1]]) ?? ''}" /><input data-hf="${i}" inputmode="numeric" placeholder="–" value="${D(c[COLS[mode][2]]) ?? ''}" /><button class="link" data-rm="${i}">✕</button><button class="link go" data-open="${i}" aria-label="Club page">›</button>${eff[i] && Object.keys(eff[i].learned).length ? `<span class="learned">true distance: ${[['carry', 'full'], ['three', '¾'], ['half', '½']].filter(([k]) => eff[i].learned[k]).map(([k, l]) => `${l} ${D(eff[i][k])}`).join(' · ')}</span>` : ''}`).join('')}</div>
+          ${bag.map((c, i) => `<input data-cl="${i}" value="${esc(c.club)}" /><input data-cy="${i}" inputmode="numeric" placeholder="–" value="${D(c[COLS[mode][0]]) ?? ''}" /><input data-th="${i}" inputmode="numeric" placeholder="–" value="${D(c[COLS[mode][1]]) ?? ''}" /><input data-hf="${i}" inputmode="numeric" placeholder="–" value="${D(c[COLS[mode][2]]) ?? ''}" /><button class="link" data-rm="${i}">✕</button><span></span>`).join('')}</div>
         <button class="btn" id="addClub" style="width:100%;margin-top:8px">+ Club</button>
-        ${gaps.length ? `<p class="small" style="color:var(--ok);margin-top:10px">Gap${gaps.length > 1 ? 's' : ''}: ${gaps.map((g) => `${esc(g.a.club)} → ${esc(g.b.club)} (${D(g.gap)} ${du()})`).join(', ')}</p>` : ''}
-        <button class="btn primary big" id="saveBag" style="margin-top:10px">Save bag</button>
+        <button class="btn primary big" id="saveBag" style="margin-top:10px">Save bag</button>`
+        : `${(() => {
+          const key = COLS[mode];
+          const rows = bag.map((c, i) => ({ c, e: eff[i], i })).filter((r) => r.c.club && (r.c[key[0]] || r.c[key[1]] || r.c[key[2]]));
+          if (!rows.length) return '<p class="mute small">No distances yet. Tap Edit to type your carries, or save shots and the app learns them.</p>';
+          const max = Math.max(...rows.map((r) => Math.max(r.e[key[0]] || r.c[key[0]] || 0, r.c[key[1]] || 0, r.c[key[2]] || 0))) + 10;
+          const w = (v) => Math.max(2, (v / max) * 100);
+          return `<div class="dbars bag">${rows.map(({ c, e, i }) => {
+            const full = e[key[0]] || c[key[0]];
+            return `<button class="dbar ${e.learned[key[0]] ? 'learned' : ''}" data-open="${i}">
+              <span class="cl">${esc(short(c.club))}</span>
+              <div class="trk">${full ? `<i style="width:${w(full)}%"></i>` : ''}${c[key[1]] ? `<u class="q" style="left:${w(c[key[1]])}%" title="¾ ${D(c[key[1]])}"></u>` : ''}${c[key[2]] ? `<u class="h" style="left:${w(c[key[2]])}%" title="½ ${D(c[key[2]])}"></u>` : ''}</div>
+              <span class="yd">${full ? D(full) : '–'}${e.learned[key[0]] ? '<small>✓</small>' : ''}</span></button>`; }).join('')}</div>
+          <p class="mute small" style="margin:8px 0 0">${mode === 'carry' ? 'Carry' : 'Total'} in ${duLong()}. Ticks on a bar are your ¾ and ½ swings. ✓ = learned from your saved shots (5+ good strikes). Tap a club for its page.</p>`;
+        })()}
+        ${gaps.length ? `<p class="small" style="color:var(--ok);margin-top:10px">Gap${gaps.length > 1 ? 's' : ''}: ${gaps.map((g) => `${esc(g.a.club)} → ${esc(g.b.club)} (${D(g.gap)} ${du()})`).join(', ')}</p>` : ''}`}
       </div>`;
 
     const sync = () => {
@@ -174,6 +187,7 @@ export async function renderBag(root) {
       renderClubPage(root, c.club, { carry: c.carry, onBack: () => renderBag(root), onUseCarry: (y) => { c.carry = y; saveBag(bag); renderBag(root); } });
     }));
     root.querySelectorAll('[data-mode]').forEach((b) => (b.onclick = () => { sync(); mode = b.dataset.mode; draw(); }));
+    root.querySelector('#editBag').onclick = () => { sync(); if (editing) { bag = bag.filter((c) => c.club); saveBag(bag); } editing = !editing; draw(); };
     root.querySelector('#wxRefresh')?.addEventListener('click', () => { sync(); cond = null; wxErr = ''; draw(); loadWx(true); });
     root.querySelectorAll('[data-rel]').forEach((b) => b.addEventListener('click', () => { sync(); rel = rel === b.dataset.rel ? null : b.dataset.rel; draw(); }));
     root.querySelector('#toLaser')?.addEventListener('click', (e) => { e.preventDefault(); document.querySelector('nav button[data-tab=settings]')?.click(); setTimeout(() => document.querySelector('#laserRow')?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 200); });
@@ -181,8 +195,8 @@ export async function renderBag(root) {
     root.querySelector('#ladderAll')?.addEventListener('click', () => { sync(); showAll = !showAll; draw(); });
     root.querySelector('#compBox').onchange = (e) => { const s = getSettings(); s.competition = e.target.checked; saveSettings(s); sync(); draw(); };
     root.querySelectorAll('[data-rm]').forEach((b) => (b.onclick = () => { sync(); bag.splice(+b.dataset.rm, 1); draw(); }));
-    root.querySelector('#addClub').onclick = () => { sync(); bag.push({ club: '', carry: null, total: null, three: null, threeTotal: null, half: null, halfTotal: null }); draw(); };
-    root.querySelector('#saveBag').onclick = () => { sync(); bag = bag.filter((c) => c.club); saveBag(bag); draw(); root.dispatchEvent(new CustomEvent('toast', { detail: 'Bag saved', bubbles: true })); };
+    if (root.querySelector('#addClub')) root.querySelector('#addClub').onclick = () => { sync(); bag.push({ club: '', carry: null, total: null, three: null, threeTotal: null, half: null, halfTotal: null }); draw(); };
+    if (root.querySelector('#saveBag')) root.querySelector('#saveBag').onclick = () => { sync(); bag = bag.filter((c) => c.club); saveBag(bag); editing = false; draw(); root.dispatchEvent(new CustomEvent('toast', { detail: 'Bag saved', bubbles: true })); };
   };
 
   unsub?.();

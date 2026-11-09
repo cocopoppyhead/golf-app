@@ -301,16 +301,6 @@ img.av { object-fit: cover; }
 .tees { display: flex; flex-direction: column; gap: 8px; }
 .tee:active, .libitem:active { border-color: var(--acc); }
 /* club ladder */
-.ladder { position: relative; margin: 14px 0 4px; }
-.ladder .rail { position: absolute; left: 50%; top: 0; bottom: 0; width: 3px; margin-left: -1.5px; background: var(--line); border-radius: 3px; }
-.rung { position: absolute; left: 0; right: 0; height: 0; display: flex; align-items: center; }
-.rung .cl { width: 50%; text-align: right; padding-right: 16px; font-weight: 700; font-size: 15px; position: absolute; right: 50%; }
-.rung .yd { position: absolute; left: 50%; padding-left: 16px; font-variant-numeric: tabular-nums; color: var(--mute); font-weight: 600; }
-.rung::before { content: ''; position: absolute; left: 50%; width: 14px; height: 14px; margin-left: -7px; border-radius: 50%; background: var(--panel2); border: 2px solid var(--mute); transform: translateY(-50%); top: 0; }
-.rung.part .cl { color: var(--mute); font-weight: 600; } .rung.part::before { width: 10px; height: 10px; margin-left: -5px; }
-.rung.on .cl { color: var(--acc); font-size: 18px; } .rung.on .yd { color: var(--ink); } .rung.on::before { background: var(--acc); border-color: var(--acc); width: 18px; height: 18px; margin-left: -9px; }
-.tline { position: absolute; left: 8%; right: 8%; height: 0; border-top: 2px dashed var(--work); }
-.tline span { position: absolute; right: 0; top: -11px; background: var(--work); color: #fff; font: 800 12px Inter, system-ui; padding: 3px 7px; border-radius: 10px; }
 .wx { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 8px 2px 0; font-size: 13px; font-weight: 600; }
 .wx .link { font-size: 16px; text-decoration: none; }
 .wxrel { display: flex; align-items: center; gap: 6px; margin-top: 8px; } .wxrel button { flex: 1; background: var(--panel); color: var(--ink); border: 1px solid var(--line); border-radius: 18px; padding: 6px 4px; font: 600 12.5px Inter, system-ui; } .wxrel button.on { background: var(--acc); color: var(--acc-ink); border-color: var(--acc); }
@@ -386,3 +376,19 @@ table.t5, table.dk { width: 100%; border-collapse: collapse; font-size: 13px; } 
 .lasline { margin: 6px 2px 0; } .lasline a { color: var(--acc); } .dotok { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--good); margin-right: 4px; }
 #laserRow .acct { margin-bottom: 16px; }
 .witem .wt { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; } .witem .wt b { font-size: 16px; }
+/* distance bars */
+.dbars { --cl: 58px; --yd: 48px; position: relative; display: flex; flex-direction: column; gap: 5px; margin-top: 10px; padding-bottom: 18px; }
+.dbars.zoom { gap: 10px; --cl: 92px; }
+.dbar { display: grid; grid-template-columns: var(--cl) 1fr var(--yd); align-items: center; gap: 8px; background: none; border: 0; padding: 0; color: var(--ink); text-align: left; font: inherit; }
+.dbar .cl { font-weight: 800; font-size: 14px; font-style: italic; } .dbars.zoom .cl { font-size: 15px; }
+.dbar .yd { text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; } .dbar .yd small { color: var(--good); margin-left: 3px; font-size: 10px; }
+.dbar .trk { position: relative; height: 22px; background: var(--panel2); border-radius: 6px; overflow: visible; } .dbars.zoom .trk { height: 30px; }
+.dbar .trk i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 6px; background: linear-gradient(90deg, #2f8f4e, #5bd47a); opacity: .85; }
+.dbar.part .trk i { background: linear-gradient(90deg, #4a6a52, #8db99a); } .dbar.part .cl { color: var(--mute); font-weight: 600; }
+.dbar.on .trk i { background: linear-gradient(90deg, #1fb25a, var(--acc)); opacity: 1; box-shadow: 0 0 0 2px var(--acc) inset; } .dbar.on .cl, .dbar.on .yd { color: var(--acc); }
+.dbar .trk u { position: absolute; top: 3px; bottom: 3px; width: 3px; margin-left: -1.5px; border-radius: 2px; background: #fff; opacity: .8; text-decoration: none; } .dbar .trk u.h { opacity: .5; }
+.dbar .tgt { position: absolute; top: -5px; bottom: -5px; width: 2px; margin-left: -1px; background: var(--work); }
+.tgtlbl { position: absolute; bottom: 0; transform: translateX(-50%); background: var(--work); color: #fff; font: 800 11px Inter, system-ui; padding: 2px 7px; border-radius: 10px; white-space: nowrap; }
+.dbars.bag .dbar.learned .trk i { background: linear-gradient(90deg, #1fb25a, var(--acc)); }
+.btn.sm { padding: 6px 12px; font-size: 13px; }
+.exitrow { display: flex; justify-content: space-between; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
