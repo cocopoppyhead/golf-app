@@ -143,11 +143,11 @@ export async function renderBag(root) {
       </div>
 
       <div class="card">
-        <h2>Rangefinder</h2>
+        <div class="sechead" style="margin:0 0 6px"><h2 style="margin:0">Rangefinder</h2><button class="infobtn" id="pairHelp" aria-label="How to pair">i</button></div>
         ${laserSupported() ? `
           ${laserConnected() ? `<p class="small" style="margin:0 0 8px"><b>${esc(laserName())}</b> connected</p>
             <button class="btn" id="laserBtn" style="width:100%">Disconnect</button>`
-          : `<p class="mute small">Bushnell (Pro X3 / X3+): turn Bluetooth on in the laser's menu, close the Bushnell Golf app, connect, then fire once.</p>
+          : `<p class="mute small">Bushnell (Pro X3 / X3+): first time, set the laser's Bluetooth to PAIR and enter the code shown in the eyepiece (tap ⓘ). Close the Bushnell Golf app, connect, then fire once.</p>
             <button class="btn primary" id="laserBtn" style="width:100%">Connect Bushnell</button>
             ${isNative() ? `<button class="btn" id="scanBtn" style="width:100%;margin-top:8px">${scanning ? 'Scanning…' : 'Other rangefinder (Blue Tees, Shot Scope…)'}</button>` : ''}`}
           ${found?.length && !laserConnected() ? `<div class="devlist">${found.map((d) => `<button class="pick" data-dev="${esc(d.id)}">${esc(d.name)} <span class="mute">${d.rssi ?? ''}</span></button>`).join('')}</div><p class="mute small">Fire the rangefinder to wake it; the strongest signal is at the top.</p>` : ''}
@@ -201,6 +201,21 @@ export async function renderBag(root) {
     root.querySelector('#addClub').onclick = () => { sync(); bag.push({ club: '', carry: null, total: null, three: null, threeTotal: null, half: null, halfTotal: null }); draw(); };
     root.querySelector('#saveBag').onclick = () => { sync(); bag = bag.filter((c) => c.club); saveBag(bag); draw(); root.dispatchEvent(new CustomEvent('toast', { detail: 'Bag saved', bubbles: true })); };
     root.querySelector('#copyLog')?.addEventListener('click', () => navigator.clipboard?.writeText(laserLog()).then(() => root.dispatchEvent(new CustomEvent('toast', { detail: 'Log copied', bubbles: true }))));
+    root.querySelector('#pairHelp')?.addEventListener('click', () => {
+      const sh = document.createElement('div'); sh.className = 'sheet';
+      sh.innerHTML = `<div class="sheet-in"><div class="sheet-h"><b>Pairing a Bushnell (first time)</b><button class="link" data-close>Close</button></div>
+        <p class="small">The first time you connect, your phone asks for a 6-digit PIN. It's shown <b>inside the laser's eyepiece</b>, not on the box or in the manual, and it changes each time.</p>
+        <ol class="steps">
+          <li>Look through the eyepiece and <b>hold the Mode button</b> (on top) until the menu appears.</li>
+          <li>Press the <b>Power/Fire</b> button to step through the menu until <b>Bluetooth</b> is highlighted.</li>
+          <li>Press <b>Mode</b> to change it from OFF / ON to <b>PAIR</b>.</li>
+          <li>Press <b>Power/Fire</b> once to select PAIR.</li>
+          <li>A 6-digit code appears in the eyepiece. Tap <b>Connect Bushnell</b> here and type that code when your phone asks.</li>
+        </ol>
+        <p class="mute small">You only do this once; the phone remembers the laser. Close the Bushnell Golf app first: only one app can use the laser at a time. Set the laser to yards.</p></div>`;
+      sh.querySelector('[data-close]').onclick = () => sh.remove();
+      document.body.appendChild(sh);
+    });
     root.querySelector('#scanBtn')?.addEventListener('click', () => {
       sync(); scanning = true; found = []; status = 'Scanning… fire the rangefinder to wake it.'; draw();
       scanLasers((list) => { if (list === null) { scanning = false; status = found?.length ? 'Pick your rangefinder.' : 'Nothing found. Turn Bluetooth on in the rangefinder menu and try again.'; } else found = list; if (root.isConnected) draw(); });

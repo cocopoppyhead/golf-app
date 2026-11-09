@@ -144,7 +144,7 @@ function Shell() {
           if (err) {
             log(`monitor error ${c.uuid}: ${err.message}`);
             // the Pro X3 needs the phone paired (bonded) before it will send distances
-            if (/notify change failed|auth|encrypt|bond|insufficient/i.test(err.message || '')) send({ type: 'laser.error', text: 'The laser needs your phone paired first. If Android asks for a PIN, try 000000 or 123456. Easiest: pair once in the Bushnell Golf app, force-stop it, then connect here.' });
+            if (/notify change failed|auth|encrypt|bond|insufficient/i.test(err.message || '')) send({ type: 'laser.error', text: 'The laser needs pairing first. In the laser menu set Bluetooth to PAIR: a 6-digit code shows in the eyepiece. Connect again and type that code when your phone asks. (Tap ⓘ in the Rangefinder card for the steps.)' });
             return;
           }
           if (ch?.value) send({ type: 'laser.packet', b64: ch.value, char: c.uuid.toLowerCase() });
