@@ -6,6 +6,7 @@ import { loadLibrary, importCourse, toggleStar, starred, isHome } from './librar
 import { loadGeo, geoHole, drawCourseMap, mountHoleMap, markedHole, markHoleSheet } from './holemap.js';
 import { dist as D, du } from '../units.js';
 import { calendarSheet } from '../calendar.js';
+import { createEvent, updateEvent, deleteEvent } from '../cloud/social.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const uid = (p) => `${p}_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
@@ -63,13 +64,18 @@ export function scheduleSheet(group, { toast = () => {}, done = () => {}, existi
     <button class="btn primary big" data-ok style="margin-top:10px">${existing ? 'Save' : 'Schedule'}</button>
     ${existing ? '<button class="link" data-del style="margin-top:10px;color:var(--work)">Remove</button>' : ''}</div>`;
   sheet.querySelector('[data-close]').onclick = () => sheet.remove();
-  sheet.querySelector('[data-del]')?.addEventListener('click', () => { saveEvents(events().filter((e) => e.id !== ev.id)); sheet.remove(); done(); });
-  sheet.querySelector('[data-ok]').onclick = () => {
+  sheet.querySelector('[data-del]')?.addEventListener('click', () => { saveEvents(events().filter((e) => e.id !== ev.id)); if (ev.remoteId) deleteEvent(ev.remoteId).catch(() => {}); sheet.remove(); done(); });
+  sheet.querySelector('[data-ok]').onclick = async () => {
     const when = new Date(`${sheet.querySelector('[data-day]').value}T${sheet.querySelector('[data-time]').value || '07:30'}`).getTime();
     if (!when) return toast('Pick a day.');
     Object.assign(ev, { when, who: sheet.querySelector('[data-who]').value.trim(), note: sheet.querySelector('[data-note]').value.trim(), courseId: sheet.querySelector('[data-tee]')?.value || ev.courseId });
+    // signed in: the round lives on the server too, so friends can be invited with a link
+    try {
+      if (ev.remoteId) await updateEvent(ev.remoteId, ev);
+      else { const r = await createEvent(ev); if (r) { ev.remoteId = r.id; ev.code = r.invite_code; } }
+    } catch (e) { toast(`Saved here; not shared: ${e.message}`); }
     const list = events().filter((e) => e.id !== ev.id); list.push(ev); saveEvents(list);
-    sheet.remove(); toast(existing ? 'Updated' : 'Scheduled'); done(ev);
+    sheet.remove(); toast(existing ? 'Updated' : ev.code ? 'Scheduled · tap Invite to share the link' : 'Scheduled'); done(ev);
     if (!existing) eventCalendar(ev);
   };
   document.body.appendChild(sheet);

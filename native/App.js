@@ -6,7 +6,7 @@
 //     distance · plays-like · club with ✓ / Other; the read reaches the web app when it resumes
 //   • sharing the exported swing video
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, AppState, BackHandler, Linking, PermissionsAndroid, Platform, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, AppState, BackHandler, Linking, PermissionsAndroid, Platform, Share, StyleSheet, Text, View } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -278,6 +278,7 @@ function Shell() {
     else if (msg.type === 'laser.disconnect') laserDisconnect();
     else if (msg.type === 'loop.config') { loopCfg.current = msg; Notifications.requestPermissionsAsync().catch(() => {}); }
     else if (msg.type === 'share.file') shareFile(msg);
+    else if (msg.type === 'share.text') Share.share({ message: msg.text || '' }).catch(() => {});
     else if (msg.type === 'open.url' && /^https?:\/\//.test(msg.url || '')) Linking.openURL(msg.url).catch(() => {});
   }, [laserConnect, laserScan, laserDisconnect, shareFile]);
 

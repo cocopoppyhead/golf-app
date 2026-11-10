@@ -20,6 +20,7 @@ import { initRounds, roundsHome, recentRoundAggregate } from './rounds/ui.js';
 import { roundTendencies } from './rounds/stats.js';
 import { savePlan as savePlanX } from './coach/profile.js';
 import { renderAccount, initPasswordRecovery } from './cloud/account.js';
+import { pendingInviteFromUrl } from './cloud/social.js';
 import { renderScoring, practiceFromRounds } from './progress.js';
 import { workContext } from './workingon.js';
 import { renderPracticeLog, practiceContext } from './practice.js';
@@ -948,6 +949,8 @@ $('#importFile').addEventListener('change', async (e) => {
 $('#buildTag').textContent = `App version ${__BUILD__} UTC`;
 
 startSync();
+// an invite link (?join= / ?friend=): remembered, acted on from the Play tab once signed in
+if (pendingInviteFromUrl()) { showTab('rounds'); toast('Invite received. Sign in (Settings) if you haven\'t, then it joins from Play.'); }
 
 // Header avatar + first-login setup
 function renderHeaderAvatar() {

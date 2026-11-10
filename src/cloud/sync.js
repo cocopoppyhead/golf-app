@@ -2,6 +2,7 @@
 // records are mirrored to Supabase (user_docs) and pulled down on other devices.
 // Rule: the newest updatedAt wins. Videos never leave the phone.
 import { sb, currentUser } from './supabase.js';
+import { publishSummaries } from './social.js';
 import {
   getSettings, saveSettings, onLocalChange, clearLocal,
   listSwings, putSwing, deleteSwing, listRounds, putRound, deleteRound,
@@ -91,6 +92,7 @@ export async function syncNow() {
         if (error) throw error;
       }
       localStorage.setItem('golf.deleted', '[]');
+      await publishSummaries().catch((e) => console.warn('summaries', e.message));
       const now = Date.now(); localStorage.setItem('golf.lastSync', String(now));
       set({ state: 'ok', last: now, pushed: up.length });
       window.dispatchEvent(new Event('golf-synced'));

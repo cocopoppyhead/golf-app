@@ -1,6 +1,6 @@
 // Rounds module UI: courses, hole-by-hole logging (Conor's shot codes), scorecard photo import, summaries.
 import { CODES, TEE_ZONES, roundStats, aggregate, roundTendencies, roundSummaryText, pct, top, played } from './stats.js';
-import { openLibrary, isHome, starred } from './library.js';
+import { openLibrary, isHome, starred, loadLibrary } from './library.js';
 import { differential } from './handicap.js';
 import { getConditions, condText } from '../weather.js';
 import { getSettings as S0, saveSettings as S1 } from '../store.js';
@@ -19,6 +19,9 @@ import { practiceContext } from '../practice.js';
 import { drillContext } from '../drills.js';
 import { loadGeo, geoHole, mountHoleMap, markedHole, markHoleSheet } from './holemap.js';
 import { renderChecklist } from '../checklist.js';
+import { renderFriendsCard, inviteSheet } from './friends.js';
+import { inviteLink, remoteEvents, removeSummary, takePendingInvite, joinEvent, addFriendByCode } from '../cloud/social.js';
+import { currentUser } from '../cloud/supabase.js';
 import { groupCourses, courseCardsHtml, bindCourseCards, coursePage, events, fmtWhen, scheduleSheet, eventCalendar } from './course.js';
 
 const DEBRIEF_TAGS = ['Driver into trouble', 'Risky shot choice', 'Approach misses', 'Short game', '3-putts', 'Lost focus', 'Back problem', 'Tired', 'Wind / conditions', 'Bad luck'];
@@ -63,10 +66,11 @@ export async function roundsHome() {
   root.innerHTML = `
     ${open ? `<div class="card event-card"><b>Round in progress</b><p class="mute small">${esc(open.courseName)} · ${fmtD(open.date)} · ${played(open).length} holes logged</p><div class="row"><button class="btn primary" data-act="resume" data-id="${open.id}">Resume round</button><button class="btn" data-act="endopen" data-id="${open.id}">End / discard</button></div></div>` : ''}
     <div id="gettingStarted"></div>
-    ${upcoming.length ? `<div class="card"><div class="lbl">Upcoming</div>${upcoming.map((e) => `<div class="evrow"><div><b>${esc(e.courseName)}</b><div class="mute small">${fmtWhen(e.when)}${e.who ? ` · with ${esc(e.who)}` : ''}${e.note ? ` · ${esc(e.note)}` : ''}</div></div><div class="row" style="gap:6px"><button class="btn sm" data-act="evstart" data-id="${e.id}">Start</button><button class="link" data-act="evcal" data-id="${e.id}">📅</button><button class="link" data-act="evedit" data-id="${e.id}">Edit</button></div></div>`).join('')}</div>` : ''}
+    ${upcoming.length ? `<div class="card"><div class="lbl">Upcoming</div>${upcoming.map((e) => `<div class="evrow"><div><b>${esc(e.courseName)}</b><div class="mute small">${fmtWhen(e.when)}${e.who ? ` · with ${esc(e.who)}` : ''}${e.note ? ` · ${esc(e.note)}` : ''}</div></div><div class="row" style="gap:6px">${e.code ? `<button class="link" data-act="evinvite" data-id="${e.id}">Invite</button>` : ''}<button class="btn sm" data-act="evstart" data-id="${e.id}">Start</button><button class="link" data-act="evcal" data-id="${e.id}">📅</button><button class="link" data-act="evedit" data-id="${e.id}">${e.joined ? 'Leave' : 'Edit'}</button></div></div>`).join('')}</div>` : ''}
     <div class="sechead"><h2>Your courses</h2><button class="link acc" data-act="library">+ Find a course</button></div>
     ${groups.length ? courseCardsHtml(groups, rounds) : '<div class="card"><p class="mute">Pick your course from the UAE list and the scorecard, map and tees fill in. Tap a course for its page: start or schedule a round, preview the holes, your record there.</p><button class="btn primary big" data-act="library">🇦🇪 Find a UAE course</button></div>'}
     <div class="row" style="margin-top:8px"><button class="btn" data-act="post">＋ Post a score</button><button class="btn" data-act="import">📷 Import a scorecard</button><button class="btn" data-act="newcourse">+ By hand</button></div>
+    <div id="friendsCard"></div>
     ${A ? statsCard(A, `Last ${A.rounds} round${A.rounds > 1 ? 's' : ''}`) : ''}
     ${await (async () => {
       const gs = [];
@@ -83,7 +87,34 @@ export async function roundsHome() {
     }).join('') : ''}`;
   root.querySelectorAll('[data-act]').forEach((b) => b.addEventListener('click', () => homeAction(b.dataset.act, b.dataset.id)));
   bindCourseCards(root, groups, courseApi());
+  renderFriendsCard(root.querySelector('#friendsCard'), { toast: ctx.toast, onJoined: () => mergeRemoteEvents().then(roundsHome) });
+  handlePendingInvite();
+  mergeRemoteEvents().then((changed) => { if (changed && root.querySelector('#friendsCard')) roundsHome(); });
   renderChecklist(root.querySelector('#gettingStarted'), { onGo: (where) => (where === 'library' ? homeAction('library') : where === 'play' ? (groups.length ? coursePage(groups[0], courseApi()) : homeAction('library')) : ctx.showTab?.(where)) });
+}
+/** Rounds friends invited me to (and my own, for their codes) come from the server into the local list. */
+async function mergeRemoteEvents() {
+  const u = await currentUser().catch(() => null); if (!u) return false;
+  const remote = await remoteEvents().catch(() => []);
+  const s = S0(); const list = s.events || []; let changed = false;
+  for (const e of remote) {
+    const local = list.find((x) => x.remoteId === e.id);
+    if (local) { if (local.when !== new Date(e.starts_at).getTime() || local.note !== e.note) { local.when = new Date(e.starts_at).getTime(); local.note = e.note; changed = true; } continue; }
+    if (e.mine) continue; // my own events are already local (created there)
+    list.push({ id: `ev_${e.id.slice(0, 8)}`, remoteId: e.id, code: e.invite_code, joined: true, libId: e.course_lib_id, courseId: null, courseName: e.course_name, when: new Date(e.starts_at).getTime(), who: '', note: e.note || '' }); changed = true;
+  }
+  if (changed) { s.events = list; S1(s); }
+  return changed;
+}
+/** A ?join= or ?friend= link that arrived while signed out gets acted on here, once signed in. */
+async function handlePendingInvite() {
+  const u = await currentUser().catch(() => null); if (!u) return;
+  const inv = takePendingInvite(); if (!inv) return;
+  try {
+    if (inv.kind === 'friend') { const p = await addFriendByCode(inv.code); ctx.toast(`You and ${p.nickname || p.name || 'your friend'} are friends now.`); }
+    else { const ev = await joinEvent(inv.code, S0().nickname || S0().name || ''); ctx.toast(`You're in: ${ev.course_name}`); await mergeRemoteEvents(); }
+    roundsHome();
+  } catch (e) { ctx.toast(e.message || 'That invite didn\'t work.'); }
 }
 /** What the course page needs from here. */
 const courseApi = () => ({ root, toast: ctx.toast, startRound, openRound, editCourse, back: roundsHome, clubs: effectiveClubs });
@@ -115,9 +146,16 @@ async function homeAction(act, id) {
   if (act === 'library') return openLibrary({ toast: ctx.toast, onPicked: (c) => openCoursePage(c.id) });
   if (act === 'editcourse') return editCourse(sel);
   if (act === 'start') return startRound(await getCourse(sel));
-  if (act === 'evstart') { const e = events().find((x) => x.id === id); const c = e && (await getCourse(e.courseId).catch(() => null)); if (!c) return ctx.toast('That course is gone. Edit the event.'); return startRound(c, e); }
+  if (act === 'evstart') {
+    const e = events().find((x) => x.id === id); let c = e?.courseId && (await getCourse(e.courseId).catch(() => null));
+    if (!c && e?.libId) c = (await listCourses().catch(() => [])).find((x) => x.libId === e.libId) || null;
+    if (!c && e?.libId) { const lib = (await loadLibrary()).find((x) => x.id === e.libId); if (lib) { const { importCourse } = await import('./library.js'); c = await importCourse(lib, lib.tees?.[0] || null); } }
+    if (!c) return ctx.toast('Add the course first (Find a course), then start from here.');
+    return startRound(c, e);
+  }
   if (act === 'evcal') { const e = events().find((x) => x.id === id); if (e) eventCalendar(e); return; }
-  if (act === 'evedit') { const e = events().find((x) => x.id === id); const groups = groupCourses(await listCourses().catch(() => [])); const g = groups.find((x) => (e.libId ? x.libId === e.libId : x.variants.some((c) => c.id === e.courseId))); if (g) scheduleSheet(g, { toast: ctx.toast, done: roundsHome, existing: e }); return; }
+  if (act === 'evinvite') { const e = events().find((x) => x.id === id); if (e?.code) inviteSheet({ title: `${e.courseName} · ${fmtWhen(e.when)}`, link: inviteLink('join', e.code), code: e.code, blurb: 'Whoever opens this (signed in to osolo) joins the round and becomes your friend.' }); return; }
+  if (act === 'evedit') { const e = events().find((x) => x.id === id); if (e?.joined) { const s = S0(); s.events = (s.events || []).filter((x) => x.id !== e.id); S1(s); return roundsHome(); } const groups = groupCourses(await listCourses().catch(() => [])); const g = groups.find((x) => (e.libId ? x.libId === e.libId : x.variants.some((c) => c.id === e.courseId))); if (g) scheduleSheet(g, { toast: ctx.toast, done: roundsHome, existing: e }); return; }
   if (act === 'import') return importCard(sel);
   if (act === 'post') return postScore(sel);
 }
@@ -487,7 +525,7 @@ function discardSheet(round) {
     <p class="small">Everything logged for it is deleted. This can't be undone.</p>
     <button class="btn big" data-ok style="color:var(--work)">Discard round</button></div>`;
   sheet.querySelector('[data-close]').onclick = () => sheet.remove();
-  sheet.querySelector('[data-ok]').onclick = async () => { await deleteRound(round.id); sheet.remove(); cur = null; ctx.toast('Round discarded'); roundsHome(); };
+  sheet.querySelector('[data-ok]').onclick = async () => { await deleteRound(round.id); removeSummary(round.id).catch(() => {}); sheet.remove(); cur = null; ctx.toast('Round discarded'); roundsHome(); };
   document.body.appendChild(sheet);
 }
 
@@ -621,7 +659,7 @@ async function postScore(courseId, pre = {}) {
   q('#psCourse')?.addEventListener('change', () => postScore(q('#psCourse').value, { ...pre, ...read() }));
   root.querySelectorAll('[data-h]').forEach((b) => b.onclick = () => { x.holesPlayed = +b.dataset.h; root.querySelectorAll('[data-h]').forEach((k) => k.classList.toggle('on', k === b)); showDiff(); });
   q('#psScore').addEventListener('input', showDiff); showDiff();
-  q('[data-x=del]')?.addEventListener('click', async () => { await deleteRound(pre.id); ctx.toast('Deleted.'); roundsHome(); });
+  q('[data-x=del]')?.addEventListener('click', async () => { await deleteRound(pre.id); removeSummary(pre.id).catch(() => {}); ctx.toast('Deleted.'); roundsHome(); });
   q('[data-x=save]')?.addEventListener('click', async () => {
     const c = await getCourse(q('#psCourse').value);
     const score = +q('#psScore').value, putts = q('#psPutts').value === '' ? null : +q('#psPutts').value;
@@ -874,7 +912,7 @@ async function renderSummary(r, c) {
     const x = b.dataset.x;
     if (x === 'back') return roundsHome();
     if (x === 'edit') { r.finished = false; await putRound(r); cur = { round: r, course: c, hole: 0, review: false }; return renderHole(); }
-    if (x === 'del') { await deleteRound(r.id); return roundsHome(); }
+    if (x === 'del') { await deleteRound(r.id); removeSummary(r.id).catch(() => {}); return roundsHome(); }
     if (x === 'ai') {
       const s = ctx.settings();
       if (!aiReady(s)) return ctx.toast('Add a Claude, ChatGPT or Gemini key in Settings to use the AI coach.', 5000);

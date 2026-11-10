@@ -1,7 +1,7 @@
 {
   "name": "golf-app",
   "version": "0.1.0",
-  "description": "osolo \u2014 a golf app: swing coach, rounds with shot-by-shot logging and strokes gained, hole maps, the Bushnell loop, practice with purpose",
+  "description": "osolo — a golf app: swing coach, rounds with shot-by-shot logging and strokes gained, hole maps, the Bushnell loop, practice with purpose",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
@@ -15,7 +15,8 @@
   "dependencies": {
     "@mediapipe/tasks-vision": "1.1.1",
     "@supabase/supabase-js": "2.118.0",
-    "mp4-muxer": "5.2.2"
+    "mp4-muxer": "5.2.2",
+    "qrcode-generator": "^2.0.4"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
