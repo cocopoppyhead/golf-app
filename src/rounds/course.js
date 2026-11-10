@@ -179,8 +179,9 @@ function pickTee(group, L, api, onPick, addOnly = false) {
 }
 
 /** Browse the holes on the map without a round. */
-function previewHoles(group, geo, api) {
+async function previewHoles(group, geo, api) {
   const c = group.variants[0]; let i = 0, map = null;
+  const clubs = await (typeof api.clubs === 'function' ? api.clubs() : api.clubs || []);
   const el = document.createElement('div'); el.className = 'onb preview';
   el.innerHTML = `<div class="onb-in"><div class="onb-top"><b data-t></b><button class="link" data-close>Close</button></div>
     <div class="holebar" style="margin:4px 0 8px"><button class="btn icon" data-p>‹</button><div class="hinfo"><div class="hnum" data-h></div><div class="mute small" data-s></div></div><button class="btn icon" data-n>›</button></div>
@@ -192,7 +193,7 @@ function previewHoles(group, geo, api) {
     el.querySelector('[data-s]').textContent = `Par ${ch.par}${ch.si ? ` · SI ${ch.si}` : ''}${ch.yds ? ` · ${D(ch.yds)} ${du()}` : ''}`;
     map?.destroy(); const m = el.querySelector('[data-map]'); m.className = ''; m.innerHTML = '';
     const gh = geoHole(geo, i + 1) || markedHole(ch.mark, i + 1);
-    map = mountHoleMap(m, { gh, geo, par: ch.par, yds: ch.yds, teeName: c.tees, clubs: api.clubs || [], canMark: !!c.lat, onMark: () => markHoleSheet({ course: c, start: i, geo, onSave: (k, mark) => saveMark(group, k, mark), onClose: draw }) });
+    map = mountHoleMap(m, { gh, geo, par: ch.par, yds: ch.yds, teeName: c.tees, clubs, canMark: !!c.lat, onMark: () => markHoleSheet({ course: c, start: i, geo, onSave: (k, mark) => saveMark(group, k, mark), onClose: draw }) });
   };
   el.querySelector('[data-close]').onclick = () => { map?.destroy(); el.remove(); };
   el.querySelector('[data-p]').onclick = () => { i = (i + c.holes.length - 1) % c.holes.length; draw(); };

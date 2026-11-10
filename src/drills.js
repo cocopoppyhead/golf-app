@@ -107,13 +107,20 @@ export async function renderDrillsCard(el, { toast = () => {} } = {}) {
         ${spark(st.series.map((r) => r.score), d.metric.higher !== false)}
         <span class="dl">${fmtScore(d.metric, st.last)} ${arrow(st.trend)}</span></button>`).join('')
       : '<p class="mute small">Nothing logged yet. Open the library, pick a drill, do it, log the number.</p>'}
-    <button class="btn" data-lib2 style="width:100%;margin-top:8px">+ Log a drill</button>
+    <div class="row" style="margin-top:8px"><button class="btn" data-lib2 style="flex:1">+ Log a drill</button><button class="btn" data-tempo style="flex:1">♩ Tempo</button></div>
   </div>`;
   const redraw = () => renderDrillsCard(el, { toast });
+  el.querySelector('[data-tempo]').onclick = () => import('./metronome.js').then((m) => m.openMetronome({ toast }));
   el.querySelector('[data-lib]').onclick = () => openLibrary({ toast, onLogged: redraw });
   el.querySelector('[data-lib2]').onclick = () => openLibrary({ toast, onLogged: redraw });
   el.querySelectorAll('[data-open]').forEach((b) => b.onclick = () => openLibrary({ toast, onLogged: redraw, drillId: b.dataset.open }));
 }
+
+/** Where a drill can be done, in the order the chips show. */
+export const PLACES = [['home', '🏠 Home'], ['range', '🏌️ Range'], ['sim', '🖥 Sim'], ['green', '⛳ Green'], ['short game', '🌿 Short game'], ['bunker', '🏖 Bunker'], ['course', '🚩 Course']];
+const PLACE_LABEL = Object.fromEntries(PLACES.map(([k, l]) => [k, l.replace(/^\S+\s/, '')]));
+/** Time · level · places as small chips. */
+export const drillChips = (d) => [d.minutes ? `<span class="tag t">${d.minutes} min</span>` : '', d.level && d.level !== 'all' ? `<span class="tag">${esc(d.level)}</span>` : '', ...(d.where || []).map((w) => `<span class="tag p">${esc(PLACE_LABEL[w] || w)}</span>`)].join(' ');
 
 /** Full-screen library: area tabs → drill list → drill sheet with "Log it". */
 export async function openLibrary({ toast = () => {}, onLogged = () => {}, drillId = null, onPick = null } = {}) {
@@ -121,21 +128,23 @@ export async function openLibrary({ toast = () => {}, onLogged = () => {}, drill
   const el = document.createElement('div'); el.className = 'onb drilllib';
   let fav = favDrills();
   let area = drillId ? lib.drills.find((d) => d.id === drillId)?.area : fav.size ? 'fav' : lib.areas[0]?.[0];
-  let q = '';
+  let q = '', place = '';
   const draw = () => {
     fav = favDrills();
-    const list = lib.drills.filter((d) => (q ? (d.name + d.purpose + d.sub).toLowerCase().includes(q.toLowerCase()) : area === 'fav' ? fav.has(d.id) : d.area === area));
+    const list = lib.drills.filter((d) => (q ? (d.name + d.purpose + d.sub).toLowerCase().includes(q.toLowerCase()) : area === 'fav' ? fav.has(d.id) : d.area === area)).filter((d) => !place || (d.where || []).includes(place));
     el.innerHTML = `<div class="onb-in">
       <div class="onb-top"><h2 style="margin:0">Drill library</h2><button class="link" data-close>${onPick ? 'Back to session' : 'Close'}</button></div>
       <input class="libq" placeholder="Search drills" value="${esc(q)}" />
       ${q ? '' : `<div class="areatabs"><button class="${area === 'fav' ? 'on' : ''}" data-area="fav">★ Favourites${fav.size ? ` ${fav.size}` : ''}</button>${lib.areas.map(([k, l]) => `<button class="${k === area ? 'on' : ''}" data-area="${k}">${esc(l)}</button>`).join('')}</div>`}
+      <div class="placetabs">${PLACES.map(([k, l]) => `<button class="${place === k ? 'on' : ''}" data-place="${k}">${l}</button>`).join('')}</div>
       <div class="dlist">${list.map((d) => { const st = drillStats(d, results); return `<div class="ditem" data-d="${esc(d.id)}">
-        <span><b>${esc(d.name)}</b><span class="mute small">${esc(d.sub)} · ${esc(d.level)}</span><span class="small">${esc(d.purpose)}</span></span>
+        <span><b>${esc(d.name)}</b><span class="chips">${drillChips(d)}</span><span class="small">${esc(d.purpose)}</span></span>
         <span class="dl">${st ? `${fmtScore(d.metric, st.last)}<small>last</small>` : ''}<button class="star ${fav.has(d.id) ? 'on' : ''}" data-fav="${esc(d.id)}" aria-label="Favourite">${fav.has(d.id) ? '★' : '☆'}</button></span></div>`; }).join('') || `<p class="mute small">${area === 'fav' ? 'No favourites yet. Tap ☆ on a drill.' : 'Nothing matches.'}</p>`}</div>
     </div>`;
     el.querySelector('[data-close]').onclick = () => el.remove();
     el.querySelector('.libq').addEventListener('input', (e) => { q = e.target.value; draw(); el.querySelector('.libq').focus(); });
     el.querySelectorAll('[data-area]').forEach((b) => b.onclick = () => { area = b.dataset.area; draw(); });
+    el.querySelectorAll('[data-place]').forEach((b) => b.onclick = () => { place = place === b.dataset.place ? '' : b.dataset.place; draw(); });
     el.querySelectorAll('[data-fav]').forEach((b) => b.onclick = (e) => { e.stopPropagation(); toggleFav(b.dataset.fav); draw(); });
     el.querySelectorAll('[data-d]').forEach((b) => b.onclick = (e) => { if (e.target.closest('[data-fav]')) return; drillSheet(lib.drills.find((d) => d.id === b.dataset.d), lib, results, { toast, onPick, onFav: draw, onLogged: async () => { results.splice(0, results.length, ...(await drillResults())); draw(); onLogged(); } }); });
   };
@@ -149,7 +158,7 @@ function drillSheet(d, lib, results, { toast, onLogged, onPick, onFav }) {
   const scoreHint = m.type === 'count' ? `${m.label || 'how many'}${m.of ? ` out of ${m.of}` : ''}` : m.type === 'streak' ? 'longest streak' : m.type === 'strokes' ? `total strokes${m.par ? ` (par ${m.par})` : ''}` : m.type === 'points' ? `points${m.of ? ` out of ${m.of}` : ''}` : m.type === 'feet' ? 'feet' : m.type === 'yards' ? 'yards' : m.label || m.unit || 'number';
   sheet.innerHTML = `<div class="sheet-in">
     <div class="sheet-h"><b>${esc(d.name)}</b><span class="row" style="gap:10px"><button class="star big ${favDrills().has(d.id) ? 'on' : ''}" data-fav>${favDrills().has(d.id) ? '★' : '☆'}</button><button class="link" data-close>Close</button></span></div>
-    <p class="small" style="margin:0 0 6px"><span class="tag">${esc(lib.areas.find((a) => a[0] === d.area)?.[1] || d.area)}</span> <span class="tag">${esc(d.sub)}</span> <span class="tag">${esc(d.level)}</span></p>
+    <p class="small chips" style="margin:0 0 6px"><span class="tag">${esc(lib.areas.find((a) => a[0] === d.area)?.[1] || d.area)}</span> <span class="tag">${esc(d.sub)}</span>${drillChips(d)}</p>
     <p style="margin:4px 0 8px">${esc(d.purpose)}</p>
     <div class="lbl">Setup</div><p class="small">${esc(d.setup)}</p>
     <div class="lbl">How</div><p class="small">${esc(d.how)}</p>

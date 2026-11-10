@@ -50,3 +50,25 @@ describe('laser loop', () => {
     expect(playsFrom({ raw: 150, playsAs: 150 }, { tempC: 40, windMph: 0, windFrom: 0 }).plays).toBeLessThan(150);
   });
 });
+
+describe('clubs drawn from the tee', () => {
+  const bag = [{ club: 'Driver', carry: 255 }, { club: '3 wood', carry: 225 }, { club: '5 wood', carry: 210 }, { club: '3 hybrid', carry: 200 }, { club: '4 iron', carry: 190 }, { club: '5 iron', carry: 180 }, { club: '7 iron', carry: 160 }, { club: 'PW', carry: 130 }];
+  it('par 4/5: driver, up to two woods, then the longest hybrid or iron — four at most', async () => {
+    const { teeClubs } = await import('../../src/rounds/holemap.js');
+    expect(teeClubs(bag, { par: 4 }).map((c) => c.club)).toEqual(['Driver', '3 wood', '5 wood', '3 hybrid']);
+    expect(teeClubs(bag.filter((c) => c.club !== '5 wood' && c.club !== '3 hybrid'), { par: 5 }).map((c) => c.club)).toEqual(['Driver', '3 wood', '4 iron']);
+    expect(teeClubs(bag.filter((c) => c.carry < 200), { par: 4 }).map((c) => c.club)).toEqual(['4 iron']);
+  });
+  it('par 3: no fan of clubs', async () => {
+    const { teeClubs } = await import('../../src/rounds/holemap.js');
+    expect(teeClubs(bag, { par: 3 })).toEqual([]);
+  });
+  it('from the fairway: the club for the distance and one either side', async () => {
+    const { teeClubs, alongLine } = await import('../../src/rounds/holemap.js');
+    expect(teeClubs(bag, { par: 4, toGo: 185 }).map((c) => c.club)).toEqual(['4 iron', '5 iron', '7 iron']);
+    const line = [[25, 55], destination([25, 55], 0, 200), destination(destination([25, 55], 0, 200), Math.PI / 2, 200)];
+    expect(metres(alongLine(line, 100), destination([25, 55], 0, 100))).toBeLessThan(0.5);
+    expect(metres(alongLine(line, 300), destination(destination([25, 55], 0, 200), Math.PI / 2, 100))).toBeLessThan(0.5);
+    expect(alongLine(line, 999)).toEqual(line[2]);
+  });
+});

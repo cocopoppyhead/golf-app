@@ -4,6 +4,7 @@
 // Front / centre / back of the green from where you stand (GPS) or from the tee, and tap anywhere
 // to measure. Courses without OSM shapes get the same arcs on a plain yardage strip.
 import { dist as D, du } from '../units.js';
+import { getSettings, saveSettings } from '../store.js';
 import { YD, mPerLat, mPerLon, metres, bearing, destination, inRing, merc, unmerc, zoomFor } from '../geo.js';
 
 const BASE = import.meta.env.BASE_URL;
@@ -19,6 +20,39 @@ export function loadGeo(libId) {
   return geoCache.get(libId);
 }
 export const geoHole = (geo, n) => geo?.holes?.find((h) => h.n === n) || null;
+
+// ---------- which clubs to draw ----------
+const kind = (name) => (/driver/i.test(name) ? 'driver' : /wood/i.test(name) ? 'wood' : /hybrid|rescue|utility/i.test(name) ? 'hybrid' : /iron|\d\s*i$/i.test(name) ? 'iron' : 'wedge');
+/**
+ * Tee shot options worth drawing: driver, the fairway woods (up to two), then the longest hybrid
+ * or iron you carry — three or four clubs, not the whole bag. Par 3: none (the number is enough).
+ * From the fairway: the club for the distance and one either side.
+ */
+export function teeClubs(clubs, { par = 4, toGo = null } = {}) {
+  const list = clubs.filter((c) => c.carry > 0).sort((a, b) => b.carry - a.carry);
+  if (!list.length) return [];
+  if (par === 3) return []; // a par 3 is front / centre / back, not a fan of clubs
+  if (toGo && toGo < 240) { // from the fairway: the club for the distance and one either side
+    const i = Math.max(0, list.findIndex((c) => c.carry <= toGo) - 1);
+    return list.slice(i, i + 3);
+  }
+  const out = [];
+  const d = list.find((c) => kind(c.club) === 'driver'); if (d) out.push(d);
+  out.push(...list.filter((c) => kind(c.club) === 'wood').slice(0, 2));
+  for (const k of ['hybrid', 'iron']) { if (out.length >= 4) break; const c = list.find((x) => kind(x.club) === k && !out.includes(x)); if (c) out.push(c); }
+  return out.slice(0, 4);
+}
+/** The point `m` metres along a polyline from its start (clamped to the end). */
+export function alongLine(line, m) {
+  let left = m;
+  for (let i = 1; i < line.length; i++) {
+    const seg = metres(line[i - 1], line[i]);
+    if (left <= seg) { const t = seg ? left / seg : 0; return [line[i - 1][0] + (line[i][0] - line[i - 1][0]) * t, line[i - 1][1] + (line[i][1] - line[i - 1][1]) * t]; }
+    left -= seg;
+  }
+  return line[line.length - 1];
+}
+export const showLeave = () => getSettings().mapLeave !== false;
 
 // ---------- tee choice ----------
 /** Which mapped tee matches the card? The one whose distance to the green is nearest the card yardage. */
@@ -158,20 +192,36 @@ export function mountHoleMap(el, opts) {
     o.gh.line.forEach((p, i) => { const [x, y] = toPx(project(p)); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }); ctx.stroke(); ctx.setLineDash([]);
     // club arcs
     const ref = refPoint();
+    const leaveOn = showLeave();
+    // Arcs are short: the fairway plus ~20 yards either side (±40 yd), centred on the hole line where
+    // the ball lands, so a dogleg bends the fan with it.
+    const HALF_W = 40 * YD;
     const arcs = (centre, list, dir, color) => { // dir +1: fan up the hole from centre; -1: fan back from the green
-      const [cx0, cy0] = toPx(project(centre)); const base = dir > 0 ? -Math.PI / 2 : Math.PI / 2; const half = 0.5;
+      const [cx0, cy0] = toPx(project(centre));
       ctx.font = `600 11px Inter, system-ui`; ctx.textAlign = 'left';
-      for (const c of list) {
+      let lastY = -99;
+      for (const c of [...list].sort((a, b) => a.carry - b.carry)) { // shortest first so labels stack outward in order
         const r = c.carry * YD * f.s; if (r < 18 || r > Math.max(W, H) * 1.4) continue;
-        ctx.beginPath(); ctx.arc(cx0, cy0, r, base - half, base + half); ctx.strokeStyle = color; ctx.lineWidth = 1.2; ctx.setLineDash(dir > 0 ? [] : [3, 4]); ctx.stroke(); ctx.setLineDash([]);
-        const lx = cx0 + r * Math.cos(base + half) + 3, ly = cy0 + r * Math.sin(base + half) + 4;
-        ctx.fillStyle = 'rgba(0,0,0,.55)'; const label = `${c.club} ${D(c.carry)}`; const w = ctx.measureText(label).width + 6;
+        // where this club lands: along the hole line from the tee, or back from the green along the line
+        const path = dir > 0 ? [centre, ...o.gh.line.slice(1)] : [...o.gh.line].reverse();
+        const land = alongLine(path, c.carry * YD);
+        const [lx2, ly2] = toPx(project(land));
+        const base = Math.atan2(ly2 - cy0, lx2 - cx0);
+        const half = Math.min(0.5, Math.atan2(HALF_W * f.s, r));
+        ctx.beginPath(); ctx.arc(cx0, cy0, r, base - half, base + half); ctx.strokeStyle = color; ctx.lineWidth = 1.4; ctx.setLineDash(dir > 0 ? [] : [3, 4]); ctx.stroke(); ctx.setLineDash([]);
+        // from the tee: what that leaves to the middle of the green
+        let leave = '';
+        if (dir > 0 && leaveOn) { const togo = metres(land, G); if (togo > 25) leave = ` · ${D(togo / YD)} left`; }
+        if (dir > 0) { ctx.beginPath(); ctx.arc(lx2, ly2, 3, 0, 7); ctx.fillStyle = color; ctx.fill(); }
+        const lx = cx0 + r * Math.cos(base + half) + 4; let ly = cy0 + r * Math.sin(base + half) + 4;
+        if (lastY > -99 && Math.abs(ly - lastY) < 15) ly = lastY + (dir > 0 ? -15 : 15); lastY = ly; // keep labels from stacking
+        ctx.fillStyle = 'rgba(0,0,0,.6)'; const label = `${c.club} ${D(c.carry)}${leave}`; const w = ctx.measureText(label).width + 6;
         ctx.fillRect(lx - 3, ly - 11, w, 14); ctx.fillStyle = color; ctx.fillText(label, lx, ly);
       }
     };
     const clubs = (o.clubs || []).filter((c) => c.carry > 0);
-    if (mode === 'tee') arcs(ref.p, clubs.filter((c) => o.par === 3 ? true : c.carry >= 120), 1, '#ffd23f');
-    if (mode === 'green') arcs(G, clubs.filter((c) => c.carry <= 150), -1, '#8fd3ff');
+    if (mode === 'tee') arcs(ref.p, teeClubs(clubs, { par: o.par, toGo: ref.gps ? metres(ref.p, G) / YD : null }), 1, '#ffd23f');
+    if (mode === 'green') arcs(G, clubs.filter((c) => c.carry <= 150).sort((a, b) => b.carry - a.carry).slice(0, 4), -1, '#8fd3ff');
     // you
     if (ref.gps) { const [x, y] = toPx(project(ref.p)); ctx.beginPath(); ctx.arc(x, y, 6, 0, 7); ctx.fillStyle = '#3ddc84'; ctx.fill(); ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke(); }
     // tap marker + lines
@@ -185,8 +235,9 @@ export function mountHoleMap(el, opts) {
     const cell = (v, l, c) => `<div><b${c ? ' class="c"' : ''}>${v}</b><span>${l}</span></div>`;
     const dTxt = g && !g.marked ? cell(fmt(metres(ref.p, g.f)), 'front') + cell(fmt(metres(ref.p, g.c)), 'centre', true) + cell(fmt(metres(ref.p, g.b)), 'back') : cell(`${o.approxGreen ? '≈ ' : ''}${fmt(metres(ref.p, G))}`, 'to green', true);
     distEl.innerHTML = `${dTxt}<span class="src">${ref.gps ? '📍 from you' : 'from the tee'} · ${unitLabel()}${o.approxGreen ? ' · green placed from the card, not mapped' : ''}</span>`;
-    tapEl.innerHTML = tap ? `Tap: ${fmt(metres(ref.p, tap))} ${unitLabel()} out · ${fmt(metres(tap, G))} ${unitLabel()} to the green${g && !g.marked ? ` · ${fmt(metres(tap, g.f))} front` : ''}` : `Tap the map to measure. Arcs are your club carries.${o.gh.marked ? ' <button class="link" data-mark>Re-mark</button>' : o.approxGreen && o.canMark ? ' <button class="link acc" data-mark>Mark the green</button>' : ''}`;
+    tapEl.innerHTML = tap ? `Tap: ${fmt(metres(ref.p, tap))} ${unitLabel()} out · ${fmt(metres(tap, G))} ${unitLabel()} to the green${g && !g.marked ? ` · ${fmt(metres(tap, g.f))} front` : ''}` : `${mode === 'tee' && o.par !== 3 ? `<label class="check inl"><input type="checkbox" data-leave ${leaveOn ? 'checked' : ''}/> what each club leaves</label>` : 'Tap the map to measure.'}${o.gh.marked ? ' <button class="link" data-mark>Re-mark</button>' : o.approxGreen && o.canMark ? ' <button class="link acc" data-mark>Mark the green</button>' : ''}`;
     tapEl.querySelector('[data-mark]')?.addEventListener('click', () => o.onMark?.());
+    tapEl.querySelector('[data-leave]')?.addEventListener('change', (e) => { const s = getSettings(); s.mapLeave = e.target.checked; saveSettings(s); schedule(); });
     wantGps();
   }
 
@@ -201,9 +252,9 @@ export function mountHoleMap(el, opts) {
     ctx.font = '600 11px Inter, system-ui'; ctx.fillStyle = '#fff'; ctx.textAlign = 'left';
     for (let y = 50; y < yds; y += 50) { const py = bottom - y * YD * s; ctx.fillStyle = 'rgba(255,255,255,.35)'; ctx.fillRect(cx0 - 40, py, 80, 1); ctx.fillStyle = 'rgba(255,255,255,.8)'; ctx.fillText(`${D(y)}`, cx0 + 44, py + 4); }
     const clubs = (o.clubs || []).filter((c) => c.carry > 0);
-    const arcs = (fromTee, list, color) => { for (const c of list) { const r = c.carry * YD * s; const cy0 = fromTee ? bottom : top; const base = fromTee ? -Math.PI / 2 : Math.PI / 2; ctx.beginPath(); ctx.arc(cx0, cy0, r, base - 0.5, base + 0.5); ctx.strokeStyle = color; ctx.lineWidth = 1.2; ctx.setLineDash(fromTee ? [] : [3, 4]); ctx.stroke(); ctx.setLineDash([]); const lx = cx0 + r * Math.cos(base + 0.5) + 3, ly = cy0 + r * Math.sin(base + 0.5) + 4; ctx.fillStyle = 'rgba(0,0,0,.55)'; const label = `${c.club} ${D(c.carry)}`; ctx.fillRect(lx - 3, ly - 11, ctx.measureText(label).width + 6, 14); ctx.fillStyle = color; ctx.fillText(label, lx, ly); } };
-    if (mode === 'tee') arcs(true, clubs.filter((c) => o.par === 3 || c.carry >= 120), '#ffd23f');
-    if (mode === 'green') arcs(false, clubs.filter((c) => c.carry <= 150), '#8fd3ff');
+    const arcs = (fromTee, list, color) => { let lastY = -99; for (const c of [...list].sort((a, b) => a.carry - b.carry)) { const r = c.carry * YD * s; const cy0 = fromTee ? bottom : top; const base = fromTee ? -Math.PI / 2 : Math.PI / 2; const half = Math.min(0.5, Math.atan2(40 * YD * s, r)); ctx.beginPath(); ctx.arc(cx0, cy0, r, base - half, base + half); ctx.strokeStyle = color; ctx.lineWidth = 1.4; ctx.setLineDash(fromTee ? [] : [3, 4]); ctx.stroke(); ctx.setLineDash([]); const lx = cx0 + r * Math.cos(base + half) + 4; let ly = cy0 + r * Math.sin(base + half) + 4; if (lastY > -99 && Math.abs(ly - lastY) < 15) ly = lastY + (fromTee ? -15 : 15); lastY = ly; const leave = fromTee && showLeave() && yds - c.carry > 25 ? ` · ${D(yds - c.carry)} left` : ''; ctx.fillStyle = 'rgba(0,0,0,.6)'; const label = `${c.club} ${D(c.carry)}${leave}`; ctx.fillRect(lx - 3, ly - 11, ctx.measureText(label).width + 6, 14); ctx.fillStyle = color; ctx.fillText(label, lx, ly); } };
+    if (mode === 'tee') arcs(true, teeClubs(clubs, { par: o.par }), '#ffd23f');
+    if (mode === 'green') arcs(false, clubs.filter((c) => c.carry <= 150).sort((a, b) => b.carry - a.carry).slice(0, 4), '#8fd3ff');
     distEl.innerHTML = `<div><b class="c">${D(yds)}</b><span>card</span></div><span class="src">no map for this course · ${unitLabel()}</span>`;
     tapEl.innerHTML = `No map shapes for this course yet, so this is the card yardage with your club arcs.${o.canMark ? ' <button class="link acc" data-mark>Mark this hole on the satellite map</button>' : ''}`;
     tapEl.querySelector('[data-mark]')?.addEventListener('click', () => o.onMark?.());

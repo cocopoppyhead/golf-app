@@ -83,7 +83,7 @@ export async function roundsHome() {
   bindCourseCards(root, groups, courseApi());
 }
 /** What the course page needs from here. */
-const courseApi = () => ({ root, toast: ctx.toast, startRound, openRound, editCourse, back: roundsHome, clubs: clubsCache.list });
+const courseApi = () => ({ root, toast: ctx.toast, startRound, openRound, editCourse, back: roundsHome, clubs: effectiveClubs });
 export async function openCoursePage(courseId) {
   const groups = groupCourses(await listCourses().catch(() => []));
   const g = groups.find((x) => x.variants.some((c) => c.id === courseId));

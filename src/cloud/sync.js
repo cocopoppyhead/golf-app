@@ -8,7 +8,7 @@ import {
   listCourses, putCourse, deleteCourse, listShots, putShot, deleteShot, putSession, deleteSession, listSessions } from '../store.js';
 import { getPlan, savePlan } from '../coach/profile.js';
 
-const SETTINGS_KEYS = ['name', 'bag', 'keys', 'roundRules', 'golfer', 'heightIn', 'system', 'handedness', 'club', 'view', 'nickname', 'avatar', 'homeCourse', 'hand', 'handicap', 'onboarded', 'partials', 'laserProfiles', 'aiProvider', 'starredCourses', 'workingOn', 'handicapMode', 'partners', 'practicePlan', 'favDrills'];
+const SETTINGS_KEYS = ['name', 'bag', 'keys', 'roundRules', 'golfer', 'heightIn', 'system', 'handedness', 'club', 'view', 'nickname', 'avatar', 'homeCourse', 'hand', 'handicap', 'onboarded', 'partials', 'laserProfiles', 'aiProvider', 'starredCourses', 'workingOn', 'handicapMode', 'partners', 'practicePlan', 'favDrills', 'mapLeave', 'metronome', 'events'];
 const KINDS = {
   swing: { list: listSwings, put: putSwing, del: deleteSwing },
   round: { list: listRounds, put: putRound, del: deleteRound },
