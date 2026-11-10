@@ -30,7 +30,7 @@ function sides(lm, target) {
   const s = leftIsLead
     ? { an: [L.lAn, L.rAn], heel: [L.lHeel, L.rHeel], toe: [L.lToe, L.rToe], hip: [L.lHip, L.rHip], sh: [L.lSh, L.rSh] }
     : { an: [L.rAn, L.lAn], heel: [L.rHeel, L.lHeel], toe: [L.rToe, L.lToe], hip: [L.rHip, L.lHip], sh: [L.rSh, L.lSh] };
-  return { leadAn: s.an[0], trailAn: s.an[1], leadHeel: s.heel[0], trailHeel: s.heel[1], trailToe: s.toe[1], leadHip: s.hip[0], trailHip: s.hip[1] };
+  return { leadAn: s.an[0], trailAn: s.an[1], leadHeel: s.heel[0], trailHeel: s.heel[1], trailToe: s.toe[1], leadHip: s.hip[0], trailHip: s.hip[1], leadSh: s.sh[0], trailSh: s.sh[1] };
 }
 
 function spineTilt(lm, target) {

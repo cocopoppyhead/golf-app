@@ -34,6 +34,9 @@ function roundRect(ctx, x, y, w, h, r) {
  * ctx: 2D context sized to video W x H (video frame already drawn)
  * A: analysis result, lm: landmarks for this frame, cp: checkpoint object or null
  */
+// Which reference lines to draw. Toggled from the player ("Lines" tick box); the ball line stays.
+export const overlayOptions = { lines: true };
+
 export function drawOverlay(ctx, A, lm, { cp = null, card = false, cpIndex = 0, frame = -1 } = {}) {
   const W = ctx.canvas.width, H = ctx.canvas.height;
   const u = Math.max(9, Math.min(W, H) / 34); // base unit for sizes
@@ -48,13 +51,17 @@ export function drawOverlay(ctx, A, lm, { cp = null, card = false, cpIndex = 0, 
     pill(ctx, 'BALL', b.ball.x, Math.min(H - u * 4.2, b.ball.y + u * 1.6), u);
   }
 
-  if (A.refs) drawPositionLines(ctx, A, lm, u, { cp, frame });
+  if (A.refs && overlayOptions.lines) drawPositionLines(ctx, A, lm, u, { cp, frame });
 
-  // Head box (from address); turns orange when the head leaves it
+  // Head oval from address, fixed for the whole swing (GolfTEC style); orange once the head leaves it
   const hc = headC(lm), bx = b.box;
   const inBox = hc.x > bx.x && hc.x < bx.x + bx.w && hc.y > bx.y && hc.y < bx.y + bx.h;
-  ctx.strokeStyle = inBox ? COLORS.boxOk : COLORS.boxOut; ctx.lineWidth = u * 0.16;
-  ctx.strokeRect(bx.x, bx.y, bx.w, bx.h);
+  if (overlayOptions.lines) {
+    ctx.strokeStyle = inBox ? COLORS.boxOk : COLORS.boxOut; ctx.lineWidth = u * 0.16;
+    ctx.beginPath(); ctx.ellipse(bx.x + bx.w / 2, bx.y + bx.h / 2, bx.w / 2, bx.h / 2, 0, 0, Math.PI * 2); ctx.stroke();
+    // where the head is now vs where it started
+    ctx.fillStyle = inBox ? COLORS.boxOk : COLORS.boxOut; ctx.beginPath(); ctx.arc(hc.x, hc.y, u * 0.22, 0, 7); ctx.fill();
+  }
 
   // Pro marks for this checkpoint
   if (cp) for (const m of cp.marks) drawMark(ctx, m, u, H);
@@ -85,7 +92,7 @@ export function drawOverlay(ctx, A, lm, { cp = null, card = false, cpIndex = 0, 
   ctx.fillText(lines[0], u * 0.7, H - barH * 0.68);
   ctx.fillText(lines[1], u * 0.7, H - barH * 0.3);
   ctx.textAlign = 'right';
-  ctx.fillStyle = inBox ? COLORS.boxOk : COLORS.boxOut; ctx.fillText('Head box', W - u * 0.7, H - barH * 0.68);
+  ctx.fillStyle = inBox ? COLORS.boxOk : COLORS.boxOut; ctx.fillText('Head oval', W - u * 0.7, H - barH * 0.68);
   ctx.fillStyle = COLORS.spine; ctx.font = `500 ${Math.round(u * 0.85)}px Inter, system-ui, sans-serif`;
   ctx.fillText('Spine / shoulders / hips', W - u * 0.7, H - barH * 0.3);
 
@@ -150,17 +157,21 @@ function drawPositionLines(ctx, A, lm, u, { cp, frame }) {
   // ---- face-on ----
   const sd = A.sides;
   if (!sd) return;
-  const top = Math.min(a0[L.lSh].y, a0[L.rSh].y) - u * 2;
   const ankY = Math.max(a0[L.lAn].y, a0[L.rAn].y);
-  // Fixed column on the outside of both hips at address. Hips should stay inside it.
+  // Shoulder lines: full height, on the outside of each shoulder at address (GolfTEC style). Where
+  // you started; the live skeleton shows where you are, so turn, sway and slide read at a glance.
+  const trailSh = sd.trailSh ?? (sd.trailHip === L.rHip ? L.rSh : L.lSh), leadSh = sd.leadSh ?? (sd.leadHip === L.lHip ? L.lSh : L.rSh); // older saved swings have no shoulder sides
+  const shOff = Math.abs(a0[leadSh].x - a0[trailSh].x) * 0.12; // joint → outside edge of the shoulder
+  const sx = a0[trailSh].x - t * shOff, sl = a0[leadSh].x + t * shOff;
+  const sAlign = sx < sl ? 'right' : 'left';
+  vline(sx, u * 2.2, ankY, 'Trail shoulder', sAlign);
+  vline(sl, u * 2.2, ankY, 'Lead shoulder', sAlign === 'right' ? 'left' : 'right');
+  // Hip column (outside of both hips at address): a faint band the hips should stay inside.
   const off = Math.abs(a0[sd.leadHip].x - a0[sd.trailHip].x) * 0.35; // hip joint → outside of the hip
   const tx = a0[sd.trailHip].x - t * off, lx = a0[sd.leadHip].x + t * off, hy = hipC(a0).y;
+  const top = Math.min(a0[L.lSh].y, a0[L.rSh].y) - u * 2;
   ctx.fillStyle = 'rgba(255,255,255,0.08)';
   ctx.fillRect(Math.min(tx, lx), top, Math.abs(lx - tx), ankY - top);
-  // labels sit outside the column so they never overlap
-  const tAlign = tx < lx ? 'right' : 'left';
-  vline(tx, top, ankY, 'Trail line', tAlign);
-  vline(lx, top, ankY, 'Lead line', tAlign === 'right' ? 'left' : 'right');
   // top of the backswing: trail hip vs its line (sway away from the target)
   const trailEdge = (f) => f[sd.trailHip].x - t * off, leadEdge = (f) => f[sd.leadHip].x + t * off;
   const swTop = inch((tx - trailEdge(tp)) * t);

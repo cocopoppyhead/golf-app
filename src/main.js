@@ -3,7 +3,7 @@ import { loadVideo, extractPose, findSwings, seek as seekSafe } from './coach/po
 import { cleanTrack, findPhases } from './coach/phases.js';
 import { analyse } from './coach/metrics.js';
 import { analyseDTL } from './coach/dtl.js';
-import { drawOverlay } from './coach/render.js';
+import { drawOverlay, overlayOptions } from './coach/render.js';
 import { SwingPlayer } from './coach/player.js';
 import { exportMp4, canExport } from './coach/export.js';
 import { getCoaching, md, aiFrom, aiReady, PROVIDERS, listModels } from './coach/ai.js';
@@ -519,6 +519,8 @@ async function showResult(reopen = false) {
     };
   });
   $('#cpStop').checked = player.stopAtCp;
+  overlayOptions.lines = settings.showLines !== false; $('#linesOn').checked = overlayOptions.lines;
+  $('#linesOn').onchange = (e) => { overlayOptions.lines = e.target.checked; settings.showLines = e.target.checked; saveSettings(settings); player.showCheckpoint(Math.max(0, player.cpShown)); };
   $('#cpStop').onchange = (e) => { player.stopAtCp = e.target.checked; settings.cpStop = e.target.checked; saveSettings(settings); };
   $('#nudgeBack').onclick = () => nudge(-1);
   $('#nudgeFwd').onclick = () => nudge(1);
