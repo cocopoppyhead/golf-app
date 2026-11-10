@@ -87,11 +87,24 @@ export async function syncNow() {
       }
 
       // ---- push ----
+      // Kinds the database doesn't know yet (schema.sql not re-run since they were added) are held
+      // back rather than failing the whole push: everything else still syncs, with a note saying why.
+      let heldBack = null;
+      const NEW_KINDS = new Set(['session', 'launch']);
       for (let i = 0; i < up.length; i += 200) {
-        const rows = up.slice(i, i + 200).map((u) => ({ user_id: uid, kind: u.kind, id: u.id, data: u.data, deleted: !!u.deleted, updated_at: new Date(u.t).toISOString() }));
-        const { error } = await sb.from('user_docs').upsert(rows, { onConflict: 'user_id,kind,id' });
+        let batch = up.slice(i, i + 200);
+        if (heldBack) batch = batch.filter((u) => !NEW_KINDS.has(u.kind));
+        const toRows = (b) => b.map((u) => ({ user_id: uid, kind: u.kind, id: u.id, data: u.data, deleted: !!u.deleted, updated_at: new Date(u.t).toISOString() }));
+        if (!batch.length) continue;
+        let { error } = await sb.from('user_docs').upsert(toRows(batch), { onConflict: 'user_id,kind,id' });
+        if (error && /kind_check/.test(error.message) && batch.some((u) => NEW_KINDS.has(u.kind))) {
+          heldBack = batch.filter((u) => NEW_KINDS.has(u.kind)).length;
+          batch = batch.filter((u) => !NEW_KINDS.has(u.kind));
+          ({ error } = batch.length ? await sb.from('user_docs').upsert(toRows(batch), { onConflict: 'user_id,kind,id' }) : { error: null });
+        }
         if (error) throw error;
       }
+      if (heldBack) { const e = new Error('Practice sessions and launch-monitor data are not syncing yet: re-run supabase/schema.sql in the Supabase SQL editor (everything else synced).'); e.partial = true; throw e; }
       localStorage.setItem('golf.deleted', '[]');
       await publishSummaries().catch((e) => console.warn('summaries', e.message));
       const now = Date.now(); localStorage.setItem('golf.lastSync', String(now));
@@ -99,6 +112,7 @@ export async function syncNow() {
       window.dispatchEvent(new Event('golf-synced'));
     } catch (e) {
       console.warn('sync failed', e);
+      if (e.partial) { localStorage.setItem('golf.deleted', '[]'); const now = Date.now(); localStorage.setItem('golf.lastSync', String(now)); window.dispatchEvent(new Event('golf-synced')); }
       set({ state: 'error', error: e.message || String(e) });
     }
   })();
