@@ -149,7 +149,7 @@ export async function findSwings(video, { quality = 'full', onProgress = () => {
     onProgress(Math.min(1, t / dur), 'Finding your swing…');
   }
   const ok = coarse.filter((f) => f.lm);
-  if (ok.length < 8) return { windows: [], view: null };
+  if (ok.length < 8) return { windows: [], view: null, seen: ok.length, anyTop: false };
   const mid = (a, b) => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
   const hand = (f) => mid(f.lm[15], f.lm[16]);
   const shY = (f) => (f.lm[11].y + f.lm[12].y) / 2;
@@ -169,7 +169,8 @@ export async function findSwings(video, { quality = 'full', onProgress = () => {
     if (peaks.length && ok[i].t - ok[peaks[peaks.length - 1].i].t < 2.5) { if (spd[i] > peaks[peaks.length - 1].s) peaks[peaks.length - 1] = { i, s: spd[i] }; continue; }
     peaks.push({ i, s: spd[i] });
   }
-  if (!peaks.length) return { windows: [], view: guessView(ok) };
+  const anyTop = ok.some((f) => hand(f).y < shY(f)); // hands above the shoulders at some point: a backswing happened
+  if (!peaks.length) return { windows: [], view: guessView(ok), seen: ok.length, anyTop };
   // practice swings are usually slower: keep peaks at least half as fast as the fastest
   const top = Math.max(...peaks.map((q) => q.s));
   const strong = peaks.filter((q) => q.s >= 0.5 * top);
@@ -204,7 +205,7 @@ export async function findSwings(video, { quality = 'full', onProgress = () => {
   }
   // judge the view at address (shoulders square), not mid-swing when they're turned
   const atAddr = ok.filter((f) => windows.some(([a]) => f.t >= a && f.t <= a + 1.2));
-  return { windows, view: guessView(atAddr.length >= 3 ? atAddr : ok) };
+  return { windows, view: guessView(atAddr.length >= 3 ? atAddr : ok), seen: ok.length, anyTop };
 }
 
 /** Face-on shows the shoulders and hips spread apart; from behind they overlap. */

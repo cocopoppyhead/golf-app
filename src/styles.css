@@ -22,6 +22,7 @@ html.native.android { --sat: 0px; }
 .card, .tile, .hist, .recent, .install { box-shadow: var(--shadow); }
 * { box-sizing: border-box; }
 html, body { margin: 0; background: var(--bg); color: var(--ink); }
+[hidden] { display: none !important; }
 body { font: 15px/1.45 Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif; min-height: 100dvh; padding-bottom: calc(70px + env(safe-area-inset-bottom)); }
 header.top { position: sticky; top: 0; z-index: 5; background: var(--bar); backdrop-filter: blur(8px); padding: calc(10px + var(--sat)) 16px 10px; border-bottom: 1px solid var(--line); }
 .brand { font-weight: 800; letter-spacing: .2px; display: flex; gap: 6px; align-items: center; }

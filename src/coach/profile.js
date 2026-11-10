@@ -126,11 +126,26 @@ export function setFocus(key) {
   return plan;
 }
 
-export function addCoachNote(note) {
+export function addCoachNote(note, swingId = null) {
   const plan = getPlan();
-  plan.notes.unshift({ date: Date.now(), note });
+  plan.notes.unshift({ date: Date.now(), note, swingId });
   plan.notes = plan.notes.slice(0, 6);
   savePlan(plan);
+}
+
+/**
+ * A swing is being deleted: drop what the coach took from it. Notes written in its review, the focus
+ * if that review set it (then re-pick from the swings that remain), and the drills it prescribed.
+ * Tendencies need nothing: they are recomputed from the swings on file every time.
+ */
+export function forgetSwing(id, swingDate, remaining) {
+  const plan = getPlan();
+  plan.notes = plan.notes.filter((n) => !(n.swingId === id || (!n.swingId && swingDate && Math.abs(n.date - swingDate) < 2 * 3600e3)));
+  if (plan.drillsSwing === id || (!plan.drillsSwing && plan.drillsAt && swingDate && Math.abs(plan.drillsAt - swingDate) < 2 * 3600e3)) { delete plan.drills; delete plan.drillsAt; delete plan.drillsSwing; }
+  const lost = plan.focus && (plan.focus.swingId === id || (plan.focus.setBy !== 'you' && !plan.focus.swingId && swingDate && Math.abs(plan.focus.since - swingDate) < 2 * 3600e3));
+  if (lost) plan.focus = null;
+  savePlan(plan);
+  if (lost) updatePlan(remaining.filter((s) => s.learning !== false && !s.golfer), null); // re-pick a focus from what's left, if the data supports one
 }
 
 /** Text block sent to the AI coach so it reviews like a coach who knows you. */

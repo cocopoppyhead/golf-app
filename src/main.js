@@ -27,7 +27,7 @@ import { renderDrillsCard, drillContext, loadDrills, faultDrills, drillCardsHtml
 import { renderRangefinder } from './rangefinder.js';
 import { maybeOnboard, avatarHtml, localProfile, openProfileEditor } from './onboarding.js';
 import { startSync } from './cloud/sync.js';
-import { tendencies, focusProgress, updatePlan, checkIn, getPlan, setFocus, addCoachNote, coachContext, metricLabel } from './coach/profile.js';
+import { tendencies, focusProgress, updatePlan, checkIn, getPlan, setFocus, addCoachNote, coachContext, metricLabel, forgetSwing } from './coach/profile.js';
 
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -212,10 +212,12 @@ async function openVideo(file) {
   if (scan.view) setView(scan.view, true);
   let wins = scan.windows;
   const dur = video.duration;
-  if (!wins.length && dur <= 6) wins = [[0, dur]];
+  // a short clip with no clean swing window still counts as one swing — but only if a backswing was seen
+  if (!wins.length && dur <= 6 && scan.anyTop) wins = [[0, dur]];
   me.wins = wins;
   if (!wins.length) {
-    $('#setupFound').innerHTML = `Couldn't spot a full swing<span class="mute">Check your whole body and the club at the top are in frame, or pick the swing yourself.</span>`;
+    const why = (scan.seen ?? 0) < 8 ? 'No golfer in frame for long enough: it needs your whole body, address to finish.' : scan.anyTop === false ? 'Nobody took a backswing in this clip.' : 'Check your whole body and the club at the top are in frame, or pick the swing yourself.';
+    $('#setupFound').innerHTML = `Couldn't spot a swing<span class="mute">${why}</span>`;
     $('#setupGo').hidden = true;
     $('#setupManual').textContent = 'Pick the swing myself ›';
     return;
@@ -528,6 +530,11 @@ async function showResult(reopen = false) {
   $('#exportBtn').disabled = !canExport();
   $('#exportBtn').onclick = doExport;
   $('#aiBtn').onclick = doAi;
+  $('#delSwing').hidden = !state.id;
+  $('#delSwing').onclick = async () => {
+    if (!confirm('Delete this swing, its video, and anything the coach learned from it?')) return;
+    player.stop(); await deleteSwingFully(state.id); toast('Deleted.'); screen('coach-start'); renderRecent();
+  };
   $('#newBtn').textContent = state.sessionId ? '‹ Session' : 'New swing';
   $('#newBtn').onclick = () => { player.stop(); if (state.sessionId) renderSession(state.sessionId); else { screen('coach-start'); renderRecent(); } };
 
@@ -735,16 +742,16 @@ async function doAi() {
     state.ai = text;
     let extra = '';
     if (state.learning && !state.golfer && meta) {
-      if (meta.note) addCoachNote(String(meta.note).slice(0, 300));
+      if (meta.note) addCoachNote(String(meta.note).slice(0, 300), state.id);
       const valid = state.A.checkpoints.flatMap((c) => c.items.map((i) => `${c.key}:${i.name}`));
       const cur = getPlan().focus?.key;
       if (meta.focus && valid.includes(meta.focus) && meta.focus !== cur) {
-        const plan = setFocus(meta.focus); plan.focus.setBy = 'AI coach'; savePlanX(plan);
+        const plan = setFocus(meta.focus); plan.focus.setBy = 'AI coach'; plan.focus.swingId = state.id; savePlanX(plan);
         extra = `<p class="event">Coach set your focus to: ${esc(metricLabel(meta.focus).toLowerCase())}.</p>`;
       }
       const lib = drillsLoaded();
       const ids = Array.isArray(meta.drills) ? meta.drills.filter((id) => lib?.drills.some((d) => d.id === id)).slice(0, 3) : [];
-      if (ids.length) { const plan = getPlan(); plan.drills = ids; plan.drillsAt = Date.now(); savePlanX(plan); }
+      if (ids.length) { const plan = getPlan(); plan.drills = ids; plan.drillsAt = Date.now(); plan.drillsSwing = state.id; savePlanX(plan); }
     }
     out.innerHTML = md(text) + extra;
     bindDrillCards(out, { toast });
@@ -752,6 +759,15 @@ async function doAi() {
     if (state.learning) refreshCoachCard(false);
   } catch (e) { out.innerHTML = `<p style="color:var(--work)">${esc(e.message)}</p>`; }
   $('#aiBtn').disabled = false;
+}
+
+/** Delete a swing and everything the coach took from it: video, notebook lines, a focus or drills it set. */
+async function deleteSwingFully(id) {
+  const sw = await getSwing(id).catch(() => null);
+  await deleteSwing(id);
+  const rest = (await listSwings().catch(() => [])).filter((s) => s.id !== id);
+  forgetSwing(id, sw?.date || 0, rest);
+  window.dispatchEvent(new Event('practice-changed'));
 }
 
 // ---------------- History ----------------
@@ -846,7 +862,7 @@ async function showDetail(id) {
     <button class="btn" id="delBtn" style="width:100%;color:var(--work)">Delete this swing</button>`;
   $('#detLearn').onchange = async (e) => { s.learning = e.target.checked; await putSwing(s); };
   $('#backBtn').onclick = renderHistory;
-  $('#delBtn').onclick = async () => { await deleteSwing(id); renderHistory(); };
+  $('#delBtn').onclick = async () => { if (!confirm('Delete this swing, its video, and anything the coach learned from it?')) return; await deleteSwingFully(id); renderHistory(); };
   window.scrollTo(0, 0);
 }
 
