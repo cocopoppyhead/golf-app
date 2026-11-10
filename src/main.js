@@ -6,12 +6,12 @@ import { analyseDTL } from './coach/dtl.js';
 import { drawOverlay, overlayOptions } from './coach/render.js';
 import { SwingPlayer } from './coach/player.js';
 import { exportMp4, canExport } from './coach/export.js';
-import { getCoaching, md, aiFrom, aiReady, PROVIDERS, listModels } from './coach/ai.js';
+import { getCoaching, md, aiFrom, aiReady } from './coach/ai.js';
 import { getSettings, saveSettings, putSwing, listSwings, getSwing, deleteSwing, putMedia, getMedia, mediaKeys } from './store.js';
 import { renderBag } from './bag.js';
 import { isMetric } from './units.js';
 import { keysHtml, getKeysText } from './keys.js';
-import { RULES, DEFAULT_RULES } from './rounds/tiger.js';
+
 import { renderInstall } from './install.js';
 import { exportData, importData } from './backup.js';
 import { isNative, nativeSend, onNative, blobToBase64 } from './native.js';
@@ -27,7 +27,9 @@ import { launchContext } from './launch.js';
 import { weeklyDigest, digestText } from './digest.js';
 import { listRounds, getCourse, listSessions } from './store.js';
 import { renderDrillsCard, drillContext, loadDrills, faultDrills, drillCardsHtml, bindDrillCards, drillMenuForAi, drillsLoaded } from './drills.js';
-import { renderRangefinder } from './rangefinder.js';
+
+import { initSettingsUi, fillSettings, applyTheme } from './settingsui.js';
+export { applyTheme } from './settingsui.js';
 import { maybeOnboard, avatarHtml, localProfile, openProfileEditor } from './onboarding.js';
 import { startSync } from './cloud/sync.js';
 import { tendencies, focusProgress, updatePlan, checkIn, getPlan, setFocus, addCoachNote, coachContext, metricLabel, forgetSwing } from './coach/profile.js';
@@ -35,6 +37,8 @@ import { tendencies, focusProgress, updatePlan, checkIn, getPlan, setFocus, addC
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 let settings = getSettings();
+initSettingsUi({ get settings() { return settings; }, set settings(v) { settings = v; }, toast, afterAccountChange });
+applyTheme();
 let state = null; // current analysis session
 
 // ---------------- Tabs ----------------
@@ -868,94 +872,6 @@ async function showDetail(id) {
   $('#delBtn').onclick = async () => { if (!confirm('Delete this swing, its video, and anything the coach learned from it?')) return; await deleteSwingFully(id); renderHistory(); };
   window.scrollTo(0, 0);
 }
-
-// ---------------- Settings ----------------
-function fillSettings() {
-  const f = $('#settingsForm');
-  f.theme.value = settings.theme || 'dark';
-  f.system.value = settings.system || 'imperial';
-  f.height.value = f.system.value === 'metric' ? Math.round(settings.heightIn * 2.54) : Math.round(settings.heightIn * 10) / 10;
-  $('#hUnit').textContent = f.system.value === 'metric' ? 'cm' : 'in';
-  renderInstall($('#installRow'), true);
-  renderAccount($('#accountRow'), { toast, onChange: afterAccountChange });
-  renderRangefinder($('#laserRow'), { toast });
-  f.handedness.value = settings.handedness; f.quality.value = settings.quality;
-  f.keepVideos.checked = settings.keepVideos !== false;
-  f.keys.value = settings.keys || '';
-  const on = new Set(settings.roundRules || DEFAULT_RULES);
-  $('#rulesBoxes').innerHTML = Object.entries(RULES).map(([id, r]) => `<label class="check small"><input type="checkbox" data-rule="${id}" ${on.has(id) ? 'checked' : ''}/> ${esc(r.label)}</label>`).join('');
-  f.apiKey.value = settings.apiKey || ''; f.openaiKey.value = settings.openaiKey || ''; f.geminiKey.value = settings.geminiKey || ''; f.golfer.value = settings.golfer;
-  f.aiProvider.value = aiFrom(settings).provider; showProvider();
-  aiSummary(false);
-  $('#savedMsg').hidden = true;
-}
-// AI coach: a one-line summary; tap to open the provider, key and model
-function aiSummary(open) {
-  const a = aiFrom(settings); const P = PROVIDERS[a.provider];
-  $('#aiBox').hidden = !open;
-  $('#aiSum').innerHTML = a.apiKey
-    ? `<span><b>AI coach</b> · ${esc(P.short)}${a.model ? ` · <span class="mute">${esc(a.model)}</span>` : ''} <span class="goodc">✓</span></span><button type="button" class="link" id="aiToggle">${open ? 'Done' : 'Change'}</button>`
-    : `<span><b>AI coach</b> <span class="mute">not connected</span><div class="mute small">Claude, ChatGPT or Gemini</div></span><button type="button" class="link acc" id="aiToggle">${open ? 'Cancel' : 'Connect'}</button>`;
-  $('#aiToggle').onclick = () => aiSummary($('#aiBox').hidden);
-}
-// AI provider: show its key field and the models that key can use
-function showProvider() {
-  const f = $('#settingsForm'); const prov = f.aiProvider.value; const P = PROVIDERS[prov];
-  document.querySelectorAll('[data-prov]').forEach((el) => (el.hidden = el.dataset.prov !== prov));
-  const cur = settings[P.modelField] || P.def;
-  f.aiModel.innerHTML = cur ? `<option value="${esc(cur)}">${esc(cur)}</option>` : '<option value="">Best available (auto)</option>';
-  if (f[P.keyField].value.trim() && prov !== 'claude') loadModels();
-}
-async function loadModels() {
-  const f = $('#settingsForm'); const prov = f.aiProvider.value; const P = PROVIDERS[prov];
-  const key = f[P.keyField].value.trim();
-  if (!key) { $('#aiModelHint').textContent = `Add your ${P.short} key first.`; return; }
-  if (prov === 'claude') { const cur = f.aiModel.value || P.def; f.aiModel.innerHTML = [...new Set([cur, 'claude-sonnet-5-5', 'claude-opus-5-5', 'claude-haiku-5-5'])].map((m) => `<option ${m === cur ? 'selected' : ''}>${esc(m)}</option>`).join(''); return; }
-  $('#aiModelHint').textContent = 'Checking your key…';
-  try {
-    const ids = await listModels(prov, key);
-    const cur = settings[P.modelField];
-    f.aiModel.innerHTML = ids.map((m, i) => `<option value="${esc(m)}" ${(cur ? m === cur : i === 0) ? 'selected' : ''}>${esc(m)}${i === 0 ? ' (recommended)' : ''}</option>`).join('');
-    $('#aiModelHint').textContent = `Key works. ${ids.length} models available.`;
-  } catch (e) { $('#aiModelHint').textContent = `That key didn't work: ${e.message}`; }
-}
-$('#settingsForm').aiProvider.addEventListener('change', showProvider);
-$('#aiModels').addEventListener('click', loadModels);
-for (const n of ['openaiKey', 'geminiKey']) $('#settingsForm')[n].addEventListener('change', loadModels);
-$('#settingsForm').theme.addEventListener('change', (e) => { settings.theme = e.target.value; saveSettings(settings); applyTheme(); });
-$('#settingsForm').system.addEventListener('change', (e) => {
-  const f = $('#settingsForm'); const h = parseFloat(f.height.value);
-  const m = e.target.value === 'metric';
-  if (!isNaN(h)) f.height.value = m ? Math.round(h * 2.54) : Math.round((h / 2.54) * 10) / 10;
-  $('#hUnit').textContent = m ? 'cm' : 'in';
-});
-$('#settingsForm').addEventListener('submit', (e) => {
-  e.preventDefault();
-  const f = e.target;
-  const h = parseFloat(f.height.value);
-  settings = {
-    ...settings,
-    theme: f.theme.value, system: f.system.value, heightIn: isNaN(h) ? settings.heightIn : f.system.value === 'metric' ? h / 2.54 : h,
-    handedness: f.handedness.value, quality: f.quality.value, keepVideos: f.keepVideos.checked,
-    keys: f.keys.value, roundRules: [...document.querySelectorAll('[data-rule]')].filter((x) => x.checked).map((x) => x.dataset.rule),
-    apiKey: f.apiKey.value.trim(), openaiKey: f.openaiKey.value.trim(), geminiKey: f.geminiKey.value.trim(), aiProvider: f.aiProvider.value, golfer: f.golfer.value.trim(),
-    [PROVIDERS[f.aiProvider.value].modelField]: f.aiModel.value || PROVIDERS[f.aiProvider.value].def,
-  };
-  saveSettings(settings);
-  applyTheme();
-  $('#savedMsg').hidden = false;
-  aiSummary(false);
-});
-
-// ---------------- Theme ----------------
-export function applyTheme(t = settings.theme || 'dark') {
-  const mq = matchMedia('(prefers-color-scheme: light)');
-  const real = t === 'system' ? (mq.matches ? 'light' : 'dark') : t;
-  document.documentElement.dataset.theme = real;
-  document.querySelector('meta[name=theme-color]')?.setAttribute('content', real === 'light' ? '#f3f5f9' : '#0b1120');
-  mq.onchange = () => (settings.theme === 'system' ? applyTheme('system') : null);
-}
-applyTheme();
 
 // ---------------- Rounds ----------------
 initRounds($('#roundsRoot'), {
