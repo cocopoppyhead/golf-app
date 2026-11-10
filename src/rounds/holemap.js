@@ -312,3 +312,51 @@ export function markHoleSheet({ course, start = 0, geo = null, onSave, onClose }
   goto(start); size(); schedule();
   return { close };
 }
+
+// ---------- static course map (hero images, thumbnails) ----------
+/** Bounds of everything mapped for a course: [[lat0,lon0],[lat1,lon1]] or null. */
+export function geoBounds(geo, course) {
+  const pts = [...(geo?.holes || []).flatMap((h) => h.line), ...(geo?.outline || []), ...(geo?.extraGreens || []).map((g) => g.c), ...(course?.holes || []).flatMap((h) => (h.mark ? [h.mark.tee, h.mark.green] : []))];
+  if (!pts.length) return null;
+  return [[Math.min(...pts.map((p) => p[0])), Math.min(...pts.map((p) => p[1]))], [Math.max(...pts.map((p) => p[0])), Math.max(...pts.map((p) => p[1]))]];
+}
+/**
+ * Draw a north-up satellite view of a course into a canvas sized by CSS: tiles, then OSM greens and
+ * water, hole lines and your marks. Redraws itself as tiles arrive. Returns a redraw function.
+ */
+export function drawCourseMap(cv, { geo = null, course = null, centre = null, span = null, shapes = true }) {
+  const ctx = cv.getContext('2d');
+  const b = geoBounds(geo, course);
+  let c = centre || (b ? [(b[0][0] + b[1][0]) / 2, (b[0][1] + b[1][1]) / 2] : course?.lat ? [course.lat, course.lon] : null);
+  if (!c) return () => {};
+  let raf = 0;
+  const draw = () => {
+    raf = 0;
+    const W = cv.clientWidth || 320, H = cv.clientHeight || 180, dpr = Math.min(2, devicePixelRatio || 1);
+    if (cv.width !== W * dpr) { cv.width = W * dpr; cv.height = H * dpr; }
+    let sp = span;
+    if (!sp) { sp = 1500; if (b) { const w = metres([c[0], b[0][1]], [c[0], b[1][1]]), h = metres([b[0][0], c[1]], [b[1][0], c[1]]); sp = Math.max(600, Math.max(w * 1.15, (h * 1.15 * W) / H)); } }
+    const s = W / sp, kx = mPerLon(c[0]), ky = mPerLat;
+    const toPx = (p) => [W / 2 + (p[1] - c[1]) * kx * s, H / 2 - (p[0] - c[0]) * ky * s];
+    const toLL = (x, y) => [c[0] + (H / 2 - y) / s / ky, c[1] + (x - W / 2) / s / kx];
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.fillStyle = '#1d2a1f'; ctx.fillRect(0, 0, W, H);
+    const mpp = sp / (W * dpr); const z = Math.max(12, Math.min(18, Math.round(Math.log2((156543.03 * Math.cos(c[0] * rad)) / mpp))));
+    const [a, d] = [toLL(0, 0), toLL(W, H)].map((ll) => merc(ll[0], ll[1], z));
+    for (let x = Math.floor(a[0]); x <= Math.floor(d[0]); x++) for (let y = Math.floor(a[1]); y <= Math.floor(d[1]); y++) {
+      const img = tile(z, x, y, schedule); if (!img) continue;
+      const nw = toPx(unmerc(x, y, z)), se = toPx(unmerc(x + 1, y + 1, z));
+      ctx.drawImage(img, nw[0], nw[1], se[0] - nw[0] + 0.5, se[1] - nw[1] + 0.5);
+    }
+    if (!shapes) return;
+    const ring = (r, fill, stroke) => { ctx.beginPath(); r.forEach((p, k) => { const [x, y] = toPx(p); k ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }); ctx.closePath(); if (fill) { ctx.fillStyle = fill; ctx.fill(); } if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = 1; ctx.stroke(); } };
+    (geo?.water || []).forEach((w) => ring(w.poly, 'rgba(70,150,235,.35)'));
+    [...(geo?.holes || []).map((h) => h.green).filter((g) => g?.poly), ...(geo?.extraGreens || [])].forEach((g) => ring(g.poly, 'rgba(150,235,150,.55)'));
+    ctx.strokeStyle = 'rgba(255,255,255,.55)'; ctx.lineWidth = 1; ctx.setLineDash([3, 3]);
+    (geo?.holes || []).forEach((h) => { ctx.beginPath(); h.line.forEach((p, k) => { const [x, y] = toPx(p); k ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }); ctx.stroke(); });
+    (course?.holes || []).forEach((h) => { if (h.mark) { ctx.beginPath(); const [x1, y1] = toPx(h.mark.tee), [x2, y2] = toPx(h.mark.green); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke(); } });
+    ctx.setLineDash([]);
+  };
+  const schedule = () => { if (!raf && cv.isConnected) raf = requestAnimationFrame(draw); };
+  schedule();
+  return schedule;
+}

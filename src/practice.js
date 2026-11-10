@@ -10,6 +10,7 @@ import { getSettings, saveSettings, listSessions, putSession, deleteSession } fr
 import { activeWork, editWorkSheet, markWorkDone } from './workingon.js';
 import { openLibrary, loadDrills, fmtScore } from './drills.js';
 import { isNative, nativeSend, blobToBase64, openExternal } from './native.js';
+import { calendarSheet as calSheet } from './calendar.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const uid = (p = 'ps') => `${p}_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`;
@@ -308,8 +309,6 @@ function reviewSheet(s, { toast, done }) {
 }
 
 // ---------------- Calendar ----------------
-const pad = (n) => String(n).padStart(2, '0');
-const icsStamp = (t) => { const d = new Date(t); return `${d.getUTCFullYear()}${pad(d.getUTCMonth() + 1)}${pad(d.getUTCDate())}T${pad(d.getUTCHours())}${pad(d.getUTCMinutes())}00Z`; };
 function calendarSheet(s) {
   const title = `Practice: ${s.title || whereText(s)}`;
   const desc = s.items.map((it) => `• ${it.title} (${itemTarget(it)})`).join('\n');
@@ -318,20 +317,6 @@ function calendarSheet(s) {
   else { start = s.date || Date.now() + 86400e3; }
   const end = start + (s.minutes || 45) * 60e3;
   const rrule = s.when === 'weekly' ? `RRULE:FREQ=WEEKLY;BYDAY=${['MO', 'TU', 'WE', 'TH', 'FR', 'SA', 'SU'][s.weekday]}` : '';
-  const g = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(title)}&details=${encodeURIComponent(desc)}&dates=${icsStamp(start)}/${icsStamp(end)}${rrule ? `&recur=${encodeURIComponent(rrule)}` : ''}`;
-  const ics = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//osolo//practice//EN', 'BEGIN:VEVENT', `UID:${s.id}@osolo.io`, `DTSTAMP:${icsStamp(Date.now())}`, `DTSTART:${icsStamp(start)}`, `DTEND:${icsStamp(end)}`, rrule, `SUMMARY:${title}`, `DESCRIPTION:${desc.replace(/\n/g, '\\n')}`, 'END:VEVENT', 'END:VCALENDAR'].filter(Boolean).join('\r\n');
-  const sheet = document.createElement('div'); sheet.className = 'sheet itemsheet';
-  sheet.innerHTML = `<div class="sheet-in"><div class="sheet-h"><b>Add to calendar</b><button class="link" data-close>Close</button></div>
-    <p class="small">${esc(title)}<br><span class="mute">${new Date(start).toLocaleString(undefined, { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}${s.when === 'weekly' ? ', every week' : ''} · ${s.minutes || 45} min</span></p>
-    <button class="btn primary big" data-g>Google Calendar</button>
-    <button class="btn big" data-ics style="margin-top:8px">Apple / Outlook (.ics)</button>
-    <p class="mute small" style="margin-top:8px">The event carries the item list. Starting the session still happens here in the app.</p></div>`;
-  sheet.querySelector('[data-close]').onclick = () => sheet.remove();
-  sheet.querySelector('[data-g]').onclick = () => openExternal(g);
-  sheet.querySelector('[data-ics]').onclick = async () => {
-    const blob = new Blob([ics], { type: 'text/calendar' });
-    if (isNative()) return nativeSend({ type: 'share.file', name: 'osolo-practice.ics', mime: 'text/calendar', b64: await blobToBase64(blob) });
-    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'osolo-practice.ics'; a.click();
-  };
-  document.body.appendChild(sheet);
+  const when = `${new Date(start).toLocaleString(undefined, { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}${s.when === 'weekly' ? ', every week' : ''} · ${s.minutes || 45} min`;
+  calSheet({ title, desc, start, end, rrule, uid: s.id, when, file: 'osolo-practice.ics', note: 'The event carries the item list. Starting the session still happens here in the app.' });
 }

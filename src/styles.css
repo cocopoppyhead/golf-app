@@ -485,3 +485,19 @@ table.t5, table.dk { width: 100%; border-collapse: collapse; font-size: 13px; } 
 .mk-zoom button { width: 38px; height: 38px; border-radius: 10px; border: 1px solid var(--line); background: rgba(10,16,30,.8); color: #fff; font: 700 20px Inter, system-ui; }
 .mk-hint { position: absolute; left: 10px; right: 60px; bottom: 10px; background: rgba(10,16,30,.8); color: #fff; padding: 8px 10px; border-radius: 10px; }
 .mk-btns { margin: 10px 0 4px; } .mk-btns .btn { flex: 1; }
+
+/* course cards, course page (rounds/course.js) */
+.ccard { display: grid; grid-template-columns: 96px 1fr auto; gap: 12px; align-items: center; padding: 8px; background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); margin-bottom: 8px; cursor: pointer; box-shadow: var(--shadow); }
+.ccard .cthumb { width: 96px; height: 72px; border-radius: 10px; background: #1d2a1f; display: block; }
+.ccard .cbody { display: flex; flex-direction: column; gap: 2px; min-width: 0; } .ccard .cbody b { font-size: 15px; }
+.chero { position: relative; margin: -4px -16px 0; height: 220px; background: #1d2a1f; overflow: hidden; }
+.chero canvas { width: 100%; height: 100%; display: block; }
+.chero-ov { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(0,0,0,.45) 0%, rgba(0,0,0,0) 35%, rgba(0,0,0,.72) 100%); padding: 10px 16px 12px; display: flex; flex-direction: column; }
+.chero-ov .link { align-self: flex-start; color: #fff; text-decoration: none; font-weight: 700; text-shadow: 0 1px 3px rgba(0,0,0,.6); }
+.chero-t { margin-top: auto; color: #fff; text-shadow: 0 1px 3px rgba(0,0,0,.7); } .chero-t h1 { margin: 0; font-size: 26px; line-height: 1.1; } .chero-t span { font-size: 13px; opacity: .9; }
+.chero-ov .star { position: absolute; right: 12px; top: 8px; color: #fff; font-size: 24px; background: transparent; border: 0; text-shadow: 0 1px 3px rgba(0,0,0,.7); } .chero-ov .star.on { color: var(--you); }
+.cactions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 12px 0 4px; } .cactions .btn { padding: 12px 8px; }
+.evrow { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 0; border-top: 1px solid var(--line); } .evrow:first-of-type { border-top: 0; }
+.holes-t th:first-child, .sc-t th:first-child { text-align: left; position: sticky; left: 0; background: var(--panel); }
+.sc-t td.tot { font-weight: 800; background: var(--panel2); }
+.preview .onb-in { padding-bottom: 20px; }

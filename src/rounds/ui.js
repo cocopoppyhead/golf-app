@@ -18,6 +18,7 @@ import { workContext } from '../workingon.js';
 import { practiceContext } from '../practice.js';
 import { drillContext } from '../drills.js';
 import { loadGeo, geoHole, mountHoleMap, markedHole, markHoleSheet } from './holemap.js';
+import { groupCourses, courseCardsHtml, bindCourseCards, coursePage, events, fmtWhen, scheduleSheet, eventCalendar } from './course.js';
 
 const DEBRIEF_TAGS = ['Driver into trouble', 'Risky shot choice', 'Approach misses', 'Short game', '3-putts', 'Lost focus', 'Back problem', 'Tired', 'Wind / conditions', 'Bad luck'];
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -73,19 +74,13 @@ export async function roundsHome() {
   await aggStats(done); // attaches per-round stats for the list
   const A = await aggStats(done.filter((r) => r.learning !== false).slice(0, 10));
   const tend = roundTendencies(A);
+  const groups = groupCourses(allCourses), upcoming = events().slice(0, 3);
   root.innerHTML = `
     ${open ? `<div class="card event-card"><b>Round in progress</b><p class="mute small">${esc(open.courseName)} · ${fmtD(open.date)} · ${played(open).length} holes logged</p><div class="row"><button class="btn primary" data-act="resume" data-id="${open.id}">Resume round</button><button class="btn" data-act="endopen" data-id="${open.id}">End / discard</button></div></div>` : ''}
-    <div class="card">
-      <h2>Play a round</h2>
-      ${courses.length ? `<label class="small mute">Course</label><select id="courseSel">${courses.map((c) => `<option value="${c.id}">${esc(c.name)}${c.tees ? ` · ${esc(c.tees)}` : ''} (par ${c.holes.reduce((a, h) => a + h.par, 0)})</option>`).join('')}</select>` : '<p class="mute">Pick your course from the UAE list and the scorecard fills in.</p>'}
-      <button class="btn ${courses.length ? '' : 'primary'}" data-act="library" style="width:100%;margin-top:10px">🇦🇪 Find a UAE course</button>
-      <div class="row" style="margin-top:8px">
-        <button class="btn" data-act="newcourse">+ Course by hand</button>
-        ${courses.length ? '<button class="btn" data-act="editcourse">Edit course</button>' : ''}
-      </div>
-      ${courses.length ? `<button class="btn primary big" data-act="start" style="margin-top:10px">Start logging hole 1</button>` : ''}
-      <div class="row" style="margin-top:8px"><button class="btn" data-act="post">＋ Post a score</button><button class="btn" data-act="import">📷 Import a scorecard</button></div>
-    </div>
+    ${upcoming.length ? `<div class="card"><div class="lbl">Upcoming</div>${upcoming.map((e) => `<div class="evrow"><div><b>${esc(e.courseName)}</b><div class="mute small">${fmtWhen(e.when)}${e.who ? ` · with ${esc(e.who)}` : ''}${e.note ? ` · ${esc(e.note)}` : ''}</div></div><div class="row" style="gap:6px"><button class="btn sm" data-act="evstart" data-id="${e.id}">Start</button><button class="link" data-act="evcal" data-id="${e.id}">📅</button><button class="link" data-act="evedit" data-id="${e.id}">Edit</button></div></div>`).join('')}</div>` : ''}
+    <div class="sechead"><h2>Your courses</h2><button class="link acc" data-act="library">+ Find a course</button></div>
+    ${groups.length ? courseCardsHtml(groups, rounds) : '<div class="card"><p class="mute">Pick your course from the UAE list and the scorecard, map and tees fill in. Tap a course for its page: start or schedule a round, preview the holes, your record there.</p><button class="btn primary big" data-act="library">🇦🇪 Find a UAE course</button></div>'}
+    <div class="row" style="margin-top:8px"><button class="btn" data-act="post">＋ Post a score</button><button class="btn" data-act="import">📷 Import a scorecard</button><button class="btn" data-act="newcourse">+ By hand</button></div>
     ${A ? statsCard(A, `Last ${A.rounds} round${A.rounds > 1 ? 's' : ''}`) : ''}
     ${await (async () => {
       const gs = [];
@@ -101,6 +96,14 @@ export async function roundsHome() {
       return `<div class="hist" data-act="open" data-id="${r.id}"><div class="sc">${s ? s.score : '–'}</div><div><div class="t">${esc(r.courseName)} ${s ? `<span class="mute">${toParStr(s.toPar)}</span>` : ''}</div><div class="s">${fmtD(r.date)}${r.quick ? `${r.tees ? ` · ${esc(r.tees)}` : ''}${r.diff != null ? ` · diff ${r.diff.toFixed(1)}` : ''} · score only` : s ? ` · ${s.putts} putts · FIR ${pct(s.fir, s.firOpp) ?? '–'}% · GIR ${pct(s.gir, s.girOpp) ?? '–'}%` : ''}${r.learning === false ? ' · not counted' : ''}</div></div><div class="mute">›</div></div>`;
     }).join('') : ''}`;
   root.querySelectorAll('[data-act]').forEach((b) => b.addEventListener('click', () => homeAction(b.dataset.act, b.dataset.id)));
+  bindCourseCards(root, groups, courseApi());
+}
+/** What the course page needs from here. */
+const courseApi = () => ({ root, toast: ctx.toast, startRound, openRound, editCourse, back: roundsHome, clubs: clubsCache.list });
+export async function openCoursePage(courseId) {
+  const groups = groupCourses(await listCourses().catch(() => []));
+  const g = groups.find((x) => x.variants.some((c) => c.id === courseId));
+  return g ? coursePage(g, courseApi()) : roundsHome();
 }
 
 async function aggStats(rounds) {
@@ -122,19 +125,26 @@ async function homeAction(act, id) {
   if (act === 'endopen') { const r = await getRound(id); const c = await getCourse(r.courseId).catch(() => null); cur = { round: r, course: c, hole: 0, review: false }; return played(r).length && c ? endRoundSheet(r, c) : discardSheet(r); }
   if (act === 'resume' || act === 'open') return openRound(id);
   if (act === 'newcourse') return editCourse(null);
-  if (act === 'library') return openLibrary({ toast: ctx.toast, onPicked: () => roundsHome() });
+  if (act === 'library') return openLibrary({ toast: ctx.toast, onPicked: (c) => openCoursePage(c.id) });
   if (act === 'editcourse') return editCourse(sel);
-  if (act === 'start') {
-    const c = await getCourse(sel);
-    const r = { id: uid('r'), date: Date.now(), courseId: c.id, courseName: c.name, tees: c.tees || '', learning: true, finished: false, holes: c.holes.map(() => null) };
-    c.lastPlayed = Date.now(); await putCourse(c);
-    await putRound(r);
-    cur = { round: r, course: c, hole: 0, review: false };
-    getConditions().then((w) => { r.cond = { ...(r.cond || {}), start: w }; save(); }).catch(() => {});
-    return playersSheet(r, () => moodSheet(r, 'start', renderHole));
-  }
+  if (act === 'start') return startRound(await getCourse(sel));
+  if (act === 'evstart') { const e = events().find((x) => x.id === id); const c = e && (await getCourse(e.courseId).catch(() => null)); if (!c) return ctx.toast('That course is gone. Edit the event.'); return startRound(c, e); }
+  if (act === 'evcal') { const e = events().find((x) => x.id === id); if (e) eventCalendar(e); return; }
+  if (act === 'evedit') { const e = events().find((x) => x.id === id); const groups = groupCourses(await listCourses().catch(() => [])); const g = groups.find((x) => (e.libId ? x.libId === e.libId : x.variants.some((c) => c.id === e.courseId))); if (g) scheduleSheet(g, { toast: ctx.toast, done: roundsHome, existing: e }); return; }
   if (act === 'import') return importCard(sel);
   if (act === 'post') return postScore(sel);
+}
+
+/** Start logging a round on a saved course (optionally from a scheduled event: partners prefilled). */
+async function startRound(c, ev = null) {
+  const r = { id: uid('r'), date: Date.now(), courseId: c.id, courseName: c.name, tees: c.tees || '', learning: true, finished: false, holes: c.holes.map(() => null) };
+  if (ev?.who) r.players = ev.who.split(',').map((x) => x.trim()).filter(Boolean).map((name) => ({ name, scores: c.holes.map(() => null), putts: c.holes.map(() => null) }));
+  if (ev) { r.eventId = ev.id; const s = S0(); s.events = (s.events || []).filter((x) => x.id !== ev.id); S1(s); }
+  c.lastPlayed = Date.now(); await putCourse(c);
+  await putRound(r);
+  cur = { round: r, course: c, hole: 0, review: false };
+  getConditions().then((w) => { r.cond = { ...(r.cond || {}), start: w }; save(); }).catch(() => {});
+  return playersSheet(r, () => moodSheet(r, 'start', renderHole));
 }
 
 // ---------------- Course editor ----------------
@@ -173,13 +183,13 @@ async function editCourse(id) {
     }));
     root.querySelectorAll('[data-x]').forEach((b) => b.addEventListener('click', async () => {
       const x = b.dataset.x;
-      if (x === 'back') return roundsHome();
+      if (x === 'back') return id ? openCoursePage(id) : roundsHome();
       sync();
       if (x === 'h18' || x === 'h9') { const n = x === 'h18' ? 18 : 9; c.holes = Array.from({ length: n }, (_, i) => c.holes[i] || { par: 4, si: null, yds: null }); return draw(); }
       if (x === 'photo') return root.querySelector('#coursePhoto').click();
       if (x === 'save') {
         if (!c.name) return ctx.toast('Give the course a name.');
-        await putCourse(c); ctx.toast('Course saved'); return roundsHome();
+        await putCourse(c); ctx.toast('Course saved'); return openCoursePage(c.id);
       }
       if (x === 'del') { await deleteCourse(c.id); return roundsHome(); }
     }));
