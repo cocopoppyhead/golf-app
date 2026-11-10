@@ -34,6 +34,7 @@ onNative('laser.log', (m) => log(m.text));
 onNative('laser.error', (m) => { log(`error: ${m.text}`); nativeStatus(m.text); });
 onNative('laser.connected', (m) => {
   nativeState = { connected: true, name: m.name, known: !!m.known };
+  try { const s = getSettings(); if (!s.laserPaired) { s.laserPaired = m.name || true; saveSettings(s); } } catch {}
   log(`listening (${m.name}) on ${(m.chars || []).length} channel(s)`);
   const prof = profileFor(m.name);
   nativeStatus(m.known ? `Connected to ${m.name}. Lock on to a target.` : prof ? `Connected to ${m.name} (learned). Lock on to a target.` : `Connected to ${m.name}. This one needs teaching: laser a target and type the number you see.`);
@@ -119,6 +120,7 @@ export async function connectLaser(onStatus = () => {}, { id } = {}) {
         if (r) listeners.forEach((fn) => fn(r));
       });
       log(`listening on ${s.uuid}`);
+      try { const st = getSettings(); if (!st.laserPaired) { st.laserPaired = dev.name || true; saveSettings(st); } } catch {}
       onStatus(`Connected to ${dev.name || 'laser'}. Lock on to a target.`);
       return true;
     } catch { /* not in this service */ }

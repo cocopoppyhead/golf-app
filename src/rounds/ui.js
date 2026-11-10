@@ -18,6 +18,7 @@ import { workContext } from '../workingon.js';
 import { practiceContext } from '../practice.js';
 import { drillContext } from '../drills.js';
 import { loadGeo, geoHole, mountHoleMap, markedHole, markHoleSheet } from './holemap.js';
+import { renderChecklist } from '../checklist.js';
 import { groupCourses, courseCardsHtml, bindCourseCards, coursePage, events, fmtWhen, scheduleSheet, eventCalendar } from './course.js';
 
 const DEBRIEF_TAGS = ['Driver into trouble', 'Risky shot choice', 'Approach misses', 'Short game', '3-putts', 'Lost focus', 'Back problem', 'Tired', 'Wind / conditions', 'Bad luck'];
@@ -61,6 +62,7 @@ export async function roundsHome() {
   const groups = groupCourses(allCourses), upcoming = events().slice(0, 3);
   root.innerHTML = `
     ${open ? `<div class="card event-card"><b>Round in progress</b><p class="mute small">${esc(open.courseName)} · ${fmtD(open.date)} · ${played(open).length} holes logged</p><div class="row"><button class="btn primary" data-act="resume" data-id="${open.id}">Resume round</button><button class="btn" data-act="endopen" data-id="${open.id}">End / discard</button></div></div>` : ''}
+    <div id="gettingStarted"></div>
     ${upcoming.length ? `<div class="card"><div class="lbl">Upcoming</div>${upcoming.map((e) => `<div class="evrow"><div><b>${esc(e.courseName)}</b><div class="mute small">${fmtWhen(e.when)}${e.who ? ` · with ${esc(e.who)}` : ''}${e.note ? ` · ${esc(e.note)}` : ''}</div></div><div class="row" style="gap:6px"><button class="btn sm" data-act="evstart" data-id="${e.id}">Start</button><button class="link" data-act="evcal" data-id="${e.id}">📅</button><button class="link" data-act="evedit" data-id="${e.id}">Edit</button></div></div>`).join('')}</div>` : ''}
     <div class="sechead"><h2>Your courses</h2><button class="link acc" data-act="library">+ Find a course</button></div>
     ${groups.length ? courseCardsHtml(groups, rounds) : '<div class="card"><p class="mute">Pick your course from the UAE list and the scorecard, map and tees fill in. Tap a course for its page: start or schedule a round, preview the holes, your record there.</p><button class="btn primary big" data-act="library">🇦🇪 Find a UAE course</button></div>'}
@@ -81,6 +83,7 @@ export async function roundsHome() {
     }).join('') : ''}`;
   root.querySelectorAll('[data-act]').forEach((b) => b.addEventListener('click', () => homeAction(b.dataset.act, b.dataset.id)));
   bindCourseCards(root, groups, courseApi());
+  renderChecklist(root.querySelector('#gettingStarted'), { onGo: (where) => (where === 'library' ? homeAction('library') : where === 'play' ? (groups.length ? coursePage(groups[0], courseApi()) : homeAction('library')) : ctx.showTab?.(where)) });
 }
 /** What the course page needs from here. */
 const courseApi = () => ({ root, toast: ctx.toast, startRound, openRound, editCourse, back: roundsHome, clubs: effectiveClubs });

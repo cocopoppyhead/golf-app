@@ -926,6 +926,7 @@ applyTheme();
 initRounds($('#roundsRoot'), {
   settings: () => settings,
   toast,
+  showTab: (t) => showTab(t),
   saveSetting: (k, v) => { settings[k] = v; saveSettings(settings); },
 });
 
