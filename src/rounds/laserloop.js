@@ -3,6 +3,8 @@
 // the club, and ✓. One tap (or none: it accepts itself after a few seconds). Every read also
 // takes a GPS fix, which is how the app knows you've walked to the next tee.
 import { onLaser } from '../laser.js';
+import { isNative, nativeSend } from '../native.js';
+import { isMetric } from '../units.js';
 import { getBag, resolveClub, pickClub } from '../bag.js';
 import { listShots, listRounds, getCourse, putRound } from '../store.js';
 import { getConditions, windComponents, carryFactor } from '../weather.js';
@@ -47,10 +49,21 @@ export function playsFrom(r, cond) {
   return { plays: Math.round(slope / f), slope: Math.round(slope), wind, factor: f };
 }
 
+/** Tell the native shell what it needs to suggest a club in a background notification. */
+let cfgSent = 0;
+export async function syncLoopConfig(force = false) {
+  if (!isNative() || (!force && Date.now() - cfgSent < 5 * 60e3)) return;
+  cfgSent = Date.now();
+  const [bag, cond] = await Promise.all([effectiveBag(), getConditions().catch(() => null)]);
+  const clubs = [];
+  for (const c of bag) { if (c.carry > 0) clubs.push({ club: c.club, carry: c.carry, swing: 'full' }); if (c.three > 0) clubs.push({ club: c.club, carry: c.three, swing: '¾' }); if (c.half > 0) clubs.push({ club: c.club, carry: c.half, swing: '½' }); }
+  nativeSend({ type: 'loop.config', clubs, factor: carryFactor(cond, { head: 0 }), metric: isMetric() });
+}
+
 let pop = null; // the open shot card
 export function initLaserLoop(a) {
   api = a;
-  onLaser(async (r) => {
+  onLaser(async (r, meta = {}) => {
     if (!r?.raw) return;
     const cur = api.getCur();
     let round = cur?.round && !cur.round.finished ? cur.round : (await listRounds().catch(() => [])).find((x) => !x.finished);
@@ -88,8 +101,11 @@ export function initLaserLoop(a) {
     h.shots[k] = x;
     round.curHole = i;
     await putRound(round).catch(() => {});
-    shotCard({ round, course, i, k, x, pl, pick, bag, cond, target });
+    if (meta.t) x.t = meta.t;
+    if (meta.accepted && pick?.best) { x.d.suggested = false; await putRound(round).catch(() => {}); api.toast(`${pick.best.club} · ${D(r.raw)} ${du()}`); }
+    else shotCard({ round, course, i, k, x, pl, pick, bag, cond, target });
     if (cur?.round === round && document.querySelector('#holeMap, .holebar')) api.renderHole();
+    syncLoopConfig();
   });
 }
 

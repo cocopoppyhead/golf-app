@@ -34,19 +34,21 @@
         "android.permission.BLUETOOTH_ADMIN",
         "android.permission.BLUETOOTH_CONNECT",
         "android.permission.ACCESS_COARSE_LOCATION",
-        "android.permission.ACCESS_FINE_LOCATION"
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.POST_NOTIFICATIONS"
       ]
     },
     "plugins": [
       [
         "react-native-ble-plx",
         {
-          "isBackgroundEnabled": false,
+          "isBackgroundEnabled": true,
           "neverForLocation": true,
           "bluetoothAlwaysPermission": "osolo connects to your Bushnell rangefinder to read distances."
         }
       ],
       "expo-sharing",
+      ["expo-notifications", { "color": "#3ddc84" }],
       [
         "expo-splash-screen",
         {

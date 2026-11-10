@@ -11,7 +11,7 @@ import { coachContext, addCoachNote } from '../coach/profile.js';
 import { dist, toYards, du, duLong, PUTT_FT, puttLabel, puttUnit } from '../units.js';
 import { checkRules, rulesCard, DEFAULT_RULES, tiger5, TIGER5_LABEL } from './tiger.js';
 import { LIES, roundSG, holeSG, SG_LABELS } from './sg.js';
-import { initLaserLoop } from './laserloop.js';
+import { initLaserLoop, syncLoopConfig } from './laserloop.js';
 import { getBag, resolveClub } from '../bag.js';
 import { listShots } from '../store.js';
 import { workContext } from '../workingon.js';
@@ -401,6 +401,7 @@ function renderHole() {
   }
   const histEl = root.querySelector('#holeHist');
   if (histEl) holeHistory(histEl, course, i, round);
+  syncLoopConfig();
   const redo = () => { derive(h, par); save(); renderHole(); };
   root.querySelectorAll('[data-res]').forEach((b) => b.onclick = () => {
     const x = h.shots[+b.dataset.res]; x.res = x.res === b.dataset.v ? null : b.dataset.v;

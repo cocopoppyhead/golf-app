@@ -55,8 +55,8 @@ onNative('laser.packet', (m) => {
     recent.push({ t: Date.now(), char, bytes });
     while (recent.length > 40 || (recent.length && Date.now() - recent[0].t > 20000)) recent.shift();
   }
-  log(`packet ${char.slice(0, 8)} ${hex}${r ? ` → ${r.raw.toFixed(1)} y` : ''}`);
-  if (r) listeners.forEach((fn) => fn(r));
+  log(`packet ${char.slice(0, 8)} ${hex}${r ? ` → ${r.raw.toFixed(1)} y` : ''}${m.accepted ? ' (✓ from notification)' : ''}`);
+  if (r) listeners.forEach((fn) => fn(r, { accepted: !!m.accepted, other: !!m.other, t: m.t || Date.now() }));
 });
 
 // ---- learned rangefinders (Blue Tees, Shot Scope, anything that sends the number) ----

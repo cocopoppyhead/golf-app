@@ -2,9 +2,12 @@
 // The whole app is the web app (GitHub Pages) running in a WebView, so every push to main
 // updates the installed app with no store release. Native code only adds what browsers can't:
 //   • Bluetooth for the Bushnell laser (works on iPhone too, unlike the web version)
+//   • the Bushnell loop in the background: phone in the pocket, lock on, a notification shows
+//     distance · plays-like · club with ✓ / Other; the read reaches the web app when it resumes
 //   • sharing the exported swing video
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, BackHandler, Linking, PermissionsAndroid, Platform, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, AppState, BackHandler, Linking, PermissionsAndroid, Platform, StyleSheet, Text, View } from 'react-native';
+import * as Notifications from 'expo-notifications';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WebView } from 'react-native-webview';
@@ -41,6 +44,43 @@ async function androidBlePermissions() {
   return want.every((p) => res[p] === PermissionsAndroid.RESULTS.GRANTED);
 }
 
+// ---- background shot notifications ----
+Notifications.setNotificationHandler({ handleNotification: async () => ({ shouldShowBanner: true, shouldShowList: true, shouldPlaySound: false, shouldSetBadge: false }) });
+const decodePacket = (b64) => { // 5 little-endian float32: raw yards, slope %, heading °, plays-as yards, incline
+  try {
+    const bin = atob(b64); if (bin.length < 20) return null;
+    const u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i);
+    const dv = new DataView(u.buffer); const f = (i) => dv.getFloat32(i * 4, true);
+    const r = { raw: f(0), slope: f(1), heading: f(2), playsAs: f(3) };
+    return Number.isFinite(r.raw) && r.raw > 0 && r.raw < 2000 ? r : null;
+  } catch { return null; }
+};
+// clubs come from the web app (loop.config): [{ club, carry, swing }] in yards, plus the day's carry factor
+const pickClub = (cfg, plays) => {
+  const opts = (cfg?.clubs || []).filter((c) => c.carry > 0);
+  if (!opts.length) return null;
+  opts.sort((a, b) => Math.abs(a.carry - plays) - Math.abs(b.carry - plays) || (a.swing === 'full' ? -1 : 1));
+  return opts[0];
+};
+const fmtUnit = (cfg, yards) => (cfg?.metric ? `${Math.round(yards * 0.9144)} m` : `${Math.round(yards)} y`);
+async function notifyShot(cfg, r, id) {
+  try {
+    const slope = Number.isFinite(r.playsAs) && r.playsAs > 0 && Math.abs(r.playsAs - r.raw) > 0.4 ? r.playsAs : r.raw;
+    const plays = Math.round(slope / (cfg?.factor || 1));
+    const club = pickClub(cfg, plays);
+    const clubTxt = club ? `${club.club}${club.swing && club.swing !== 'full' ? ` ${club.swing}` : ''}` : '';
+    await Notifications.setNotificationCategoryAsync('shot', [
+      { identifier: 'ok', buttonTitle: club ? `✓ ${clubTxt}` : '✓ Log it', options: { opensAppToForeground: false } },
+      { identifier: 'other', buttonTitle: 'Other club', options: { opensAppToForeground: true } },
+    ]);
+    if (Platform.OS === 'android') await Notifications.setNotificationChannelAsync('shots', { name: 'Rangefinder shots', importance: Notifications.AndroidImportance.MAX, vibrationPattern: [0, 80], sound: null });
+    await Notifications.scheduleNotificationAsync({
+      content: { title: `${fmtUnit(cfg, r.raw)}${plays !== Math.round(r.raw) ? ` · plays ${fmtUnit(cfg, plays)}` : ''}`, body: club ? `${clubTxt} · tap ✓ or pick another` : 'Add carries in Bag for a club suggestion', categoryIdentifier: 'shot', data: { id }, sound: false, ...(Platform.OS === 'android' ? { channelId: 'shots' } : {}) },
+      trigger: null,
+    });
+  } catch {}
+}
+
 export default function App() {
   return <SafeAreaProvider><Shell /></SafeAreaProvider>;
 }
@@ -59,6 +99,29 @@ function Shell() {
   const send = useCallback((msg) => {
     web.current?.injectJavaScript(`window.__golfNativeEvent && window.__golfNativeEvent(${JSON.stringify(msg)}); true;`);
   }, []);
+
+  // The loop while backgrounded: packets queue up (with any ✓ from the notification) and flush when the app comes back.
+  const appActive = useRef(AppState.currentState === 'active');
+  const loopCfg = useRef(null);
+  const queue = useRef([]);
+  const flush = useCallback(() => { const q = queue.current; queue.current = []; q.forEach((m) => send(m)); }, [send]);
+  useEffect(() => {
+    const h = AppState.addEventListener('change', (st) => { appActive.current = st === 'active'; if (st === 'active') { Notifications.dismissAllNotificationsAsync().catch(() => {}); setTimeout(flush, 300); } });
+    const r = Notifications.addNotificationResponseReceivedListener((resp) => {
+      const id = resp.notification.request.content.data?.id; const action = resp.actionIdentifier;
+      const m = queue.current.find((x) => x.id === id);
+      if (m && action === 'ok') m.accepted = true;
+      if (m && action === 'other') m.other = true;
+    });
+    return () => { h.remove(); r.remove(); };
+  }, [flush]);
+  const deliverPacket = useCallback((msg) => {
+    if (appActive.current) return send(msg);
+    const r = msg.char === LASER_CHAR ? decodePacket(msg.b64) : null;
+    msg.id = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`; msg.t = Date.now();
+    queue.current.push(msg); if (queue.current.length > 20) queue.current.shift();
+    if (r) notifyShot(loopCfg.current, r, msg.id);
+  }, [send]);
 
   // Android back button goes back inside the app first
   useEffect(() => {
@@ -158,7 +221,7 @@ function Shell() {
             if (/notify change failed|auth|encrypt|bond|insufficient/i.test(err.message || '')) send({ type: 'laser.error', text: 'The laser needs pairing first. In the laser menu set Bluetooth to PAIR: a 6-digit code shows in the eyepiece. Connect again and type that code when your phone asks. (Tap ⓘ in the Rangefinder card for the steps.)' });
             return;
           }
-          if (ch?.value) send({ type: 'laser.packet', b64: ch.value, char: c.uuid.toLowerCase() });
+          if (ch?.value) deliverPacket({ type: 'laser.packet', b64: ch.value, char: c.uuid.toLowerCase() });
         }));
       }
       if (!listen.length) { send({ type: 'laser.error', text: 'Connected, but this device sends nothing the app can listen to. Copy the log and send it to Claude.' }); return; }
@@ -176,7 +239,7 @@ function Shell() {
       connecting.current = false;
       send({ type: 'laser.error', text: msg });
     }
-  }, [send]);
+  }, [send, deliverPacket]);
 
   const laserDisconnect = useCallback(async () => {
     stopSubs();
@@ -213,6 +276,7 @@ function Shell() {
       })();
     }
     else if (msg.type === 'laser.disconnect') laserDisconnect();
+    else if (msg.type === 'loop.config') { loopCfg.current = msg; Notifications.requestPermissionsAsync().catch(() => {}); }
     else if (msg.type === 'share.file') shareFile(msg);
     else if (msg.type === 'open.url' && /^https?:\/\//.test(msg.url || '')) Linking.openURL(msg.url).catch(() => {});
   }, [laserConnect, laserScan, laserDisconnect, shareFile]);
