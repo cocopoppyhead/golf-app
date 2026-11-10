@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { boot, addCourse, startRound, packet } from './helpers.js';
+import { boot, addCourse, startRound, endEarly, packet } from './helpers.js';
 
 test.describe('Play', () => {
   test('course page, hole map and previous plays', async ({ page }) => {
@@ -20,8 +20,7 @@ test.describe('Play', () => {
     await page.click('[data-h=next]');
     await expect(page.locator('.hnum')).toHaveText('Hole 2');
     // end early, back home: the course card shows the round
-    await page.click('[data-h=endearly]'); await page.click('.sheet [data-ok]');
-    if (await page.isVisible('.moodscale')) { await page.click('[data-m="6"]'); await page.click('.sheet [data-ok]'); }
+    await endEarly(page);
     await page.click('nav button[data-tab=bag]'); await page.click('nav button[data-tab=rounds]');
     await expect(page.locator('.ccard')).toContainText('1 round');
   });

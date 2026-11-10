@@ -39,6 +39,15 @@ export async function startRound(page) {
   await page.waitForSelector('.holebar');
 }
 
+/** End the round from the hole screen, through the confirm and the finish mood sheet. */
+export async function endEarly(page) {
+  await page.click('[data-h=endearly]');
+  await page.locator('.sheet [data-ok]').last().click();
+  const mood = page.locator('.moodscale');
+  if (await mood.waitFor({ state: 'visible', timeout: 4000 }).then(() => true, () => false)) { await page.click('[data-m="6"]'); await page.locator('.sheet [data-ok]').last().click(); }
+  await page.waitForSelector('.holebar', { state: 'detached' });
+}
+
 /** A Bushnell packet as the native shell would deliver it: 5 little-endian floats, base64. */
 export function packet(raw, playsAs = raw, heading = 90) {
   const b = Buffer.alloc(20); b.writeFloatLE(raw, 0); b.writeFloatLE(2, 4); b.writeFloatLE(heading, 8); b.writeFloatLE(playsAs, 12); b.writeFloatLE(1, 16);
