@@ -104,6 +104,6 @@ export async function renderClubPage(root, club, { carry, onBack, onUseCarry }) 
   root.querySelector('[data-back]').onclick = onBack;
   root.querySelector('[data-use]')?.addEventListener('click', () => onUseCarry(td.full.avg));
   // launch-monitor speeds for this club, if any sessions were saved
-  import('./launch.js').then(async (L) => { const html = await L.launchClubHtml(club); if (html && root.isConnected) { const d = document.createElement('div'); d.innerHTML = html; root.querySelector('.card').after(d.firstElementChild); } });
+  import('./launch.js').then(async (L) => { const html = await L.launchClubHtml(club); if (html && root.isConnected) { const d = document.createElement('div'); d.innerHTML = html; const card = d.firstElementChild; root.querySelector('.card').after(card); (await import('./drills.js')).bindDrillCards(card, { toast: (m) => window.__toast?.(m) }); } });
   window.scrollTo(0, 0);
 }

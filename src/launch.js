@@ -6,6 +6,8 @@ import { getSettings, listLaunch, putLaunch, deleteLaunch, listShots, putShot } 
 import { readLaunchTable, aiFrom, aiReady } from './coach/ai.js';
 import { dist as D, du, isMetric } from './units.js';
 import { icon } from './icons.js';
+import { drillsLoaded, drillCardsHtml, bindDrillCards } from './drills.js';
+import { launchTakes, takesHtml, takesText } from './launchtakes.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const uid = (p) => `${p}_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
@@ -49,7 +51,7 @@ export function normaliseTable(t) {
 export function clubSummary(sessions, club) {
   const shots = sessions.filter((s) => s.club === club).flatMap((s) => s.rows.filter((r) => r.keep !== false).map((r) => ({ ...r, date: s.date, ball: s.ball })));
   if (!shots.length) return null;
-  const out = { n: shots.length, last: Math.max(...shots.map((r) => r.date)) };
+  const out = { n: shots.length, last: Math.max(...shots.map((r) => r.date)), range: shots.every((r) => r.ball !== 'premium') };
   for (const k of KEY_ORDER) { const v = shots.map((r) => r[k]).filter((x) => x != null); const p = k === 'smash' ? 100 : 10; if (v.length) out[k] = { avg: Math.round(mean(v) * p) / p, sd: Math.round(sd(v) * p) / p, n: v.length, best: k === 'smash' || k === 'ballSpeed' || k === 'clubSpeed' || k === 'carry' || k === 'total' ? Math.max(...v) : null }; }
   return out;
 }
@@ -58,8 +60,18 @@ export function clubSummary(sessions, club) {
 export async function launchContext() {
   const S = await listLaunch().catch(() => []); if (!S.length) return '';
   const clubs = [...new Set(S.map((s) => s.club))];
-  const lines = clubs.map((c) => { const q = clubSummary(S, c); if (!q) return null; const bits = [q.clubSpeed && `club ${q.clubSpeed.avg} mph`, q.ballSpeed && `ball ${q.ballSpeed.avg} mph`, q.smash && `smash ${q.smash.avg}`, q.launch && `launch ${q.launch.avg}°`, q.backSpin && `spin ${Math.round(q.backSpin.avg)}`, q.carry && `carry ${Math.round(q.carry.avg)} (${S.find((s) => s.club === c)?.ball === 'premium' ? 'premium ball' : 'range balls, treat as low'})`].filter(Boolean); return `${c}: ${bits.join(', ')} over ${q.n} shots, last ${fmtD(q.last)}`; }).filter(Boolean);
-  return `Launch monitor data (from sim/bay tables): ${lines.join('; ')}.`;
+  const lines = clubs.map((c) => { const q = clubSummary(S, c); if (!q) return null; const bits = [q.clubSpeed && `club ${q.clubSpeed.avg} mph`, q.ballSpeed && `ball ${q.ballSpeed.avg} mph`, q.smash && `smash ${q.smash.avg} ±${q.smash.sd}`, q.launch && `launch ${q.launch.avg}°`, q.backSpin && `spin ${Math.round(q.backSpin.avg)}`, q.attack && `attack ${q.attack.avg}°`, q.carry && `carry ${Math.round(q.carry.avg)} (${q.range ? 'range balls, treat as low' : 'premium ball'})`].filter(Boolean); const takes = launchTakes(q, c); return `${c}: ${bits.join(', ')} over ${q.n} shots, last ${fmtD(q.last)}${takes.length ? `. App's read: ${takesText(takes.slice(0, 2))} Drills already matched: ${[...new Set(takes.flatMap((t) => t.drills))].slice(0, 4).join(', ') || 'none'}` : ''}`; }).filter(Boolean);
+  return `Launch monitor data (from sim/bay tables): ${lines.join('; ')}. Build on the app's read rather than repeating it.`;
+}
+
+/** Takes + matched drill cards for a club, ready to drop in a card. */
+export function takesBlock(q, club, { max = 3, title = 'Drills for this' } = {}) {
+  const takes = launchTakes(q, club).slice(0, max);
+  if (!takes.length) return '';
+  const lib = drillsLoaded();
+  const ids = [...new Set(takes.flatMap((t) => t.drills))];
+  const drills = lib ? ids.map((id) => lib.drills.find((d) => d.id === id)).filter(Boolean).slice(0, 3) : [];
+  return `${takesHtml(takes, { max })}${drillCardsHtml(drills, { title })}`;
 }
 
 // ---------- import flow ----------
@@ -151,10 +163,13 @@ export async function renderLaunchCard(el, { toast = () => {}, onOpenClub = null
     ${clubs.length ? `<table class="card-t lm-t"><thead><tr><th style="text-align:left">Club</th><th>Club</th><th>Ball</th><th>Smash</th><th>Launch</th><th>Shots</th></tr></thead>
       ${clubs.map((c) => { const q = clubSummary(S, c); return `<tr data-open="${esc(c)}"><td style="text-align:left"><b>${esc(c)}</b><br><span class="mute small">${fmtD(q.last)}</span></td><td>${q.clubSpeed ? `${q.clubSpeed.avg}<br><span class="mute small">±${q.clubSpeed.sd}</span>` : '–'}</td><td>${q.ballSpeed ? `${q.ballSpeed.avg}<br><span class="mute small">±${q.ballSpeed.sd}</span>` : '–'}</td><td>${q.smash ? `<b>${q.smash.avg}</b>` : '–'}</td><td>${q.launch ? `${q.launch.avg}°` : '–'}</td><td>${q.n}</td></tr>`; }).join('')}</table>
       <p class="mute small" style="margin:6px 0 0">Speeds in mph. Smash = ball speed ÷ club speed: about 1.48–1.50 is a flush driver, 1.33–1.38 a flush 7-iron.</p>
+      ${clubs.slice(0, 2).map((c) => { const q = clubSummary(S, c); const t = launchTakes(q, c)[0]; return t ? `<div class="takes"><div class="lbl">${esc(c)}</div><p class="take ${t.level}">${t.text}</p></div>` : ''; }).join('')}
+      ${(() => { const lib = drillsLoaded(); if (!lib) return ''; const ids = [...new Set(clubs.slice(0, 2).flatMap((c) => launchTakes(clubSummary(S, c), c).slice(0, 1).flatMap((t) => t.drills)))]; return drillCardsHtml(ids.map((id) => lib.drills.find((d) => d.id === id)).filter(Boolean).slice(0, 3), { title: 'Drills for this' }); })()}
       ${S.slice(0, 5).map((s) => `<div class="tagrow"><span class="small">${fmtD(s.date)} · ${esc(s.club)} · ${s.rows.length} shots · ${s.ball === 'premium' ? 'premium' : 'range balls'}${s.source ? ` · ${esc(s.source)}` : ''}</span><button class="link" data-del="${s.id}">Delete</button></div>`).join('')}` : ''}
   </div>`;
   const redraw = () => renderLaunchCard(el, { toast, onOpenClub });
   el.querySelector('[data-import]').onclick = () => importLaunchSheet({ toast, onSaved: redraw });
+  bindDrillCards(el, { toast });
   el.querySelectorAll('[data-del]').forEach((b) => b.onclick = async () => { if (!confirm('Delete this launch-monitor session?')) return; await deleteLaunch(b.dataset.del); redraw(); });
   if (onOpenClub) el.querySelectorAll('[data-open]').forEach((tr) => tr.onclick = () => onOpenClub(tr.dataset.open));
 }
@@ -163,9 +178,10 @@ export async function renderLaunchCard(el, { toast = () => {}, onOpenClub = null
 export async function launchClubHtml(club) {
   const S = await listLaunch().catch(() => []);
   const q = clubSummary(S, club); if (!q) return '';
-  const cell = (k) => (q[k] ? `<div><b>${k === 'launch' ? `${q[k].avg}°` : k === 'backSpin' ? Math.round(q[k].avg) : q[k].avg}</b><span>${COLS[k].label}${q[k].sd ? ` ±${k === 'backSpin' ? Math.round(q[k].sd) : q[k].sd}` : ''}</span></div>` : '');
+  const cell = (k) => (q[k] ? `<div><b>${k === 'launch' || k === 'attack' ? `${q[k].avg}°` : k === 'backSpin' ? Math.round(q[k].avg) : q[k].avg}</b><span>${COLS[k].label}${q[k].sd ? ` ±${k === 'backSpin' ? Math.round(q[k].sd) : q[k].sd}` : ''}</span></div>` : '');
   return `<div class="card"><h2>Launch monitor <span class="mute small">${q.n} shots · last ${fmtD(q.last)}</span></h2>
     <div class="kpis">${['clubSpeed', 'ballSpeed', 'smash', 'launch'].map(cell).join('')}</div>
-    ${q.backSpin || q.carry ? `<div class="kpis">${['backSpin', 'carry', 'total', 'apex'].map(cell).join('')}</div>` : ''}
+    ${q.backSpin || q.carry || q.attack ? `<div class="kpis">${['backSpin', 'attack', 'carry', 'total', 'apex'].map(cell).join('')}</div>` : ''}
+    ${takesBlock(q, club)}
     <p class="mute small">Carries here are what the bay measured; only premium-ball sessions feed your Bag number.</p></div>`;
 }

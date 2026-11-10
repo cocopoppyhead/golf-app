@@ -1695,6 +1695,31 @@
    ]
   },
   {
+   "name": "Headcover upswing (driver)",
+   "area": "driver",
+   "sub": "launch",
+   "purpose": "Hit up on the driver: more launch, less spin, more carry without more speed.",
+   "setup": "Driver teed normally, ball off the lead heel. A headcover (or a second tee with a ball on it) 30–40 cm in front of the ball, on the target line.",
+   "how": "Trail shoulder lower than lead at address, tilt kept through the swing. Hit the ball and miss the headcover: the club has to be travelling up past low point. If you clip the cover you hit down or your low point is too far forward. Start at 70% speed and build up only when 5 in a row miss it.",
+   "score": "Clean swings (ball hit, headcover untouched) out of 10.",
+   "reps": "20 balls.",
+   "level": "all",
+   "sources": [
+    "https://practical-golf.com/strike-is-king"
+   ],
+   "id": "headcover-upswing-driver",
+   "metric": {
+    "type": "count",
+    "higher": true,
+    "of": 10
+   },
+   "minutes": 10,
+   "where": [
+    "range",
+    "sim"
+   ]
+  },
+  {
    "name": "Learn your dispersion (DECADE-style)",
    "area": "driver",
    "sub": "dispersion",
