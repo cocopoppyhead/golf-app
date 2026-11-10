@@ -72,3 +72,31 @@ test('post a score without hole data, see its summary, and find it in the rounds
   await expect(page.locator('.kpis')).toContainText('84');
   await expect(page.locator('[data-x=edit]')).toBeVisible();
 });
+
+test('shot Details (as planned, stars, lie) and the first putt from the flag are saved with the hole', async ({ page }) => {
+  await boot(page);
+  await addCourse(page, 'Majlis');
+  await startRound(page);
+  await page.click('[data-res="0"][data-v="FW"]');
+  await page.fill('[data-sd="1"]', '150'); await page.press('[data-sd="1"]', 'Enter');
+  await page.click('[data-int="1"][data-v="D"]');
+  await page.click('[data-det="1"]');
+  const sheet = page.locator('.sheet').last();
+  await sheet.locator('[data-k="flight"][data-v="STR"]').click();
+  await expect(sheet.locator('[data-plan="false"]')).toHaveClass(/auto/); // draw planned, straight hit → suggested "No"
+  await sheet.locator('[data-plan="false"]').click();
+  await sheet.locator('[data-sat="2"]').click();
+  await sheet.locator('[data-lie2="blw"]').click();
+  await sheet.locator('[data-ok]').click();
+  await expect(page.locator('.detline').first()).toContainText('not the shot ✗');
+  await expect(page.locator('.detline').first()).toContainText('★★');
+  await expect(page.locator('.detline').first()).toContainText('Ball below feet');
+  await page.click('[data-res="1"][data-v="G"]');
+  await page.click('[data-pt="2"]'); await page.click('[data-fp="20"]');
+  await page.click('[data-fpl="S"][data-fps="R"]');
+  await expect(page.locator('[data-fpl="S"][data-fps="R"]')).toHaveClass(/on/);
+  // leave and come back: it all survives
+  await page.click('[data-h=next]'); await page.click('[data-h=prev]');
+  await expect(page.locator('[data-fpl="S"][data-fps="R"]')).toHaveClass(/on/);
+  await expect(page.locator('.detline').first()).toContainText('Ball below feet');
+});
