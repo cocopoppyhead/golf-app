@@ -21,6 +21,10 @@ import { loadGeo, geoHole, mountHoleMap, markedHole, markHoleSheet } from './hol
 import { renderChecklist } from '../checklist.js';
 import { icon } from '../icons.js';
 import { approachBands } from './bands.js';
+import { INTENTIONS, intentionLabel } from './intentions.js';
+import { weeklyDigest } from '../digest.js';
+import { listSessions } from '../store.js';
+import { drillsLoaded } from '../drills.js';
 import { ENDED, TEE_EXTRA, DIRS, SWING_TYPES, INTENT, LIE_DETAIL, FP_LONG, FP_SIDE, asPlanned, autoSwing, autoShotType, blankHole, ensureShots, defaultLie, derive, nextBogeyFrom } from './hole.js';
 export { SWING_TYPES, INTENT, autoShotType } from './hole.js';
 import { renderFriendsCard, inviteSheet } from './friends.js';
@@ -76,6 +80,7 @@ export async function roundsHome() {
     ${groups.length ? courseCardsHtml(groups, rounds) : `<div class="card"><p class="mute">Pick your course from the UAE list and the scorecard, map and tees fill in. Tap a course for its page: start or schedule a round, preview the holes, your record there.</p><button class="btn primary big" data-act="library">${icon('search')} Find a UAE course</button></div>`}
     <div class="row" style="margin-top:8px"><button class="btn" data-act="post">${icon('plus')} Post a score</button><button class="btn" data-act="import">${icon('camera')} Import a scorecard</button><button class="btn" data-act="newcourse">${icon('edit')} By hand</button></div>
     <div id="friendsCard"></div>
+    ${await digestCard(done)}
     ${A ? statsCard(A, `Last ${A.rounds} round${A.rounds > 1 ? 's' : ''}`) : ''}
     ${await (async () => {
       const gs = [];
@@ -96,6 +101,19 @@ export async function roundsHome() {
   handlePendingInvite();
   mergeRemoteEvents().then((changed) => { if (changed && root.querySelector('#friendsCard')) roundsHome(); });
   renderChecklist(root.querySelector('#gettingStarted'), { onGo: (where) => (where === 'library' ? homeAction('library') : where === 'play' ? (groups.length ? coursePage(groups[0], courseApi()) : homeAction('library')) : ctx.showTab?.(where)) });
+}
+/** This week against last: rounds, where the strokes went, practice, intention. Hidden when the fortnight is empty. */
+async function digestCard(done) {
+  try {
+    const withCourse = [];
+    for (const r of done.filter((r) => Date.now() - r.date < 15 * 864e5 || (r.intention && r.intentionKept))) { const c = await getCourse(r.courseId).catch(() => null); if (c) withCourse.push({ r, c }); }
+    const [sessions, swings] = await Promise.all([listSessions().catch(() => []), listSwings().catch(() => [])]);
+    const d = weeklyDigest({ rounds: withCourse, sessions, swings, lib: drillsLoaded() });
+    if (!d) return '';
+    return `<div class="card digest"><div class="sechead" style="margin:0 0 6px"><h2 style="margin:0">This week</h2><span class="mute small">vs the week before</span></div>
+      ${d.lines.map((l) => `<p class="dl ${l.key}">${esc(l.text)}</p>`).join('')}
+      ${d.carry.length ? `<div class="lbl">Carry into next week</div><ul class="carry">${d.carry.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}</div>`;
+  } catch (e) { console.warn('digest', e); return ''; }
 }
 /** Rounds friends invited me to (and my own, for their codes) come from the server into the local list. */
 async function mergeRemoteEvents() {
@@ -554,10 +572,7 @@ function shotDetails(h, k, par, holeIdx, done) {
 // Emotional state, 1–10 (5 = calm, focused, energised). Asked at the start, at the turn and at the end.
 export const MOOD_WORDS = { low: 'Lethargic · uninterested · sluggish', mid: 'Calm · focused · energised', high: 'Agitated · erratic · jumpy' };
 const WARMUP = [['none', 'None'], ['putt', 'Putting only'], ['range', 'Range balls'], ['full', 'Full warm-up']];
-// One thing for today: the intention you take to the first tee and rate at the end. Most of the
-// difference between a good round and a bad one is here, not in the swing.
-export const INTENTIONS = [['commit', 'Commit to every target'], ['safe', 'Play the safe side'], ['routine', 'Routine on every shot'], ['present', 'One shot at a time'], ['club', 'Take enough club'], ['lag', 'Lag putts to the hole'], ['bogey', 'Bogey is fine, no doubles'], ['tempo', 'Smooth tempo']];
-export const intentionLabel = (k) => (INTENTIONS.find((x) => x[0] === k) || [null, k])[1];
+export { INTENTIONS, intentionLabel };
 const moodColor = (n) => `hsl(${n <= 5 ? 200 - (n - 1) * 20 : 120 - (n - 5) * 24}, 75%, 50%)`;
 function moodSheet(round, key, done) {
   round.mood ||= {};

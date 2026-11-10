@@ -24,6 +24,8 @@ import { renderScoring, practiceFromRounds } from './progress.js';
 import { workContext } from './workingon.js';
 import { renderPracticeLog, practiceContext } from './practice.js';
 import { launchContext } from './launch.js';
+import { weeklyDigest, digestText } from './digest.js';
+import { listRounds, getCourse, listSessions } from './store.js';
 import { renderDrillsCard, drillContext, loadDrills, faultDrills, drillCardsHtml, bindDrillCards, drillMenuForAi, drillsLoaded } from './drills.js';
 import { renderRangefinder } from './rangefinder.js';
 import { maybeOnboard, avatarHtml, localProfile, openProfileEditor } from './onboarding.js';
@@ -738,7 +740,7 @@ async function doAi() {
     const history = state.learning && !state.golfer ? coachContext(swings, await recentRoundAggregate()) : '';
     const golfer = state.golfer
       ? `This is ${state.golfer}'s swing (a friend of the app owner). Coach ${state.golfer} directly; no history on file.`
-      : [settings.golfer, workContext(), await practiceContext().catch(() => ''), await drillContext().catch(() => ''), await launchContext().catch(() => ''), settings.keys ? `Their own swing keys/notes (use their language): ${settings.keys.replace(/\n+/g, ' | ')}` : '', drillMenuForAi([getPlan().focus?.key, state.A?.summary.priority?.key, ...state.A.checkpoints.flatMap((c) => c.items.filter((i) => i.status === 'bad').map((i) => `${c.key}:${i.name}`))].filter(Boolean))].filter(Boolean).join('. ');
+      : [settings.golfer, workContext(), await practiceContext().catch(() => ''), await drillContext().catch(() => ''), await launchContext().catch(() => ''), await weekContext().catch(() => ''), settings.keys ? `Their own swing keys/notes (use their language): ${settings.keys.replace(/\n+/g, ' | ')}` : '', drillMenuForAi([getPlan().focus?.key, state.A?.summary.priority?.key, ...state.A.checkpoints.flatMap((c) => c.items.filter((i) => i.status === 'bad').map((i) => `${c.key}:${i.name}`))].filter(Boolean))].filter(Boolean).join('. ');
     const { text, meta } = await getCoaching({ ...aiFrom(settings), A: state.A, images, golfer, history });
     state.ai = text;
     let extra = '';
@@ -1021,3 +1023,11 @@ if (isNative()) document.documentElement.classList.add('native', ...(window.Golf
 
 // Test hook: lets automated tests feed a video URL
 window.__golfTest = { open: async (url) => openVideo(await (await fetch(url)).blob()), session: async (url) => runSession(await (await fetch(url)).blob()), state: () => state, onboard: () => openProfileEditor({ first: true, toast, onDone: () => { settings = getSettings(); renderHeaderAvatar(); } }), scan: async (url) => { const v = await loadVideo(await (await fetch(url)).blob()); document.body.appendChild(v); const r = await findSwings(v, {}); v.remove(); return { ...r, ratio: findSwings.lastRatio, dur: v.duration }; } };
+
+/** The weekly digest (rounds, practice, intention vs score), for the coach. */
+async function weekContext() {
+  const rounds = (await listRounds()).filter((r) => r.finished && (Date.now() - r.date < 15 * 864e5 || (r.intention && r.intentionKept)));
+  const withCourse = []; for (const r of rounds) { const c = await getCourse(r.courseId).catch(() => null); if (c) withCourse.push({ r, c }); }
+  const [sessions, swings] = await Promise.all([listSessions().catch(() => []), listSwings().catch(() => [])]);
+  return digestText(weeklyDigest({ rounds: withCourse, sessions, swings, lib: drillsLoaded() }));
+}
