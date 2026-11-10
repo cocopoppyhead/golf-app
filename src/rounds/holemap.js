@@ -148,10 +148,11 @@ export function mountHoleMap(el, opts) {
     const gh = o.gh;
     if (gh) {
       const T = pickTee(gh, o.yds, o.teeName); let G = gh.green?.c || gh.line[gh.line.length - 1];
-      // no mapped green and a hole line much shorter than the card: OSM stopped short, so put the green
-      // where the card says it is, along the line's final bearing, and say so
+      // no mapped green and a hole line far shorter than the card: the mapper stopped short, so put
+      // the green where the card says it is, along the line's final bearing, and say so. A line a bit
+      // short of the card is normal (a forward tee) and its end is trusted as the green.
       o.approxGreen = false;
-      if (!gh.green && o.yds && Math.abs(metres(T, G) - o.yds * YD) > o.yds * YD * 0.2) {
+      if (!gh.green && o.yds && metres(T, G) < o.yds * YD * 0.6) { // far shorter than the card: the line stops short
         const end = gh.line[gh.line.length - 1], from = gh.line.length > 2 ? gh.line[gh.line.length - 2] : T;
         G = destination(end, bearing(from, end), o.yds * YD - metres(T, end)); o.approxGreen = true;
       }
@@ -229,7 +230,7 @@ export function mountHoleMap(el, opts) {
       for (const c of [...list].sort((a, b) => a.carry - b.carry)) { // shortest first so labels stack outward in order
         const r = c.carry * YD * f.s; if (r < 18 || r > Math.max(W, H) * 1.4) continue;
         // where this club lands: along the hole line from the tee, or back from the green along the line
-        const path = dir > 0 ? [centre, ...o.gh.line.slice(1)] : [...o.gh.line].reverse();
+        const path = dir > 0 ? [centre, ...o.gh.line.slice(1), G] : [G, ...[...o.gh.line].reverse()];
         const land = alongLine(path, c.carry * YD);
         const [lx2, ly2] = toPx(project(land));
         const base = Math.atan2(ly2 - cy0, lx2 - cx0);
@@ -261,10 +262,16 @@ export function mountHoleMap(el, opts) {
     // distances to the green
     const g = o.gh.green;
     const cell = (v, l, c) => `<div><b${c ? ' class="c"' : ''}>${v}</b><span>${l}</span></div>`;
-    const dTxt = g && !g.marked ? cell(fmt(metres(ref.p, g.f)), 'front') + cell(fmt(metres(ref.p, g.c)), 'centre', true) + cell(fmt(metres(ref.p, g.b)), 'back') : cell(`${o.approxGreen ? '≈ ' : ''}${fmt(metres(ref.p, G))}`, 'to green', true);
+    const real = g?.poly && !g.marked;
+    // no green outline: front and back assumed 15 yards either side of the centre along the line in
+    const last = o.gh.line[o.gh.line.length - 1]; const from = metres(last, G) < 5 ? o.gh.line[Math.max(0, o.gh.line.length - 2)] : last;
+    const inb = bearing(from, G); // direction the hole comes into the green
+    const F = real ? g.f : destination(G, inb + Math.PI, 15 * YD), B = real ? g.b : destination(G, inb, 15 * YD);
+    const pre = real ? '' : '≈ ';
+    const dTxt = cell(pre + fmt(metres(ref.p, F)), 'front') + cell(pre + fmt(metres(ref.p, G)), 'centre', true) + cell(pre + fmt(metres(ref.p, B)), 'back');
     const playsTxt = pl && pl.plays !== Math.round(centreYds) ? `<div class="pl"><b>${D(pl.plays)}</b><span>plays</span></div>` : '';
-    distEl.innerHTML = `${dTxt}${playsTxt}<span class="src">${ref.gps ? 'from where you stand' : 'from the tee'} · ${unitLabel()}${pl?.why.length ? ` · ${pl.why.join(' · ')}` : ''}${o.approxGreen ? ' · green placed from the card, not mapped' : ''}</span>`;
-    tapEl.innerHTML = tap ? `Tap: ${fmt(metres(ref.p, tap))} ${unitLabel()} out · ${fmt(metres(tap, G))} ${unitLabel()} to the green${g && !g.marked ? ` · ${fmt(metres(tap, g.f))} front` : ''}` : `${mode === 'tee' && o.par !== 3 ? `<label class="check inl"><input type="checkbox" data-leave ${leaveOn ? 'checked' : ''}/> what each club leaves</label>` : 'Tap the map to measure.'}${o.gh.marked ? ' <button class="link" data-mark>Re-mark</button>' : o.approxGreen && o.canMark ? ' <button class="link acc" data-mark>Mark the green</button>' : ''}`;
+    distEl.innerHTML = `${dTxt}${playsTxt}<span class="src">${ref.gps ? 'from where you stand' : 'from the tee'} · ${unitLabel()}${pl?.why.length ? ` · ${pl.why.join(' · ')}` : ''}${o.approxGreen ? ' · green placed from the card, not mapped' : !real ? ' · green depth assumed' : ''}</span>`;
+    tapEl.innerHTML = tap ? `Tap: ${fmt(metres(ref.p, tap))} ${unitLabel()} out · ${fmt(metres(tap, G))} ${unitLabel()} to the green · ${fmt(metres(tap, F))} front` : `${mode === 'tee' && o.par !== 3 ? `<label class="check inl"><input type="checkbox" data-leave ${leaveOn ? 'checked' : ''}/> what each club leaves</label>` : 'Tap the map to measure.'}${o.gh.marked ? ' <button class="link" data-mark>Re-mark</button>' : o.approxGreen && o.canMark ? ' <button class="link acc" data-mark>Mark the green</button>' : ''}`;
     tapEl.querySelector('[data-mark]')?.addEventListener('click', () => o.onMark?.());
     tapEl.querySelector('[data-leave]')?.addEventListener('change', (e) => { const s = getSettings(); s.mapLeave = e.target.checked; saveSettings(s); schedule(); });
     wantGps();
