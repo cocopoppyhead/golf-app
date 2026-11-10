@@ -163,7 +163,7 @@ nav.tabs button.cam.active { color: var(--acc); }
 .eyebrow { color: var(--acc); font-weight: 800; letter-spacing: .14em; font-size: 13px; margin-top: 4px; }
 h1.display { font-family: 'DM Serif Display', Georgia, serif; font-weight: 400; font-size: 40px; line-height: 1.05; margin: 10px 0 8px; letter-spacing: -.5px; }
 .tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 6px 0 12px; }
-.tile { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 18px 10px; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 4px; cursor: pointer; }
+.tile { color: var(--ink); font: inherit; width: 100%; background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 18px 10px; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 4px; cursor: pointer; }
 .tile:active { transform: scale(.98); }
 .tile svg { width: 34px; height: 34px; fill: none; stroke: var(--ink); stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; margin-bottom: 8px; }
 .tile b { font-size: 16px; } .tile span { color: var(--mute); font-size: 13px; }
@@ -289,7 +289,7 @@ img.av { object-fit: cover; }
 .tabs2 { display: flex; gap: 4px; overflow-x: auto; } .tabs2 button { background: var(--panel); color: var(--mute); border: 1px solid var(--line); border-radius: 20px; padding: 7px 11px; font: 600 12.5px Inter, system-ui; white-space: nowrap; } .tabs2 button.on { color: var(--acc-ink); background: var(--acc); border-color: var(--acc); }
 .onb-body { flex: 1; } .onb-body h2 { font-size: 24px; margin: 14px 0 4px; } .onb-body > p { margin: 0 0 14px; }
 .onb-body .field-label { margin-top: 14px; } .onb-body .seg { margin-bottom: 0; }
-.photo { display: flex; flex-direction: column; align-items: center; gap: 8px; margin: 10px 0 6px; cursor: pointer; color: var(--acc); font-weight: 700; font-size: 14px; }
+.photo { background: transparent; border: 0; font: inherit; width: 100%; display: flex; flex-direction: column; align-items: center; gap: 8px; margin: 10px 0 6px; cursor: pointer; color: var(--acc); font-weight: 700; font-size: 14px; }
 .photo .big { width: 104px; height: 104px; border-radius: 50%; object-fit: cover; display: grid; place-items: center; background: var(--panel2); color: var(--mute); font: 800 40px Inter, system-ui; border: 3px solid var(--acc); }
 .hcprow { display: flex; gap: 14px; align-items: center; } .hcprow > input { flex: 0 0 130px; } .hcprow .check.mini { white-space: nowrap; } .hcprow .check.mini input { flex: none; width: 18px; }
 .hrow { display: flex; align-items: center; gap: 8px; } .hrow input { width: 76px; text-align: center; } .hrow .u { color: var(--mute); font-size: 14px; }

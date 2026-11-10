@@ -79,6 +79,9 @@ setClub(settings.club);
 $('#learnBox').checked = settings.learning !== false;
 $('#learnBox').addEventListener('change', (e) => { settings.learning = e.target.checked; saveSettings(settings); if (state && !state.A) state.learning = e.target.checked; });
 
+// the tiles are buttons that click the (visually hidden) file inputs: a <label for> on a hidden
+// input opens nothing inside the Android WebView
+document.querySelectorAll('[data-pick]').forEach((b) => b.addEventListener('click', () => { const inp = document.getElementById(b.dataset.pick); inp.value = ''; inp.click(); }));
 for (const id of ['#videoInput', '#videoCapture']) $(id).addEventListener('change', async (e) => {
   const file = e.target.files?.[0];
   e.target.value = '';

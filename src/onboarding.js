@@ -100,8 +100,8 @@ export async function openProfileEditor({ first = false, prof = null, user = nul
   const pages = {
     0: () => `<h2>${first ? 'Welcome! Set up your profile' : 'Your profile'}</h2>
       <p class="mute">This is what your friends see in leagues and on scorecards.</p>
-      <label class="photo" for="oPhoto">${avatarHtml(p, 'big')}<span>${p.avatar ? 'Change photo' : 'Add a photo'}</span></label>
-      <input id="oPhoto" type="file" accept="image/*" hidden />
+      <button type="button" class="photo" data-photo>${avatarHtml(p, 'big')}<span>${p.avatar ? 'Change photo' : 'Add a photo'}</span></button>
+      <input id="oPhoto" type="file" accept="image/*" style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none" />
       <label class="field-label">Name</label><input id="oName" autocomplete="name" placeholder="First and last name" value="${esc(p.name)}" />
       <label class="field-label">Nickname <span class="mute">(optional)</span></label><input id="oNick" placeholder="What the group calls you" value="${esc(p.nickname)}" />`,
     1: () => `<h2>Your game</h2>
@@ -187,6 +187,7 @@ export async function openProfileEditor({ first = false, prof = null, user = nul
       if (!first || step === 3) return save();
       readStep(); step++; draw();
     });
+    q('[data-photo]')?.addEventListener('click', () => { const i = q('#oPhoto'); i.value = ''; i.click(); });
     q('#oPhoto')?.addEventListener('change', async (e) => {
       const f = e.target.files?.[0]; if (!f) return;
       try { p.name = q('#oName').value.trim(); p.nickname = q('#oNick').value.trim(); p.avatar = await shrinkPhoto(f); draw(); } catch (err) { toast(err.message); }

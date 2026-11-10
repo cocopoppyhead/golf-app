@@ -213,7 +213,7 @@ async function editCourse(id) {
       <div class="card form">
         <h2>${id ? 'Edit course' : 'New course'}</h2>
         <button class="btn" data-x="photo" style="width:100%;margin-bottom:12px">${icon('camera')} Fill from scorecard photo</button>
-        <input type="file" accept="image/*" id="coursePhoto" hidden />
+        <input type="file" accept="image/*" id="coursePhoto" style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none" />
         <label>Course name<input id="cName" value="${esc(c.name)}" placeholder="e.g. Emirates Majlis" /></label>
         <label>Tees<input id="cTees" value="${esc(c.tees)}" placeholder="e.g. Blue" /></label>
         <div class="row"><label style="flex:1">Course rating<input id="cRating" inputmode="decimal" value="${c.rating ?? ''}" placeholder="e.g. 72.0" /></label><label style="flex:1">Slope<input id="cSlope" inputmode="numeric" value="${c.slope ?? ''}" placeholder="e.g. 129" /></label></div>
