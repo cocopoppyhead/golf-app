@@ -8,6 +8,7 @@ import {
   listSwings, putSwing, deleteSwing, listRounds, putRound, deleteRound,
   listCourses, putCourse, deleteCourse, listShots, putShot, deleteShot, putSession, deleteSession, listSessions, listLaunch, putLaunch, deleteLaunch } from '../store.js';
 import { getPlan, savePlan } from '../coach/profile.js';
+import { planMerge, planSettings } from './merge.js';
 
 const SETTINGS_KEYS = ['name', 'bag', 'keys', 'roundRules', 'golfer', 'heightIn', 'system', 'handedness', 'club', 'view', 'nickname', 'avatar', 'homeCourse', 'hand', 'handicap', 'onboarded', 'partials', 'laserProfiles', 'aiProvider', 'starredCourses', 'workingOn', 'handicapMode', 'partners', 'practicePlan', 'favDrills', 'mapLeave', 'metronome', 'events', 'checklistHidden', 'laserPaired', 'mapDist', 'mapFirm'];
 const KINDS = {
@@ -18,7 +19,6 @@ const KINDS = {
   session: { list: listSessions, put: putSession, del: deleteSession },
   launch: { list: listLaunch, put: putLaunch, del: deleteLaunch },
 };
-const clean = (x) => { const { _stats, ...rest } = x; return rest; };
 
 let status = { state: 'idle', last: Number(localStorage.getItem('golf.lastSync') || 0), error: null };
 const subs = new Set();
@@ -52,13 +52,9 @@ export async function syncNow() {
       const ts = (iso) => new Date(iso).getTime();
 
       // settings (one doc)
-      const ls = getSettings(), rs = rmap.get('settings:me');
-      if (rs && ts(rs.updated_at) > (ls.updatedAt || 0)) {
-        const merged = { ...ls, ...rs.data, updatedAt: ts(rs.updated_at) };
-        saveSettings(merged, { fromSync: true });
-      } else if (!rs || (ls.updatedAt || 0) > ts(rs.updated_at)) {
-        up.push({ kind: 'settings', id: 'me', data: Object.fromEntries(SETTINGS_KEYS.filter((k) => ls[k] != null).map((k) => [k, ls[k]])), t: ls.updatedAt || Date.now() });
-      }
+      const sp = planSettings(getSettings(), rmap.get('settings:me'), SETTINGS_KEYS);
+      if (sp.pull) saveSettings(sp.pull, { fromSync: true });
+      if (sp.push) up.push(sp.push);
       // coach plan (one doc)
       const lp = getPlan(), rp = rmap.get('plan:me');
       if (rp && ts(rp.updated_at) > (lp.updatedAt || 0)) savePlan({ ...rp.data, updatedAt: ts(rp.updated_at) }, { fromSync: true });
@@ -69,21 +65,12 @@ export async function syncNow() {
       for (const d of dead) up.push({ kind: d.kind, id: d.id, data: {}, deleted: true, t: d.at });
       const deadSet = new Set(dead.map((d) => `${d.kind}:${d.id}`));
 
-      // records
+      // records: newest wins, tombstones delete, local deletions are not resurrected (cloud/merge.js)
       for (const [kind, k] of Object.entries(KINDS)) {
-        const local = await k.list();
-        const lmap = new Map(local.map((x) => [x.id, x]));
-        for (const x of local) {
-          const r = rmap.get(`${kind}:${x.id}`);
-          const lt = x.updatedAt || x.date || 0;
-          if (!r || lt > ts(r.updated_at)) up.push({ kind, id: x.id, data: clean(x), t: lt || Date.now() });
-        }
-        for (const r of remote.filter((r) => r.kind === kind)) {
-          if (deadSet.has(`${kind}:${r.id}`)) continue;
-          const l = lmap.get(r.id);
-          if (r.deleted) { if (l && (l.updatedAt || 0) <= ts(r.updated_at)) await k.del(r.id, { fromSync: true }); continue; }
-          if (!l || ts(r.updated_at) > (l.updatedAt || l.date || 0)) await k.put({ ...r.data, updatedAt: ts(r.updated_at) }, { fromSync: true });
-        }
+        const plan = planMerge(kind, await k.list(), remote.filter((r) => r.kind === kind), deadSet);
+        up.push(...plan.up);
+        for (const id of plan.dels) await k.del(id, { fromSync: true });
+        for (const rec of plan.puts) await k.put(rec, { fromSync: true });
       }
 
       // ---- push ----
