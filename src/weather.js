@@ -61,7 +61,10 @@ export function carryFactor(cond, wind = { head: 0 }) {
   if (!cond) return 1;
   const t = 1 + TEMP_PER_C * ((cond.tempC ?? BASE_C) - BASE_C);
   const h = wind.head > 0 ? 1 - HEAD_PER_MPH * wind.head : 1 + TAIL_PER_MPH * -wind.head;
-  return t * Math.max(0.6, h);
+  // thinner air carries further: low pressure (altitude, weather) and, slightly, humid air
+  const p = cond.pressure ? 1 + 0.6 * ((1013 - cond.pressure) / 1013) : 1;
+  const rh = cond.humidity != null ? 1 + 0.003 * ((cond.humidity - 50) / 50) : 1;
+  return t * Math.max(0.6, h) * p * rh;
 }
 
 /** The distance to play for a target in these conditions (what a normal-day club should carry). */

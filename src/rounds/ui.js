@@ -399,7 +399,7 @@ function renderHole() {
       if (!mapEl.isConnected) return;
       const gh = geoHole(geo, i + 1) || markedHole(ch.mark, i + 1);
       if (!gh && !ch.yds && !course.lat) { mapEl.remove(); return; }
-      holeMap = mountHoleMap(mapEl, { gh, geo, par, yds: ch.yds, teeName: course.tees, clubs, canMark: !!course.lat, onMark: () => markHoleSheet({ course, start: i, geo, onSave: (k, mark) => { course.holes[k].mark = mark; putCourse(course); }, onClose: renderHole }) });
+      holeMap = mountHoleMap(mapEl, { gh, geo, par, yds: ch.yds, teeName: course.tees, clubs, inGame: true, cond: round.cond?.start || null, geoId: course.libId || course.id, canMark: !!course.lat, onMark: () => markHoleSheet({ course, start: i, geo, onSave: (k, mark) => { course.holes[k].mark = mark; putCourse(course); }, onClose: renderHole }) });
     });
   }
   const histEl = root.querySelector('#holeHist');

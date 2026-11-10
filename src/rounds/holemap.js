@@ -5,6 +5,8 @@
 // to measure. Courses without OSM shapes get the same arcs on a plain yardage strip.
 import { dist as D, du } from '../units.js';
 import { getSettings, saveSettings } from '../store.js';
+import { windComponents, carryFactor } from '../weather.js';
+import { holeElevations, elevationYards } from '../elevation.js';
 import { YD, mPerLat, mPerLon, metres, bearing, destination, inRing, merc, unmerc, zoomFor } from '../geo.js';
 
 const BASE = import.meta.env.BASE_URL;
@@ -25,16 +27,17 @@ export const geoHole = (geo, n) => geo?.holes?.find((h) => h.n === n) || null;
 const kind = (name) => (/driver/i.test(name) ? 'driver' : /wood/i.test(name) ? 'wood' : /hybrid|rescue|utility/i.test(name) ? 'hybrid' : /iron|\d\s*i$/i.test(name) ? 'iron' : 'wedge');
 /**
  * Tee shot options worth drawing: driver, the fairway woods (up to two), then the longest hybrid
- * or iron you carry — three or four clubs, not the whole bag. Par 3: none (the number is enough).
- * From the fairway: the club for the distance and one either side.
+ * or iron you carry — three or four clubs, not the whole bag. Par 3, or from the fairway: the
+ * club for the plays-like distance and one either side.
  */
 export function teeClubs(clubs, { par = 4, toGo = null } = {}) {
   const list = clubs.filter((c) => c.carry > 0).sort((a, b) => b.carry - a.carry);
   if (!list.length) return [];
-  if (par === 3) return []; // a par 3 is front / centre / back, not a fan of clubs
-  if (toGo && toGo < 240) { // from the fairway: the club for the distance and one either side
-    const i = Math.max(0, list.findIndex((c) => c.carry <= toGo) - 1);
-    return list.slice(i, i + 3);
+  if (par === 3 || (toGo && toGo < 240)) { // one shot to the green: the club for the distance and one either side
+    if (!toGo) return list.slice(-3);
+    let i = list.findIndex((c) => c.carry <= toGo); if (i < 0) i = list.length - 1;
+    const from = Math.max(0, Math.min(i - 1, list.length - 3));
+    return list.slice(from, from + 3);
   }
   const out = [];
   const d = list.find((c) => kind(c.club) === 'driver'); if (d) out.push(d);
@@ -53,6 +56,22 @@ export function alongLine(line, m) {
   return line[line.length - 1];
 }
 export const showLeave = () => getSettings().mapLeave !== false;
+
+/**
+ * What a shot plays in these conditions: air (temperature, humidity, pressure), wind along the
+ * shot's bearing, and the rise to the target. yards in, yards out, with the reasons.
+ */
+export function playsLike(yards, { cond = null, bearingDeg = null, riseM = null } = {}) {
+  const wind = windComponents(cond, { heading: bearingDeg });
+  const f = carryFactor(cond, wind);
+  const elev = elevationYards(riseM);
+  const plays = Math.round(yards / f + elev);
+  const why = [];
+  if (Number.isFinite(riseM) && Math.abs(riseM) >= 1.5) why.push(`${riseM > 0 ? '↑' : '↓'} ${Math.round(Math.abs(riseM) / 0.3048)} ft`);
+  if (cond && Math.abs(wind.head) >= 2) why.push(`${Math.round(Math.abs(wind.head))} mph ${wind.head > 0 ? 'into' : 'behind'}`);
+  if (cond && Math.abs((cond.tempC ?? 25) - 25) >= 6) why.push(`${Math.round(cond.tempC)}°C`);
+  return { plays, factor: f, elev, wind, why };
+}
 
 // ---------- tee choice ----------
 /** Which mapped tee matches the card? The one whose distance to the green is nearest the card yardage. */
@@ -112,6 +131,13 @@ export function mountHoleMap(el, opts) {
   const distEl = el.querySelector('.hm-dist'), tapEl = el.querySelector('.hm-tap');
   let o = { ...opts }, mode = lastMode, tap = null, raf = 0;
   let frame = null; // {T, G, theta, s, W, H, cx, cy, z, project}
+  let elev = null; // { tee, green } metres for this hole, when known
+  const loadElev = () => {
+    elev = null; const gh = o.gh; if (!gh || !o.inGame) return;
+    const holes = (o.geo?.holes || []).map((x) => ({ n: x.n, tee: x.line[0], green: x.green?.c || x.line[x.line.length - 1] }));
+    if (!holes.some((x) => x.n === gh.n)) holes.push({ n: gh.n, tee: gh.line[0], green: gh.green?.c || gh.line[gh.line.length - 1] });
+    holeElevations(o.geoId || o.geo?.id || o.courseId, holes).then((m) => { if (m[gh.n] && o.gh === gh) { elev = m[gh.n]; schedule(); } });
+  };
   const unitLabel = () => du();
   const fmt = (m) => `${D(m / YD)}`;
 
@@ -220,7 +246,9 @@ export function mountHoleMap(el, opts) {
       }
     };
     const clubs = (o.clubs || []).filter((c) => c.carry > 0);
-    if (mode === 'tee') arcs(ref.p, teeClubs(clubs, { par: o.par, toGo: ref.gps ? metres(ref.p, G) / YD : null }), 1, '#ffd23f');
+    const centreYds = metres(ref.p, G) / YD;
+    const pl = o.inGame ? playsLike(centreYds, { cond: o.cond, bearingDeg: (bearing(ref.p, G) * 180) / Math.PI, riseM: elev ? elev.green - elev.tee : null }) : null;
+    if (mode === 'tee') arcs(ref.p, teeClubs(clubs, { par: o.par, toGo: o.par === 3 || ref.gps ? (pl ? pl.plays : centreYds) : null }), 1, '#ffd23f');
     if (mode === 'green') arcs(G, clubs.filter((c) => c.carry <= 150).sort((a, b) => b.carry - a.carry).slice(0, 4), -1, '#8fd3ff');
     // you
     if (ref.gps) { const [x, y] = toPx(project(ref.p)); ctx.beginPath(); ctx.arc(x, y, 6, 0, 7); ctx.fillStyle = '#3ddc84'; ctx.fill(); ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke(); }
@@ -234,7 +262,8 @@ export function mountHoleMap(el, opts) {
     const g = o.gh.green;
     const cell = (v, l, c) => `<div><b${c ? ' class="c"' : ''}>${v}</b><span>${l}</span></div>`;
     const dTxt = g && !g.marked ? cell(fmt(metres(ref.p, g.f)), 'front') + cell(fmt(metres(ref.p, g.c)), 'centre', true) + cell(fmt(metres(ref.p, g.b)), 'back') : cell(`${o.approxGreen ? '≈ ' : ''}${fmt(metres(ref.p, G))}`, 'to green', true);
-    distEl.innerHTML = `${dTxt}<span class="src">${ref.gps ? '📍 from you' : 'from the tee'} · ${unitLabel()}${o.approxGreen ? ' · green placed from the card, not mapped' : ''}</span>`;
+    const playsTxt = pl && pl.plays !== Math.round(centreYds) ? `<div class="pl"><b>${D(pl.plays)}</b><span>plays</span></div>` : '';
+    distEl.innerHTML = `${dTxt}${playsTxt}<span class="src">${ref.gps ? '📍 from you' : 'from the tee'} · ${unitLabel()}${pl?.why.length ? ` · ${pl.why.join(' · ')}` : ''}${o.approxGreen ? ' · green placed from the card, not mapped' : ''}</span>`;
     tapEl.innerHTML = tap ? `Tap: ${fmt(metres(ref.p, tap))} ${unitLabel()} out · ${fmt(metres(tap, G))} ${unitLabel()} to the green${g && !g.marked ? ` · ${fmt(metres(tap, g.f))} front` : ''}` : `${mode === 'tee' && o.par !== 3 ? `<label class="check inl"><input type="checkbox" data-leave ${leaveOn ? 'checked' : ''}/> what each club leaves</label>` : 'Tap the map to measure.'}${o.gh.marked ? ' <button class="link" data-mark>Re-mark</button>' : o.approxGreen && o.canMark ? ' <button class="link acc" data-mark>Mark the green</button>' : ''}`;
     tapEl.querySelector('[data-mark]')?.addEventListener('click', () => o.onMark?.());
     tapEl.querySelector('[data-leave]')?.addEventListener('change', (e) => { const s = getSettings(); s.mapLeave = e.target.checked; saveSettings(s); schedule(); });
@@ -265,9 +294,9 @@ export function mountHoleMap(el, opts) {
   cv.addEventListener('click', (e) => { if (!frame?.s) return; const r = cv.getBoundingClientRect(); const p = toLatLon(e.clientX - r.left, e.clientY - r.top); tap = tap && metres(tap, p) < 8 ? null : p; schedule(); });
   const onFix = () => schedule(); fixListeners.add(onFix);
   const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(() => { frame = null; schedule(); }) : null; ro?.observe(el);
-  layout(); schedule();
+  layout(); loadElev(); schedule();
   return {
-    update(next) { o = { ...o, ...next }; frame = null; tap = null; schedule(); },
+    update(next) { o = { ...o, ...next }; frame = null; tap = null; loadElev(); schedule(); },
     destroy() { fixListeners.delete(onFix); ro?.disconnect(); cancelAnimationFrame(raf); },
   };
 }

@@ -59,9 +59,19 @@ describe('clubs drawn from the tee', () => {
     expect(teeClubs(bag.filter((c) => c.club !== '5 wood' && c.club !== '3 hybrid'), { par: 5 }).map((c) => c.club)).toEqual(['Driver', '3 wood', '4 iron']);
     expect(teeClubs(bag.filter((c) => c.carry < 200), { par: 4 }).map((c) => c.club)).toEqual(['4 iron']);
   });
-  it('par 3: no fan of clubs', async () => {
+  it('par 3: three clubs around the plays-like distance', async () => {
     const { teeClubs } = await import('../../src/rounds/holemap.js');
-    expect(teeClubs(bag, { par: 3 })).toEqual([]);
+    expect(teeClubs(bag, { par: 3, toGo: 165 }).map((c) => c.club)).toEqual(['5 iron', '7 iron', 'PW']);
+    expect(teeClubs(bag, { par: 3, toGo: 120 }).map((c) => c.club)).toEqual(['5 iron', '7 iron', 'PW']); // shortest three when nothing is shorter
+    expect(teeClubs(bag, { par: 3, toGo: 300 }).map((c) => c.club)).toEqual(['Driver', '3 wood', '5 wood']);
+  });
+  it('plays-like adds rise and conditions', async () => {
+    const { playsLike } = await import('../../src/rounds/holemap.js');
+    expect(playsLike(150, {}).plays).toBe(150);
+    expect(playsLike(150, { riseM: 9.144 }).plays).toBe(160);
+    expect(playsLike(150, { riseM: -9.144 }).plays).toBe(140);
+    const into = playsLike(150, { cond: { tempC: 25, windMph: 15, windFrom: 0, pressure: 1013, humidity: 50 }, bearingDeg: 0 });
+    expect(into.plays).toBeGreaterThan(160); expect(into.why.join()).toMatch(/into/);
   });
   it('from the fairway: the club for the distance and one either side', async () => {
     const { teeClubs, alongLine } = await import('../../src/rounds/holemap.js');
