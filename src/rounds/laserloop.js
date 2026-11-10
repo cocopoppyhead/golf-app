@@ -46,6 +46,23 @@ export function playsFrom(r, cond) {
   return { plays: Math.round(slope / f), slope: Math.round(slope), wind, factor: f };
 }
 
+/**
+ * Which shot a laser read belongs to. Re-lasering within 45 s edits the same shot; the pin from the
+ * tee is the tee shot when the read is the card's length (±max(60, 20%)) or the hole is a par 3;
+ * another read from the tee is a target (lay-up, hazard) and leaves the pin distance alone; otherwise
+ * the first shot without a distance, or a new one. Returns { k, target }.
+ */
+export function shotSlot(h, { par = 4, yds = null, raw, onTee = false, now = Date.now() } = {}) {
+  const shots = h.shots || [];
+  const last = shots.reduce((m, x, k) => (x?.src === 'laser' ? k : m), -1);
+  const approachLogged = shots.some((x, n) => n > 0 && x?.dist != null);
+  if (last >= 0 && now - (shots[last].t || 0) < 45000) return { k: last, target: false };
+  if (!approachLogged && (par === 3 || (yds && Math.abs(raw - yds) < Math.max(60, yds * 0.2)) || (onTee && !yds))) return { k: 0, target: false };
+  if (onTee && !approachLogged) return { k: 0, target: true };
+  let k = shots.findIndex((x, n) => n >= 1 && (!x || x.dist == null)); if (k < 1) k = Math.max(1, shots.length);
+  return { k, target: false };
+}
+
 /** Tell the native shell what it needs to suggest a club in a background notification. */
 let cfgSent = 0;
 export async function syncLoopConfig(force = false) {
@@ -79,19 +96,14 @@ export function initLaserLoop(a) {
     const par = course.holes[i]?.par ?? 4;
     const h = round.holes[i] || (round.holes[i] = api.blankHole());
     if (!h.shots?.length) api.ensureShots(h, par, course.holes[i]?.yds);
-    const last = h.shots.reduce((m, x, k) => (x?.src === 'laser' ? k : m), -1);
-    let k;
     const gh = geoHole(geo, i + 1) || markedHole(course.holes[i]?.mark, i + 1);
-    const onTee = fix && fix.acc <= 40 && gh && metres([fix.lat, fix.lon], gh.line[0]) < 45;
+    const onTee = !!(fix && fix.acc <= 40 && gh && metres([fix.lat, fix.lon], gh.line[0]) < 45);
     const yds = course.holes[i]?.yds;
-    if (last >= 0 && Date.now() - (h.shots[last].t || 0) < 45000) k = last; // re-lasering: same shot
-    else if (!h.shots.some((x, n) => n > 0 && x?.dist != null) && (par === 3 || (yds && Math.abs(r.raw - yds) < Math.max(60, yds * 0.2)) || (onTee && !yds))) k = 0; // the pin from the tee: the tee shot
-    else if (onTee && !h.shots.some((x, n) => n > 0 && x?.dist != null)) k = -1; // a target from the tee (layup, hazard): club for it, pin distance stays the card's
-    else { k = h.shots.findIndex((x, n) => n >= 1 && (!x || x.dist == null)); if (k < 1) k = Math.max(1, h.shots.length); }
+    const slot = shotSlot(h, { par, yds, raw: r.raw, onTee });
+    let k = slot.k; const target = slot.target;
     const pl = playsFrom(r, cond);
     const pick = pickClub(bag, pl.plays, true);
     const gps = fix && fix.acc <= 60 ? { lat: +fix.lat.toFixed(6), lon: +fix.lon.toFixed(6), acc: Math.round(fix.acc) } : null;
-    const target = k === -1; if (target) k = 0;
     const x = target ? { ...h.shots[0], target: Math.round(r.raw), plays: pl.plays, src: h.shots[0].src || 'card', t: Date.now(), gps, heading: Number.isFinite(r.heading) ? Math.round(r.heading) : null }
       : { ...(h.shots[k] || {}), dist: Math.round(r.raw), plays: pl.plays, src: 'laser', t: Date.now(), gps, heading: Number.isFinite(r.heading) ? Math.round(r.heading) : null };
     if (pick?.best) x.d = { ...(x.d || {}), club: pick.best.club, swing: pick.best.swing, suggested: true };
