@@ -4,3 +4,4 @@ dist
 test/*.webm
 test/*.mp4
 e2e/
+.tmpdoc/
