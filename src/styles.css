@@ -506,3 +506,11 @@ table.t5, table.dk { width: 100%; border-collapse: collapse; font-size: 13px; } 
 .hrow { display: grid; grid-template-columns: 34px 1fr; gap: 10px; padding: 7px 0; border-top: 1px solid var(--line); align-items: start; }
 .hsc { width: 30px; height: 30px; border-radius: 8px; display: grid; place-items: center; font-weight: 800; background: var(--panel2); }
 .hsc.b { background: var(--good); color: var(--acc-ink); } .hsc.o { background: var(--ok); color: #1a1200; } .hsc.oo { background: var(--work); color: #fff; }
+
+/* laser shot card (rounds/laserloop.js) */
+.sheet.laserpop { z-index: 80; }
+.lp-top { display: flex; justify-content: space-between; align-items: center; }
+.lp-num { display: flex; align-items: baseline; gap: 6px; margin: 4px 0 2px; } .lp-num b { font-size: 56px; font-weight: 800; line-height: 1; } .lp-num span { font-size: 18px; color: var(--mute); } .lp-num em { font-style: normal; margin-left: auto; font-size: 20px; font-weight: 700; color: var(--acc); }
+.lp .lp-ok { margin-top: 10px; font-size: 20px; position: relative; } .lp-cd { position: absolute; right: 14px; top: 50%; transform: translateY(-50%); font-size: 13px; opacity: .7; }
+.lp .btn.big + .btn.big { margin-top: 8px; }
+.lp .clubchips button small { display: block; font-size: 10px; opacity: .7; }

@@ -48,6 +48,16 @@ function wantGps() {
   const tick = setInterval(() => { if (Date.now() - lastUse > 20000) { navigator.geolocation.clearWatch(watchId); watchId = null; clearInterval(tick); } }, 5000);
 }
 export const currentFix = () => fix;
+/** A fresh fix within `ms`: the watch's latest if recent, else one getCurrentPosition; null if neither. */
+export function requestFix(ms = 3000) {
+  wantGps();
+  if (fix && Date.now() - fix.t < 8000) return Promise.resolve(fix);
+  return new Promise((res) => {
+    if (!navigator.geolocation) return res(null);
+    const t = setTimeout(() => res(fix), ms);
+    navigator.geolocation.getCurrentPosition((p) => { clearTimeout(t); fix = { lat: p.coords.latitude, lon: p.coords.longitude, acc: p.coords.accuracy, t: Date.now() }; res(fix); }, () => { clearTimeout(t); res(fix); }, { enableHighAccuracy: true, maximumAge: 5000, timeout: ms });
+  });
+}
 
 // ---------- tiles ----------
 const tiles = new Map(); // url -> Image (loaded or loading)

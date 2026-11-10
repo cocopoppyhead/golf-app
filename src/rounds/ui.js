@@ -11,7 +11,7 @@ import { coachContext, addCoachNote } from '../coach/profile.js';
 import { dist, toYards, du, duLong, PUTT_FT, puttLabel, puttUnit } from '../units.js';
 import { checkRules, rulesCard, DEFAULT_RULES, tiger5, TIGER5_LABEL } from './tiger.js';
 import { LIES, roundSG, holeSG, SG_LABELS } from './sg.js';
-import { onLaser } from '../laser.js';
+import { initLaserLoop } from './laserloop.js';
 import { getBag, resolveClub } from '../bag.js';
 import { listShots } from '../store.js';
 import { workContext } from '../workingon.js';
@@ -41,26 +41,10 @@ async function effectiveClubs() {
 
 export function initRounds(el, opts) { root = el; ctx = { ...ctx, ...opts }; }
 
-// ---------------- Rangefinder → shot distances ----------------
-// Each lock-on during an open round becomes the next shot's distance on the hole you're on.
-// Re-lasering within 45 s (pin, then a hazard, then the pin again) updates the same shot.
-onLaser(async (r) => {
-  if (!r?.raw) return;
-  let round = cur?.round && !cur.round.finished ? cur.round : (await listRounds().catch(() => [])).find((x) => !x.finished);
-  if (!round) return;
-  const course = cur?.round === round ? cur.course : await getCourse(round.courseId).catch(() => null);
-  if (!course) return;
-  const i = round.curHole ?? Math.max(0, round.holes.findIndex((x) => !x || x.score == null));
-  const h = round.holes[i] || (round.holes[i] = { score: null, putts: null, tee: null, gir: null, miss: null, bunker: false, firstPutt: null, tags: [] });
-  if (!h.shots?.length) ensureShots(h, course.holes[i]?.par ?? 4, course.holes[i]?.yds);
-  const last = h.shots.reduce((m, x, k) => (x?.src === 'laser' ? k : m), -1);
-  let k = last >= 1 && Date.now() - (h.shots[last].t || 0) < 45000 ? last : h.shots.findIndex((x, n) => n >= 1 && (!x || x.dist == null));
-  if (k < 1) k = Math.max(1, h.shots.length);
-  h.shots[k] = { ...(h.shots[k] || {}), dist: Math.round(r.raw), src: 'laser', t: Date.now() };
-  await putRound(round).catch(() => {});
-  ctx.toast(`Hole ${i + 1}, shot ${k + 1}: ${dist(r.raw)} ${du()}`);
-  if (cur?.round === round && root?.isConnected && document.querySelector('.shotscard')) renderHole();
-});
+// ---------------- Rangefinder → shot card ----------------
+// Each lock-on during an open round becomes a shot with distance, plays-like, suggested club and a GPS
+// fix, shown on a card the moment it arrives (rounds/laserloop.js). GPS decides when you've moved on.
+initLaserLoop({ getCur: () => cur, toast: (t) => ctx.toast?.(t), renderHole: () => { if (cur && root?.isConnected) renderHole(); }, blankHole: () => blankHole(), ensureShots });
 
 // ---------------- Home ----------------
 export async function roundsHome() {
@@ -351,12 +335,12 @@ function renderHole() {
          ${missed ? `<div class="lbl">Missed</div><div class="seg5 res">${DIRS.map(([v, l]) => `<button class="${x.dir === v ? 'on' : ''}" data-dir="${k}" data-v="${v}">${l}</button>`).join('')}<button class="${x.ss ? 'on warn' : ''}" data-ss="${k}">Short-sided</button></div>` : ''}`;
     return `<div class="card shotpanel">
       <div class="sp-h"><span class="sn">${k + 1}</span><b>${tee ? 'Tee shot' : `Shot ${k + 1}`}</b>
-        <span class="mute small">${tee ? (x.dist ? `${dist(x.dist)} ${du()}` : '') : ''}</span>
+        <span class="mute small">${tee ? `${x.dist ? `${dist(x.dist)} ${du()}` : ''}${x.target ? ` · target ${dist(x.target)}${x.gps ? ' 📍' : ''}` : ''}` : ''}</span>
         <button class="btn sm" data-det="${k}">${x.d ? 'Details ✓' : 'Details'}</button></div>
       ${detBadge(x) ? `<div class="detline">${detBadge(x)}</div>` : ''}
       ${tee ? '' : `<div class="lbl">From</div>
         <div class="lies6">${LIES.map(([v, l]) => `<button class="${lie === v ? 'on' : ''} ${!x.lie && lie === v ? 'auto' : ''}" data-lie="${k}" data-v="${v}">${l}</button>`).join('')}</div>
-        <div class="srow1"><input inputmode="numeric" data-sd="${k}" placeholder="to pin" value="${x.dist != null ? dist(x.dist) : ''}" /><span class="mute small">${du()} to the pin${x.src === 'laser' ? ' · 📍 laser' : x.src === 'club' ? ' · ≈ from club' : ''}</span></div>`}
+        <div class="srow1"><input inputmode="numeric" data-sd="${k}" placeholder="to pin" value="${x.dist != null ? dist(x.dist) : ''}" /><span class="mute small">${du()} to the pin${x.src === 'laser' ? ` · laser${x.plays && x.plays !== x.dist ? `, plays ${dist(x.plays)}` : ''}${x.gps ? ' · 📍' : ''}` : x.src === 'club' ? ' · ≈ from club' : ''}</span></div>`}
       ${tee ? '' : `<div class="lbl">Swing</div>
       <div class="swings">${SWING_TYPES.map(([v, l]) => `<button class="${sw === v ? 'on' : ''} ${!x.sw && sw === v ? 'auto' : ''}" data-sw="${k}" data-v="${v}">${l}</button>`).join('')}</div>`}
       ${tee || sw === 'full' ? `<div class="lbl">Planned shape</div><div class="intent">${INTENT.map(([v, l]) => `<button class="${x.intent === v ? 'on' : ''}" data-int="${k}" data-v="${v}">${l}</button>`).join('')}</div>` : ''}
