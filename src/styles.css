@@ -463,3 +463,18 @@ table.t5, table.dk { width: 100%; border-collapse: collapse; font-size: 13px; } 
 .onb.drilllib { z-index: 65; }
 .sheet.drillsheet { z-index: 72; }
 .sheet.srcsheet { z-index: 74; }
+
+/* hole map (rounds/holemap.js) */
+.holemap { margin: 8px 0 10px; border-radius: var(--r); overflow: hidden; background: #1d2a1f; border: 1px solid var(--line); }
+.holemap canvas { display: block; width: 100%; cursor: crosshair; }
+.hm-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 10px; background: var(--panel); }
+.hm-dist { display: flex; gap: 14px; align-items: flex-end; flex-wrap: wrap; }
+.hm-dist > div { display: flex; flex-direction: column; }
+.hm-dist b { font-size: 19px; font-weight: 800; line-height: 1; } .hm-dist b.c { font-size: 26px; color: var(--acc); }
+.hm-dist > div span { font-size: 10.5px; color: var(--mute); text-transform: uppercase; letter-spacing: .06em; margin-top: 2px; }
+.hm-dist .src { flex-basis: 100%; font-size: 11px; color: var(--mute); }
+.hm-mode { display: flex; gap: 2px; background: var(--panel2); border-radius: 10px; padding: 2px; flex: none; }
+.hm-mode button { background: transparent; border: 0; color: var(--mute); font: 600 12px Inter, system-ui; padding: 6px 9px; border-radius: 8px; }
+.hm-mode button.on { background: var(--acc); color: var(--acc-ink); }
+.hm-tap { padding: 6px 10px 2px; background: var(--panel); min-height: 16px; }
+.hm-attr { padding: 2px 10px 6px; background: var(--panel); font-size: 9.5px; color: var(--mute); }

@@ -17,6 +17,7 @@ import { listShots } from '../store.js';
 import { workContext } from '../workingon.js';
 import { practiceContext } from '../practice.js';
 import { drillContext } from '../drills.js';
+import { loadGeo, geoHole, mountHoleMap } from './holemap.js';
 
 const DEBRIEF_TAGS = ['Driver into trouble', 'Risky shot choice', 'Approach misses', 'Short game', '3-putts', 'Lost focus', 'Back problem', 'Tired', 'Wind / conditions', 'Bad luck'];
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -27,6 +28,15 @@ const toParStr = (n) => (n === 0 ? 'E' : n > 0 ? `+${n}` : `${n}`);
 let ctx = { settings: () => ({}), toast: () => {} };
 let root;
 let cur = null; // { round, course, hole, review }
+let holeMap = null; // the mounted hole map (holemap.js), rebuilt with each hole render
+let clubsCache = { t: 0, list: [] };
+/** Your clubs with resolved carries (typed + learned), for the hole map arcs. Cached for a minute. */
+async function effectiveClubs() {
+  if (Date.now() - clubsCache.t < 60000) return clubsCache.list;
+  const shots = await listShots().catch(() => []);
+  clubsCache = { t: Date.now(), list: getBag().map((c) => resolveClub(c, shots)).filter((c) => c.carry > 0).map((c) => ({ club: c.club, carry: c.carry })) };
+  return clubsCache.list;
+}
 
 export function initRounds(el, opts) { root = el; ctx = { ...ctx, ...opts }; }
 
@@ -325,6 +335,7 @@ function renderHole() {
     </div>
     <div class="holedots">${round.holes.map((x, k) => `<i class="${k === i ? 'on' : ''} ${x && x.score != null ? (x.score < course.holes[k].par ? 'b' : x.score === course.holes[k].par ? 'p' : 'o') : ''}" data-go="${k}"></i>`).join('')}</div>
     <p class="mute small center">${esc(round.courseName)} · ${tot.s ? `${tot.s} (${toParStr(tot.s - tot.p)}) thru ${played(round).length}` : 'not started'}${review ? ' · reviewing bogeys' : ''}</p>
+    ${round.quick ? '' : '<div id="holeMap"></div>'}
 
     <div class="scorebar"><div><span class="mute small">Score</span><b class="${diff < 0 ? 'under' : diff > 0 ? 'over' : ''}">${score ?? '–'}</b><span class="small">${word}</span></div>
       ${sg && sg.complete ? `<span class="sgpill ${sg.total >= 0 ? 'pos' : 'neg'}" style="float:none">SG ${sg.total >= 0 ? '+' : ''}${sg.total.toFixed(1)}</span>` : ''}</div>
@@ -355,6 +366,17 @@ function renderHole() {
     <label class="check small" style="margin-top:12px"><input type="checkbox" data-learn ${round.learning !== false ? 'checked' : ''}/> Count this round toward my coach profile</label>
     <div class="exitrow"><button class="link" data-h="home">Save & exit</button><button class="link" data-h="endearly">End round here</button><button class="link" data-h="discard" style="color:var(--work)">Discard round</button></div>`;
 
+  // hole map: satellite + OSM shapes (when the course is mapped) + your club arcs
+  const mapEl = root.querySelector('#holeMap');
+  if (mapEl) {
+    holeMap?.destroy(); holeMap = null;
+    Promise.all([loadGeo(course.libId), effectiveClubs()]).then(([geo, clubs]) => {
+      if (!mapEl.isConnected) return;
+      const gh = geoHole(geo, i + 1);
+      if (!gh && !ch.yds) { mapEl.remove(); return; }
+      holeMap = mountHoleMap(mapEl, { gh, geo, par, yds: ch.yds, teeName: course.tees, clubs });
+    });
+  }
   const redo = () => { derive(h, par); save(); renderHole(); };
   root.querySelectorAll('[data-res]').forEach((b) => b.onclick = () => {
     const x = h.shots[+b.dataset.res]; x.res = x.res === b.dataset.v ? null : b.dataset.v;
