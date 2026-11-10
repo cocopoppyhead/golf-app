@@ -55,3 +55,20 @@ test.describe('Play', () => {
     await page.click('.markmap [data-close]');
   });
 });
+
+test('post a score without hole data, see its summary, and find it in the rounds list', async ({ page }) => {
+  await boot(page);
+  await addCourse(page, 'Majlis');
+  await page.click('nav button[data-tab=rounds]');
+  await page.click('[data-act=post]');
+  await expect(page.locator('#psScore')).toBeVisible();
+  await page.fill('#psScore', '84');
+  await page.fill('#psPutts', '33');
+  await page.click('[data-x=save]');
+  // back on the list, then its quick summary
+  await expect(page.locator('.hist').first()).toContainText('84');
+  await expect(page.locator('.hist').first()).toContainText('score only');
+  await page.locator('.hist').first().click();
+  await expect(page.locator('.kpis')).toContainText('84');
+  await expect(page.locator('[data-x=edit]')).toBeVisible();
+});
