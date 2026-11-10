@@ -3,6 +3,7 @@
 // smash 1.48–1.50; for ~100 mph club speed the carry window is launch 13–15°, spin 2,300–2,800;
 // a flush 7-iron is 1.33–1.38. Spin from range balls runs low and erratic, so spin takes carry a
 // caveat when no premium-ball session is in the data.
+import { predictedCarry } from './flight.js';
 const KIND = (name) => (/driver/i.test(name) ? 'driver' : /wood/i.test(name) ? 'wood' : /hybrid|rescue|utility/i.test(name) ? 'hybrid' : /iron|\d\s*i$/i.test(name) ? 'iron' : 'wedge');
 const FLUSH = { driver: 1.48, wood: 1.46, hybrid: 1.42, iron: 1.36, wedge: 1.25 }; // a well-struck one
 const LOW = { driver: 1.42, wood: 1.40, hybrid: 1.36, iron: 1.30, wedge: 1.18 }; // below this strike is costing you
@@ -74,6 +75,19 @@ export function launchTakes(q, club) {
     if (launch != null && launch < 11) out.push({ key: 'iron-low', level: 'work', text: `Launch ${launch.toFixed(1)}° is low for a ${kind}: a strike low on the face or the ball too far back. Check ball position, then where on the face it's coming off.`, drills: ['fix-club-on-the-ground-ball-position', 'foot-spray-strike-check'] });
     else if (launch != null && launch > 24) out.push({ key: 'iron-high', level: 'work', text: `Launch ${launch.toFixed(1)}° is high for a ${kind}: hands behind the ball at impact add loft and cost carry.`, drills: ['fix-hands-ahead-impact-bag', 'tee-in-front-low-point-drill'] });
     if (spin != null && spin < 4000 && !q.range) out.push({ key: 'iron-lowspin', level: 'work', text: `Spin ${fmt(spin)} rpm is low for a ${kind} (premium ball): thin or low-face contact, or a ball too far forward. It will fly but won't hold greens.`, drills: STRIKE_IRON });
+  }
+
+  // --- what those numbers should carry, vs what the bay said ---
+  const pred = predictedCarry(q);
+  if (pred) {
+    const meas = q.carry?.avg;
+    if (meas != null && (q.carry?.n || 0) >= 3) {
+      const ratio = meas / pred;
+      if (ratio < 0.9) out.push({ key: 'carry-short', level: 'info', text: `Those launch numbers should carry about ${pred} yd; the bay said ${Math.round(meas)}. ${q.range ? 'Range balls and sim distance read short — trust the speeds here, not the carries.' : 'The bay reads short, or the ball is running out of spin: trust the speeds more than the carries.'}`, drills: [] });
+      else if (ratio > 1.1) out.push({ key: 'carry-long', level: 'info', text: `Those launch numbers should carry about ${pred} yd; the bay said ${Math.round(meas)}, which is generous. Use ${pred} as the honest number.`, drills: [] });
+    } else if (meas == null) {
+      out.push({ key: 'carry-pred', level: 'info', text: `From the speeds, launch and spin a premium ball carries about ${pred} yd in still air at 15 °C${kind === 'driver' || kind === 'wood' ? ' (rollout on top)' : ''}.`, drills: [] });
+    }
   }
 
   // --- direction: spin axis ---

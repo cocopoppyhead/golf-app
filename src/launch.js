@@ -8,6 +8,7 @@ import { dist as D, du, isMetric } from './units.js';
 import { icon } from './icons.js';
 import { drillsLoaded, drillCardsHtml, bindDrillCards } from './drills.js';
 import { launchTakes, takesHtml, takesText } from './launchtakes.js';
+import { predictedCarry } from './flight.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const uid = (p) => `${p}_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
@@ -60,7 +61,7 @@ export function clubSummary(sessions, club) {
 export async function launchContext() {
   const S = await listLaunch().catch(() => []); if (!S.length) return '';
   const clubs = [...new Set(S.map((s) => s.club))];
-  const lines = clubs.map((c) => { const q = clubSummary(S, c); if (!q) return null; const bits = [q.clubSpeed && `club ${q.clubSpeed.avg} mph`, q.ballSpeed && `ball ${q.ballSpeed.avg} mph`, q.smash && `smash ${q.smash.avg} ±${q.smash.sd}`, q.launch && `launch ${q.launch.avg}°`, q.backSpin && `spin ${Math.round(q.backSpin.avg)}`, q.attack && `attack ${q.attack.avg}°`, q.carry && `carry ${Math.round(q.carry.avg)} (${q.range ? 'range balls, treat as low' : 'premium ball'})`].filter(Boolean); const takes = launchTakes(q, c); return `${c}: ${bits.join(', ')} over ${q.n} shots, last ${fmtD(q.last)}${takes.length ? `. App's read: ${takesText(takes.slice(0, 2))} Drills already matched: ${[...new Set(takes.flatMap((t) => t.drills))].slice(0, 4).join(', ') || 'none'}` : ''}`; }).filter(Boolean);
+  const lines = clubs.map((c) => { const q = clubSummary(S, c); if (!q) return null; const bits = [q.clubSpeed && `club ${q.clubSpeed.avg} mph`, q.ballSpeed && `ball ${q.ballSpeed.avg} mph`, q.smash && `smash ${q.smash.avg} ±${q.smash.sd}`, q.launch && `launch ${q.launch.avg}°`, q.backSpin && `spin ${Math.round(q.backSpin.avg)}`, q.attack && `attack ${q.attack.avg}°`, q.carry && `carry ${Math.round(q.carry.avg)} (${q.range ? 'range balls, treat as low' : 'premium ball'})`].filter(Boolean); const takes = launchTakes(q, c); return `${c}: ${bits.join(', ')} over ${q.n} shots, last ${fmtD(q.last)}${takes.length ? `. App's read: ${takesText(takes.slice(0, 3))} Drills already matched: ${[...new Set(takes.flatMap((t) => t.drills))].slice(0, 4).join(', ') || 'none'}` : ''}`; }).filter(Boolean);
   return `Launch monitor data (from sim/bay tables): ${lines.join('; ')}. Build on the app's read rather than repeating it.`;
 }
 
@@ -178,10 +179,11 @@ export async function renderLaunchCard(el, { toast = () => {}, onOpenClub = null
 export async function launchClubHtml(club) {
   const S = await listLaunch().catch(() => []);
   const q = clubSummary(S, club); if (!q) return '';
-  const cell = (k) => (q[k] ? `<div><b>${k === 'launch' || k === 'attack' ? `${q[k].avg}°` : k === 'backSpin' ? Math.round(q[k].avg) : q[k].avg}</b><span>${COLS[k].label}${q[k].sd ? ` ±${k === 'backSpin' ? Math.round(q[k].sd) : q[k].sd}` : ''}</span></div>` : '');
+  const cell = (k) => (q[k] ? `<div><b>${k === 'launch' || k === 'attack' ? `${q[k].avg}°` : k === 'backSpin' ? Math.round(q[k].avg) : k === 'carry' || k === 'total' || k === 'apex' ? D(q[k].avg) : q[k].avg}</b><span>${COLS[k].label}${q[k].sd ? ` ±${k === 'backSpin' ? Math.round(q[k].sd) : k === 'carry' || k === 'total' || k === 'apex' ? D(q[k].sd) : q[k].sd}` : ''}</span></div>` : '');
+  const pred = predictedCarry(q);
   return `<div class="card"><h2>Launch monitor <span class="mute small">${q.n} shots · last ${fmtD(q.last)}</span></h2>
     <div class="kpis">${['clubSpeed', 'ballSpeed', 'smash', 'launch'].map(cell).join('')}</div>
-    ${q.backSpin || q.carry || q.attack ? `<div class="kpis">${['backSpin', 'attack', 'carry', 'total', 'apex'].map(cell).join('')}</div>` : ''}
+    ${q.backSpin || q.carry || q.attack || pred ? `<div class="kpis">${['backSpin', 'attack', 'carry'].map(cell).join('')}${pred ? `<div><b>${D(pred)}</b><span>Should carry <span class="mute">(model)</span></span></div>` : ''}${['total', 'apex'].map(cell).join('')}</div>` : ''}
     ${takesBlock(q, club)}
     <p class="mute small">Carries here are what the bay measured; only premium-ball sessions feed your Bag number.</p></div>`;
 }
