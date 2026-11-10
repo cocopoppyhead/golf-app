@@ -135,6 +135,34 @@ async function homeAction(act, id) {
   if (act === 'post') return postScore(sel);
 }
 
+// ---------------- Previous plays of this hole ----------------
+let histCache = { key: '', rows: null };
+let histFilter = 'all';
+const RES_WORD = { FW: 'fairway', G: 'green', HO: 'holed', L: 'left', R: 'right', LL: 'way left', RR: 'way right', S: 'short', LO: 'long', B: 'bunker', PN: 'penalty', FB: 'fairway bunker', W: 'water', OB: 'OB', T: 'trees', RF: 'rough' };
+/** Every earlier play of hole i on any tee variant of this course, newest first, with the shots. */
+async function holeHistory(el, course, i, round) {
+  const key = `${course.libId || course.id}:${i}`;
+  if (histCache.key !== key) {
+    const [rounds, courses] = await Promise.all([listRounds().catch(() => []), listCourses().catch(() => [])]);
+    const ids = new Set(courses.filter((c) => (course.libId ? c.libId === course.libId : c.id === course.id)).map((c) => c.id));
+    const rows = rounds.filter((r) => r.id !== round.id && ids.has(r.courseId) && !r.quick && r.holes?.[i] && r.holes[i].score != null)
+      .sort((a, b) => b.date - a.date).map((r) => ({ r, h: r.holes[i], par: course.holes[i].par }));
+    histCache = { key, rows };
+  }
+  if (!el.isConnected) return;
+  const all = histCache.rows;
+  if (!all.length) { el.innerHTML = ''; return; }
+  const rows = all.filter((x) => histFilter === 'all' || (histFilter === 'tees' ? x.r.tees === round.tees : (x.h.shots || []).some((s) => s.src === 'laser')));
+  const sc = all.map((x) => x.h.score), par = course.holes[i].par;
+  const avg = sc.reduce((a, b) => a + b, 0) / sc.length;
+  const shotLine = (h) => (h.shots || []).map((x, k) => { const bits = [x.d?.club, x.dist != null && k > 0 ? `${dist(x.dist)}${x.src === 'laser' ? '📍' : ''}` : null, RES_WORD[x.res]].filter(Boolean).join(' '); return bits || (k === 0 ? 'tee' : '·'); }).join(' → ');
+  el.innerHTML = `<details class="card hhist"><summary><b>This hole: ${all.length} played · avg ${avg.toFixed(1)} · best ${Math.min(...sc)} · worst ${Math.max(...sc)}</b><span class="mute small">${all.filter((x) => x.h.score < par).length} under · ${all.filter((x) => x.h.score === par).length} par · ${all.filter((x) => x.h.score > par).length} over</span></summary>
+    <div class="chips3 hfilt">${[['all', 'All'], ['tees', 'Same tees'], ['laser', 'With laser']].map(([v, l]) => `<button class="${histFilter === v ? 'on' : ''}" data-hf="${v}">${l}</button>`).join('')}</div>
+    ${rows.slice(0, 12).map(({ r, h }) => `<div class="hrow"><span class="hsc ${h.score < par ? 'b' : h.score === par ? 'p' : h.score >= par + 2 ? 'oo' : 'o'}">${h.score}</span><div><div class="small"><b>${fmtD(r.date)}</b> <span class="mute">· ${esc(r.tees || '')}${h.putts != null ? ` · ${h.putts} putt${h.putts === 1 ? '' : 's'}` : ''}</span></div><div class="mute small">${esc(shotLine(h))}</div>${h.note ? `<div class="small">“${esc(h.note)}”</div>` : ''}</div></div>`).join('') || '<p class="mute small">Nothing matches that filter.</p>'}
+  </details>`;
+  el.querySelectorAll('[data-hf]').forEach((b) => b.onclick = (e) => { e.preventDefault(); histFilter = b.dataset.hf; holeHistory(el, course, i, round).then(() => el.querySelector('details').open = true); });
+}
+
 /** Start logging a round on a saved course (optionally from a scheduled event: partners prefilled). */
 async function startRound(c, ev = null) {
   const r = { id: uid('r'), date: Date.now(), courseId: c.id, courseName: c.name, tees: c.tees || '', learning: true, finished: false, holes: c.holes.map(() => null) };
@@ -345,7 +373,7 @@ function renderHole() {
     </div>
     <div class="holedots">${round.holes.map((x, k) => `<i class="${k === i ? 'on' : ''} ${x && x.score != null ? (x.score < course.holes[k].par ? 'b' : x.score === course.holes[k].par ? 'p' : 'o') : ''}" data-go="${k}"></i>`).join('')}</div>
     <p class="mute small center">${esc(round.courseName)} · ${tot.s ? `${tot.s} (${toParStr(tot.s - tot.p)}) thru ${played(round).length}` : 'not started'}${review ? ' · reviewing bogeys' : ''}</p>
-    ${round.quick ? '' : '<div id="holeMap"></div>'}
+    ${round.quick ? '' : '<div id="holeMap"></div><div id="holeHist"></div>'}
 
     <div class="scorebar"><div><span class="mute small">Score</span><b class="${diff < 0 ? 'under' : diff > 0 ? 'over' : ''}">${score ?? '–'}</b><span class="small">${word}</span></div>
       ${sg && sg.complete ? `<span class="sgpill ${sg.total >= 0 ? 'pos' : 'neg'}" style="float:none">SG ${sg.total >= 0 ? '+' : ''}${sg.total.toFixed(1)}</span>` : ''}</div>
@@ -387,6 +415,8 @@ function renderHole() {
       holeMap = mountHoleMap(mapEl, { gh, geo, par, yds: ch.yds, teeName: course.tees, clubs, canMark: !!course.lat, onMark: () => markHoleSheet({ course, start: i, geo, onSave: (k, mark) => { course.holes[k].mark = mark; putCourse(course); }, onClose: renderHole }) });
     });
   }
+  const histEl = root.querySelector('#holeHist');
+  if (histEl) holeHistory(histEl, course, i, round);
   const redo = () => { derive(h, par); save(); renderHole(); };
   root.querySelectorAll('[data-res]').forEach((b) => b.onclick = () => {
     const x = h.shots[+b.dataset.res]; x.res = x.res === b.dataset.v ? null : b.dataset.v;
