@@ -10,7 +10,6 @@ import { getCoaching, md, aiFrom, aiReady, PROVIDERS, listModels } from './coach
 import { getSettings, saveSettings, putSwing, listSwings, getSwing, deleteSwing, putMedia, getMedia, mediaKeys } from './store.js';
 import { renderBag } from './bag.js';
 import { isMetric } from './units.js';
-import { drillFor, drillHtml } from './coach/drills.js';
 import { keysHtml, getKeysText } from './keys.js';
 import { RULES, DEFAULT_RULES } from './rounds/tiger.js';
 import { renderInstall } from './install.js';
@@ -24,7 +23,7 @@ import { pendingInviteFromUrl } from './cloud/social.js';
 import { renderScoring, practiceFromRounds } from './progress.js';
 import { workContext } from './workingon.js';
 import { renderPracticeLog, practiceContext } from './practice.js';
-import { renderDrillsCard, drillContext } from './drills.js';
+import { renderDrillsCard, drillContext, loadDrills, faultDrills, drillCardsHtml, bindDrillCards, drillMenuForAi, drillsLoaded } from './drills.js';
 import { renderRangefinder } from './rangefinder.js';
 import { maybeOnboard, avatarHtml, localProfile, openProfileEditor } from './onboarding.js';
 import { startSync } from './cloud/sync.js';
@@ -319,7 +318,7 @@ async function renderSession(sessionId) {
   all.forEach((s) => { const k = s.summary.priority?.key; if (k) counts[k] = (counts[k] || 0) + 1; });
   const topKey = Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0];
   const plan = getPlan();
-  const d = topKey ? (drillFor(topKey) || drillFor(`dtl:${topKey}`)) : null;
+  const sd = topKey ? faultDrills(topKey).slice(0, 2) : [];
   $('#coach-session').innerHTML = `
     <div class="card"><div class="scorerow">${scoreRing(Math.round(avg * 10) / 10)}<div><h2>${all[0].golfer ? `${esc(all[0].golfer)}'s session` : 'Range session'} · ${all.length} swing${all.length > 1 ? 's' : ''}</h2>
       <p>Average ${avg.toFixed(1)}/10 · best: swing ${all.indexOf(best) + 1} (${best.summary.score10?.toFixed(1)})</p>
@@ -327,15 +326,16 @@ async function renderSession(sessionId) {
       <button class="btn" id="speakBtn" style="width:100%;margin-top:10px">🔊 Read it out</button></div>
     ${all.map((s, i) => { const chk = plan.focus && !s.golfer ? checkIn(s, plan) : null; return `<div class="recent" data-id="${s.id}"><img src="${s.thumbs?.[2] || ''}" alt="" />
       <div><div class="t"><span class="sc10">${s.summary.score10?.toFixed(1) ?? '–'}</span> Swing ${i + 1}</div><div class="s">${esc(s.summary.headline.replace('Biggest opportunity: ', 'Fix: '))}${chk ? ` · <span style="color:var(--${chk.status})">${chk.verdict}</span>` : ''}</div></div><div class="play">▶</div></div>`; }).join('')}
-    ${d ? `<div class="card"><div class="lbl">Take this to your next session</div>${drillHtml(d, esc)}</div>` : ''}
+    ${sd.length ? `<div class="card">${drillCardsHtml(sd, { title: 'Take this to your next session' })}</div>` : ''}
     <button class="btn" id="sessDone" style="width:100%">Done</button>`;
   screen('coach-session');
+  bindDrillCards($('#coach-session'), { toast });
   document.querySelectorAll('#coach-session .recent').forEach((r) => r.addEventListener('click', () => openSaved(r.dataset.id)));
   $('#sessDone').onclick = () => { screen('coach-start'); renderRecent(); };
   $('#speakBtn').onclick = () => {
     if (!window.speechSynthesis) return toast('Speech not available on this device.');
     const lines = [`${all.length} swings. Average ${avg.toFixed(1)} out of 10.`, ...all.map((s, i) => `Swing ${i + 1}: ${s.summary.score10?.toFixed(1)}. ${s.summary.advice.split('.')[0]}.`)];
-    if (d) lines.push(`Next session, work on: ${d.title}. ${d.feel}.`);
+    if (sd[0]) lines.push(`Next session, work on: ${sd[0].name}. ${sd[0].feel || sd[0].purpose}.`);
     speechSynthesis.cancel(); lines.forEach((t) => speechSynthesis.speak(new SpeechSynthesisUtterance(t)));
   };
 }
@@ -549,6 +549,7 @@ async function refreshCoachCard(runPlan) {
   const el = $('#coachCheck');
   if (state.golfer) {
     el.innerHTML = `<h3>${esc(state.golfer)}'s swing</h3><p class="mute">Saved under their name. Not counted toward your profile.</p>${priorityHtml(null)}`;
+    bindDrillCards(el, { toast });
     return;
   }
   if (!state.learning) {
@@ -575,14 +576,19 @@ async function refreshCoachCard(runPlan) {
   }
   html += priorityHtml(plan);
   el.innerHTML = html;
+  bindDrillCards(el, { toast });
 }
 
-/** Your one priority for this swing (current focus, else this swing's biggest fault) + its drill. */
+/** Drills for this swing: the AI coach's prescription if it made one, else the library drills for your
+ * current focus (or this swing's biggest fault). Tap one to read it, log it, or put it in a session. */
 function priorityHtml(plan) {
+  const lib = drillsLoaded(); if (!lib) return '';
+  const prescribed = (plan?.drills || []).map((id) => lib.drills.find((d) => d.id === id)).filter(Boolean);
   const key = plan?.focus?.key || state.A?.summary.priority?.key;
-  if (!key) return '';
-  const d = drillFor(key) || drillFor(`dtl:${key}`);
-  return d ? `<div class="priority"><div class="lbl" style="margin-top:12px">${plan?.focus ? 'Work on this' : 'Priority for this swing'}</div>${drillHtml(d, esc)}</div>` : '';
+  const list = prescribed.length ? prescribed : key ? faultDrills(key).slice(0, 2) : [];
+  if (!list.length) return '';
+  const title = prescribed.length ? `Your coach's drills${plan?.drillsAt ? ` · ${new Date(plan.drillsAt).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}` : ''}` : plan?.focus ? 'Drills for your focus' : 'Drills for this swing';
+  return `<div class="priority">${drillCardsHtml(list, { title })}</div>`;
 }
 
 function scoreRing(v) {
@@ -722,7 +728,7 @@ async function doAi() {
     const history = state.learning && !state.golfer ? coachContext(swings, await recentRoundAggregate()) : '';
     const golfer = state.golfer
       ? `This is ${state.golfer}'s swing (a friend of the app owner). Coach ${state.golfer} directly; no history on file.`
-      : [settings.golfer, workContext(), await practiceContext().catch(() => ''), await drillContext().catch(() => ''), settings.keys ? `Their own swing keys/notes (use their language): ${settings.keys.replace(/\n+/g, ' | ')}` : ''].filter(Boolean).join('. ');
+      : [settings.golfer, workContext(), await practiceContext().catch(() => ''), await drillContext().catch(() => ''), settings.keys ? `Their own swing keys/notes (use their language): ${settings.keys.replace(/\n+/g, ' | ')}` : '', drillMenuForAi([getPlan().focus?.key, state.A?.summary.priority?.key, ...state.A.checkpoints.flatMap((c) => c.items.filter((i) => i.status === 'bad').map((i) => `${c.key}:${i.name}`))].filter(Boolean))].filter(Boolean).join('. ');
     const { text, meta } = await getCoaching({ ...aiFrom(settings), A: state.A, images, golfer, history });
     state.ai = text;
     let extra = '';
@@ -734,8 +740,12 @@ async function doAi() {
         const plan = setFocus(meta.focus); plan.focus.setBy = 'AI coach'; savePlanX(plan);
         extra = `<p class="event">Coach set your focus to: ${esc(metricLabel(meta.focus).toLowerCase())}.</p>`;
       }
+      const lib = drillsLoaded();
+      const ids = Array.isArray(meta.drills) ? meta.drills.filter((id) => lib?.drills.some((d) => d.id === id)).slice(0, 3) : [];
+      if (ids.length) { const plan = getPlan(); plan.drills = ids; plan.drillsAt = Date.now(); savePlanX(plan); }
     }
     out.innerHTML = md(text) + extra;
+    bindDrillCards(out, { toast });
     await putSwing(record()).catch(() => {});
     if (state.learning) refreshCoachCard(false);
   } catch (e) { out.innerHTML = `<p style="color:var(--work)">${esc(e.message)}</p>`; }
@@ -952,6 +962,7 @@ $('#importFile').addEventListener('change', async (e) => {
 $('#buildTag').textContent = `App version ${__BUILD__} UTC`;
 
 startSync();
+loadDrills(); // the drill library backs the swing screens' drill cards
 // an invite link (?join= / ?friend=): remembered, acted on from the Play tab once signed in
 if (pendingInviteFromUrl()) { showTab('rounds'); toast('Invite received. Sign in (Settings) if you haven\'t, then it joins from Play.'); }
 

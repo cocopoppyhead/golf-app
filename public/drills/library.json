@@ -1834,6 +1834,615 @@
     "range",
     "sim"
    ]
+  },
+  {
+   "id": "fix-club-on-the-ground-ball-position",
+   "name": "Club-on-the-ground ball position",
+   "area": "swing",
+   "sub": "fault fix: ball position at address",
+   "purpose": "Ball too far back gives low, blocked shots; too far forward gives pulls and thin contact.",
+   "setup": "Lay a club across your toes and another pointing at the ball, at right angles.",
+   "how": "Irons: ball in the middle to a ball forward of centre. Driver: inside the lead heel. Set up to 10 balls checking the sticks each time before you hit.",
+   "score": "Good reps out of 10 (set-up or strike matched the checkpoint).",
+   "reps": "10 balls, every range session for a week.",
+   "level": "all",
+   "sources": [],
+   "metric": {
+    "type": "count",
+    "higher": true,
+    "of": 10,
+    "label": "good reps"
+   },
+   "minutes": 10,
+   "where": [
+    "home",
+    "range",
+    "sim"
+   ],
+   "feel": "Same spot, every time",
+   "fixes": [
+    "address:Ball position"
+   ]
+  },
+  {
+   "id": "fix-trail-shoulder-low",
+   "name": "Trail shoulder low",
+   "area": "swing",
+   "sub": "fault fix: spine tilt at address",
+   "purpose": "Without tilt away from the target you tend to get steep, over-the-top and pulled shots.",
+   "setup": "Take your grip, then slide your trail hand down the thigh an inch.",
+   "how": "Feel your trail shoulder sit lower than your lead shoulder and your head stay behind the ball. Check in a mirror or phone: spine leans slightly away from target.",
+   "score": "Good reps out of 10 (set-up or strike matched the checkpoint).",
+   "reps": "10 set-ups without a ball, then 10 balls.",
+   "level": "all",
+   "sources": [],
+   "metric": {
+    "type": "count",
+    "higher": true,
+    "of": 10,
+    "label": "good reps"
+   },
+   "minutes": 10,
+   "where": [
+    "home",
+    "range",
+    "sim"
+   ],
+   "feel": "Trail shoulder lower than lead",
+   "fixes": [
+    "address:Spine tilt"
+   ]
+  },
+  {
+   "id": "fix-shoulder-width-stance-check",
+   "name": "Shoulder-width stance check",
+   "area": "swing",
+   "sub": "fault fix: stance at address",
+   "purpose": "Too narrow costs balance and speed; too wide stops the hips turning.",
+   "setup": "Place two clubs on the ground pointing at the target, under the outside of each shoulder.",
+   "how": "Irons: insides of your heels on the clubs. Driver: a little wider. Wedges: a little narrower. Hit 10 balls without moving the clubs.",
+   "score": "Good reps out of 10 (set-up or strike matched the checkpoint).",
+   "reps": "10 balls per club type.",
+   "level": "all",
+   "sources": [],
+   "metric": {
+    "type": "count",
+    "higher": true,
+    "of": 10,
+    "label": "good reps"
+   },
+   "minutes": 10,
+   "where": [
+    "home",
+    "range",
+    "sim"
+   ],
+   "feel": "Stable, but able to turn",
+   "fixes": [
+    "address:Stance"
+   ]
+  },
+  {
+   "id": "fix-head-in-the-box",
+   "name": "Head in the box",
+   "area": "swing",
+   "sub": "fault fix: head at top",
+   "purpose": "A big head move off the ball makes it hard to return the club to the same spot: fat and thin strikes.",
+   "setup": "Stand with the sun or a light behind you so your head casts a shadow on a tee in the ground.",
+   "how": "Make half swings keeping the shadow within a ball-width of the tee. Build to full swings keeping it within two ball-widths.",
+   "score": "Good reps out of 10 (set-up or strike matched the checkpoint).",
+   "reps": "3 sets of 10 swings.",
+   "level": "all",
+   "sources": [],
+   "metric": {
+    "type": "count",
+    "higher": true,
+    "of": 10,
+    "label": "good reps"
+   },
+   "minutes": 10,
+   "where": [
+    "home",
+    "range",
+    "sim"
+   ],
+   "feel": "Turn around your head, not past it",
+   "fixes": [
+    "top:Head"
+   ]
+  },
+  {
+   "id": "fix-trail-hip-to-wall",
+   "name": "Trail-hip-to-wall",
+   "area": "swing",
+   "sub": "fault fix: hips at top",
+   "purpose": "Sliding the hips past the trail foot means you have to slide back: inconsistent low point and blocks or hooks.",
+   "setup": "Set up with your trail hip a few inches from a wall or golf bag.",
+   "how": "Turn back so your trail hip moves back and around, not sideways into the wall. Feel pressure in the inside of your trail foot at the top.",
+   "score": "Good reps out of 10 (set-up or strike matched the checkpoint).",
+   "reps": "3 sets of 10 slow turns, then 10 balls.",
+   "level": "all",
+   "sources": [],
+   "metric": {
+    "type": "count",
+    "higher": true,
+    "of": 10,
+    "label": "good reps"
+   },
+   "minutes": 10,
+   "where": [
+    "home",
+    "range",
+    "sim"
+   ],
+   "feel": "Turn in a barrel",
+   "fixes": [
+    "top:Hips"
+   ]
+  },
+  {
+   "id": "fix-stay-tilted-at-the-top",
+   "name": "Stay tilted at the top",
+   "area": "swing",
+   "sub": "fault fix: spine tilt at top",
+   "purpose": "Tilting toward the target at the top (reverse pivot) leads to steep downswings and weak slices.",
+   "setup": "Hold a club across your chest. Make backswing turns.",
+   "how": "At the top, the club across your chest should point down at the ground outside the ball, not level. Feel your upper body stay behind the ball as you turn.",
+   "score": "Good reps out of 10 (set-up or strike matched the checkpoint).",
+   "reps": "20 turns, then 10 balls.",
+   "level": "all",
+   "sources": [],
+   "metric": {
+    "type": "count",
+    "higher": true,
+    "of": 10,
+    "label": "good reps"
+   },
+   "minutes": 10,
+   "where": [
+    "home",
+    "range",
+    "sim"
+   ],
+   "feel": "Head behind the ball at the top",
+   "fixes": [
+    "top:Spine tilt"
+   ]
+  },
+  {
+   "id": "fix-step-through-drill",
+   "name": "Step-through drill",
+   "area": "swing",
+   "sub": "fault fix: hips at impact",
+   "purpose": "Hanging back on the trail side gives fat, thin and flippy strikes.",
+   "setup": "Hit balls with half swings, letting your trail foot step toward the target after impact.",
+   "how": "You can only step through if your weight has moved to the lead side. Then hit full shots feeling the same shift without the step.",
+   "score": "Good reps out of 10 (set-up or strike matched the checkpoint).",
+   "reps": "10 step-throughs, then 10 normal.",
+   "level": "all",
+   "sources": [],
+   "metric": {
+    "type": "count",
+    "higher": true,
+    "of": 10,
+    "label": "good reps"
+   },
+   "minutes": 10,
+   "where": [
+    "home",
+    "range",
+    "sim"
+   ],
+   "feel": "Belt buckle moves toward target first",
+   "fixes": [
+    "impact:Hips"
+   ]
+  },
+  {
+   "id": "fix-head-behind-the-ball",
+   "name": "Head behind the ball",
+   "area": "swing",
+   "sub": "fault fix: head at impact",
+   "purpose": "Your head drifting toward the target at impact closes the shoulders and moves the low point: pulls, thin shots and lost speed.",
+   "setup": "Put a headcover or towel just ahead of your lead eye line (toward target), on the ground in front of you.",
+   "how": "Hit half shots keeping your head behind it through impact. Stay there until the ball is gone, then let the head rotate.",
+   "score": "Good reps out of 10 (set-up or strike matched the checkpoint).",
+   "reps": "3 sets of 10 balls.",
+   "level": "all",
+   "sources": [],
+   "metric": {
+    "type": "count",
+    "higher": true,
+    "of": 10,
+    "label": "good reps"
+   },
+   "minutes": 10,
+   "where": [
+    "home",
+    "range",
+    "sim"
+   ],
+   "feel": "Hit it from behind the ball",
+   "fixes": [
+    "impact:Head"
+   ]
+  },
+  {
+   "id": "fix-trail-shoulder-under",
+   "name": "Trail shoulder under",
+   "area": "swing",
+   "sub": "fault fix: spine tilt at impact",
+   "purpose": "Losing tilt in the downswing throws the club over the top: pulls and slices.",
+   "setup": "Make slow downswings to impact and stop.",
+   "how": "Check the trail shoulder is lower than the lead shoulder and your head is still behind the ball. Hit balls with 3/4 swings holding that look.",
+   "score": "Good reps out of 10 (set-up or strike matched the checkpoint).",
+   "reps": "10 slow-motion rehearsals, then 10 balls.",
+   "level": "all",
+   "sources": [],
+   "metric": {
+    "type": "count",
+    "higher": true,
+    "of": 10,
+    "label": "good reps"
+   },
+   "minutes": 10,
+   "where": [
+    "home",
+    "range",
+    "sim"
+   ],
+   "feel": "Trail shoulder works down and under",
+   "fixes": [
+    "impact:Spine tilt"
+   ]
+  },
+  {
+   "id": "fix-hands-ahead-impact-bag",
+   "name": "Hands-ahead impact bag",
+   "area": "swing",
+   "sub": "fault fix: hands at impact",
+   "purpose": "Hands behind the ball adds loft and gives weak, high, inconsistent shots.",
+   "setup": "Without a ball, swing slowly into an impact bag, pillow or the turf.",
+   "how": "Arrive with the hands over your lead thigh and the shaft leaning toward the target. Hit 3/4 shots trying to hit the ground after the ball.",
+   "score": "Good reps out of 10 (set-up or strike matched the checkpoint).",
+   "reps": "20 slow reps, then 10 balls.",
+   "level": "all",
+   "sources": [],
+   "metric": {
+    "type": "count",
+    "higher": true,
+    "of": 10,
+    "label": "good reps"
+   },
+   "minutes": 10,
+   "where": [
+    "home",
+    "range",
+    "sim"
+   ],
+   "feel": "Handle leads, clubhead follows",
+   "fixes": [
+    "impact:Hands"
+   ]
+  },
+  {
+   "id": "fix-hold-your-finish-for-3-seconds",
+   "name": "Hold your finish for 3 seconds",
+   "area": "swing",
+   "sub": "fault fix: weight at finish",
+   "purpose": "Falling back at the finish is a sign the weight never got to the lead side.",
+   "setup": "Hit balls at 80% effort and hold the finish for a count of three.",
+   "how": "Belt buckle to the target, almost all weight on the lead foot. If you can't hold it, the swing was out of balance. Slow down.",
+   "score": "Good reps out of 10 (set-up or strike matched the checkpoint).",
+   "reps": "10 balls.",
+   "level": "all",
+   "sources": [],
+   "metric": {
+    "type": "count",
+    "higher": true,
+    "of": 10,
+    "label": "good reps"
+   },
+   "minutes": 10,
+   "where": [
+    "home",
+    "range",
+    "sim"
+   ],
+   "feel": "Pose for the photo",
+   "fixes": [
+    "finish:Weight"
+   ]
+  },
+  {
+   "id": "fix-trail-toe-finish",
+   "name": "Trail toe finish",
+   "area": "swing",
+   "sub": "fault fix: trail foot at finish",
+   "purpose": "A flat trail foot at the finish means the hips stopped turning.",
+   "setup": "At the finish, only the tip of your trail shoe should touch the ground.",
+   "how": "Make practice swings finishing with the trail heel facing straight back. Hit balls doing the same.",
+   "score": "Good reps out of 10 (set-up or strike matched the checkpoint).",
+   "reps": "10 swings, 10 balls.",
+   "level": "all",
+   "sources": [],
+   "metric": {
+    "type": "count",
+    "higher": true,
+    "of": 10,
+    "label": "good reps"
+   },
+   "minutes": 10,
+   "where": [
+    "home",
+    "range",
+    "sim"
+   ],
+   "feel": "Show your trail sole to someone behind you",
+   "fixes": [
+    "finish:Trail foot"
+   ]
+  },
+  {
+   "id": "fix-chest-to-the-target",
+   "name": "Chest to the target",
+   "area": "swing",
+   "sub": "fault fix: body at finish",
+   "purpose": "Stopping the turn makes the arms flip the club: hooks and blocks.",
+   "setup": "Pick a target. At the finish your chest and belt buckle should face it.",
+   "how": "Make slow full swings and check with the club held across your chest. Hit balls finishing the turn every time.",
+   "score": "Good reps out of 10 (set-up or strike matched the checkpoint).",
+   "reps": "10 balls.",
+   "level": "all",
+   "sources": [],
+   "metric": {
+    "type": "count",
+    "higher": true,
+    "of": 10,
+    "label": "good reps"
+   },
+   "minutes": 10,
+   "where": [
+    "home",
+    "range",
+    "sim"
+   ],
+   "feel": "Turn through, don't stop at the ball",
+   "fixes": [
+    "finish:Body"
+   ]
+  },
+  {
+   "id": "fix-hinge-from-the-hips",
+   "name": "Hinge from the hips",
+   "area": "swing",
+   "sub": "fault fix: posture at address",
+   "purpose": "Too upright or too bent changes the swing plane and makes the body stand up through impact.",
+   "setup": "Stand tall, hold a club down your spine touching head, upper back and backside.",
+   "how": "Push your backside back and hinge until your arms hang straight under your shoulders, keeping all three contact points. Add a little knee flex and grip the club.",
+   "score": "Good reps out of 10 (set-up or strike matched the checkpoint).",
+   "reps": "10 set-ups, then 10 balls.",
+   "level": "all",
+   "sources": [],
+   "metric": {
+    "type": "count",
+    "higher": true,
+    "of": 10,
+    "label": "good reps"
+   },
+   "minutes": 10,
+   "where": [
+    "home",
+    "range",
+    "sim"
+   ],
+   "feel": "Backside back, chest over the ball",
+   "fixes": [
+    "dtl:address:Posture"
+   ]
+  },
+  {
+   "id": "fix-athletic-knees",
+   "name": "Athletic knees",
+   "area": "swing",
+   "sub": "fault fix: knee flex at address",
+   "purpose": "Straight legs or too much squat both stop the hips turning properly.",
+   "setup": "From good posture, flex the knees just enough that you could jump.",
+   "how": "Knees over the balls of your feet, not past the toes. Check side-on: a slight bend, not a sit.",
+   "score": "Good reps out of 10 (set-up or strike matched the checkpoint).",
+   "reps": "10 set-ups.",
+   "level": "all",
+   "sources": [],
+   "metric": {
+    "type": "count",
+    "higher": true,
+    "of": 10,
+    "label": "good reps"
+   },
+   "minutes": 10,
+   "where": [
+    "home",
+    "range",
+    "sim"
+   ],
+   "feel": "Ready to move",
+   "fixes": [
+    "dtl:address:Knee flex"
+   ]
+  },
+  {
+   "id": "fix-keep-your-angle-going-back",
+   "name": "Keep your angle going back",
+   "area": "swing",
+   "sub": "fault fix: spine angle at top",
+   "purpose": "Standing up in the backswing changes the plane and you have to find the ball again.",
+   "setup": "Set up with your head lightly touching a wall or alignment stick in front of you (cap brim).",
+   "how": "Turn back keeping the brim on the stick. Hit 3/4 shots feeling the same.",
+   "score": "Good reps out of 10 (set-up or strike matched the checkpoint).",
+   "reps": "20 turns, 10 balls.",
+   "level": "all",
+   "sources": [],
+   "metric": {
+    "type": "count",
+    "higher": true,
+    "of": 10,
+    "label": "good reps"
+   },
+   "minutes": 10,
+   "where": [
+    "home",
+    "range",
+    "sim"
+   ],
+   "feel": "Turn, don't lift",
+   "fixes": [
+    "dtl:top:Spine angle"
+   ]
+  },
+  {
+   "id": "fix-level-head",
+   "name": "Level head",
+   "area": "swing",
+   "sub": "fault fix: head height at top",
+   "purpose": "Head dropping or rising in the backswing changes the low point: fat and thin strikes.",
+   "setup": "Film side-on and put a finger on the screen on your cap.",
+   "how": "Make swings keeping the cap within an inch of that spot to the top. Hit balls the same way.",
+   "score": "Good reps out of 10 (set-up or strike matched the checkpoint).",
+   "reps": "10 swings, 10 balls.",
+   "level": "all",
+   "sources": [],
+   "metric": {
+    "type": "count",
+    "higher": true,
+    "of": 10,
+    "label": "good reps"
+   },
+   "minutes": 10,
+   "where": [
+    "home",
+    "range",
+    "sim"
+   ],
+   "feel": "Head stays at the same height",
+   "fixes": [
+    "dtl:top:Head height"
+   ]
+  },
+  {
+   "id": "fix-butt-to-the-wall",
+   "name": "Butt to the wall",
+   "area": "swing",
+   "sub": "fault fix: early extension at impact",
+   "purpose": "Hips moving toward the ball in the downswing (early extension) leaves the arms no room: blocks, hooks, shanks and thin strikes.",
+   "setup": "Set up with your backside lightly touching a wall, chair or golf bag behind you.",
+   "how": "Swing back keeping the trail cheek on it, then down keeping the lead cheek on it through impact. Hit 3/4 shots with the same feeling.",
+   "score": "Good reps out of 10 (set-up or strike matched the checkpoint).",
+   "reps": "3 sets of 10 swings, then 10 balls.",
+   "level": "all",
+   "sources": [],
+   "metric": {
+    "type": "count",
+    "higher": true,
+    "of": 10,
+    "label": "good reps"
+   },
+   "minutes": 10,
+   "where": [
+    "home",
+    "range",
+    "sim"
+   ],
+   "feel": "Backside stays back through the ball",
+   "fixes": [
+    "dtl:impact:Early extension"
+   ]
+  },
+  {
+   "id": "fix-chest-over-the-ball-through-impact",
+   "name": "Chest over the ball through impact",
+   "area": "swing",
+   "sub": "fault fix: spine angle at impact",
+   "purpose": "Standing up through impact pulls the club away from the ball: thin and blocked shots.",
+   "setup": "Make slow swings to impact and freeze. Your chest should still be pointing at the ball.",
+   "how": "Hit half shots keeping your chest down until the ball is gone. Build to full speed.",
+   "score": "Good reps out of 10 (set-up or strike matched the checkpoint).",
+   "reps": "10 rehearsals, 10 balls.",
+   "level": "all",
+   "sources": [],
+   "metric": {
+    "type": "count",
+    "higher": true,
+    "of": 10,
+    "label": "good reps"
+   },
+   "minutes": 10,
+   "where": [
+    "home",
+    "range",
+    "sim"
+   ],
+   "feel": "Stay in your posture",
+   "fixes": [
+    "dtl:impact:Spine angle"
+   ]
+  },
+  {
+   "id": "fix-no-dip-no-lift",
+   "name": "No dip, no lift",
+   "area": "swing",
+   "sub": "fault fix: head height at impact",
+   "purpose": "Head moving up or down through impact changes how deep the club gets: fat and thin.",
+   "setup": "Have a friend hold a club shaft just above your cap from side-on.",
+   "how": "Swing without the cap touching it or dropping away from it. Hit balls the same way.",
+   "score": "Good reps out of 10 (set-up or strike matched the checkpoint).",
+   "reps": "10 swings, 10 balls.",
+   "level": "all",
+   "sources": [],
+   "metric": {
+    "type": "count",
+    "higher": true,
+    "of": 10,
+    "label": "good reps"
+   },
+   "minutes": 10,
+   "where": [
+    "home",
+    "range",
+    "sim"
+   ],
+   "feel": "Quiet head",
+   "fixes": [
+    "dtl:impact:Head height"
+   ]
+  },
+  {
+   "id": "fix-tall-balanced-finish",
+   "name": "Tall balanced finish",
+   "area": "swing",
+   "sub": "fault fix: balance at finish",
+   "purpose": "Falling forward or back at the finish shows the swing was off balance.",
+   "setup": "Hit balls at 80% and hold the finish for 3 seconds.",
+   "how": "Finish tall, weight on the lead foot, chest to target. If you wobble, slow down.",
+   "score": "Good reps out of 10 (set-up or strike matched the checkpoint).",
+   "reps": "10 balls.",
+   "level": "all",
+   "sources": [],
+   "metric": {
+    "type": "count",
+    "higher": true,
+    "of": 10,
+    "label": "good reps"
+   },
+   "minutes": 10,
+   "where": [
+    "home",
+    "range",
+    "sim"
+   ],
+   "feel": "Finish like a statue",
+   "fixes": [
+    "dtl:finish:Balance"
+   ]
   }
  ]
 }

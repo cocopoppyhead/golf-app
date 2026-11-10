@@ -126,6 +126,11 @@ function planSheet(done) {
 
 // ---------------- Session planner ----------------
 /** Full-screen planner: when, how long, where, and the items (drills, goals, rep work). Save for later or start now. */
+/** Open the planner with one drill already in it (from a swing review or the drill sheet). */
+export function planWithDrill(d, { toast = () => {} } = {}) {
+  const s = { id: uid(), status: 'planned', createdAt: Date.now(), date: null, when: 'today', repeat: null, weekday: (new Date().getDay() + 6) % 7, minutes: d.minutes || 30, title: '', where: [({ putting: 'putting', chipping: 'short', wedges: 'short', bunker: 'short' })[d.area] || 'range'], items: [{ id: uid('it'), mode: 'score', title: d.name, drillId: d.id, of: d.metric?.of || null, score: null }], rating: null, note: '' };
+  return sessionPlanner(s, { toast, done: () => window.dispatchEvent(new Event('practice-changed')) });
+}
 export function sessionPlanner(existing, { toast = () => {}, done = () => {} } = {}) {
   const s = existing ? norm(JSON.parse(JSON.stringify(existing))) : { id: uid(), status: 'planned', createdAt: Date.now(), date: null, when: 'today', repeat: null, weekday: (new Date().getDay() + 6) % 7, title: '', minutes: 45, where: ['range'], items: [], rating: null, note: '' };
   if (!s.when) s.when = s.repeat === 'weekly' ? 'weekly' : s.date && s.date > Date.now() + 36e5 ? 'date' : s.status === 'planned' && !s.date ? 'later' : 'today';

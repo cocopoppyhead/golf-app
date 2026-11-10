@@ -8,7 +8,7 @@ const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<
 const uid = (p) => `${p}_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`;
 let cache = null;
 export async function loadDrills() {
-  if (!cache) cache = fetch(`${import.meta.env.BASE_URL}drills/library.json`).then((r) => (r.ok ? r.json() : { areas: [], drills: [] })).catch(() => ({ areas: [], drills: [] }));
+  if (!cache) cache = fetch(`${import.meta.env.BASE_URL}drills/library.json`).then((r) => (r.ok ? r.json() : { areas: [], drills: [] })).catch(() => ({ areas: [], drills: [] })).then((l) => { libSync = l; return l; });
   return cache;
 }
 export const AREA_WHERE = { putting: 'putting', chipping: 'short', wedges: 'short', bunker: 'short', swing: 'range', irons: 'range', driver: 'range', games: 'range' };
@@ -117,6 +117,31 @@ export async function renderDrillsCard(el, { toast = () => {} } = {}) {
   el.querySelectorAll('[data-open]').forEach((b) => b.onclick = () => openLibrary({ toast, onLogged: redraw, drillId: b.dataset.open }));
 }
 
+let libSync = null; // the library once loaded, for synchronous lookups from the swing screens
+export const drillsLoaded = () => libSync;
+/** Library drills that fix a measured fault key (e.g. 'impact:Hips'), via the drill's `fixes` list. */
+export function faultDrills(key) {
+  if (!libSync || !key) return [];
+  const k = key.replace(/^dtl:/, ''); const alt = `dtl:${k}`;
+  return libSync.drills.filter((d) => (d.fixes || []).some((f) => f === key || f === k || f === alt));
+}
+/** Compact drill card(s) for a swing screen; bind with bindDrillCards. */
+export function drillCardsHtml(drills, { title = 'Drills for this' } = {}) {
+  if (!drills.length) return '';
+  return `<div class="dcards"><div class="lbl">${esc(title)}</div>${drills.map((d) => `<button class="dcard" data-drill="${esc(d.id)}">
+    <span><b>${esc(d.name)}</b><span class="small">${esc(d.purpose)}</span><span class="chips">${drillChips(d)}</span></span><span class="mute">›</span></button>`).join('')}</div>`;
+}
+export function bindDrillCards(root, { toast = () => {} } = {}) {
+  root.querySelectorAll('[data-drill]').forEach((b) => b.onclick = () => openLibrary({ toast, drillId: b.dataset.drill, onLogged: () => window.dispatchEvent(new Event('practice-changed')) }));
+}
+/** One line per drill for the AI coach, so it prescribes from the library by id. */
+export function drillMenuForAi(keys = []) {
+  if (!libSync) return '';
+  const want = new Set(keys.flatMap((k) => [k, k.replace(/^dtl:/, ''), `dtl:${k.replace(/^dtl:/, '')}`]));
+  const pick = libSync.drills.filter((d) => (d.fixes || []).some((f) => want.has(f)) || d.area === 'swing' || d.area === 'irons' || d.area === 'driver').slice(0, 40);
+  return `Drill library you may prescribe (use the ids in the json block, up to 3, matched to the faults you name): ${pick.map((d) => `${d.id} — ${d.name}${d.fixes?.length ? ` [fixes ${d.fixes.join(', ')}]` : ''}`).join('; ')}.`;
+}
+
 /** Where a drill can be done, in the order the chips show. */
 export const PLACES = [['home', '🏠 Home'], ['range', '🏌️ Range'], ['sim', '🖥 Sim'], ['green', '⛳ Green'], ['short game', '🌿 Short game'], ['bunker', '🏖 Bunker'], ['course', '🚩 Course']];
 const PLACE_LABEL = Object.fromEntries(PLACES.map(([k, l]) => [k, l.replace(/^\S+\s/, '')]));
@@ -165,19 +190,21 @@ function drillSheet(d, lib, results, { toast, onLogged, onPick, onFav }) {
     <div class="lbl">How</div><p class="small">${esc(d.how)}</p>
     <div class="lbl">Score it</div><p class="small">${esc(d.score)}</p>
     ${d.bands ? `<div class="lbl">Benchmarks</div><div class="bands">${d.bands.map((b, i) => `<span><small>${BAND_NAMES[i]}</small><b>${esc(b)}</b></span>`).join('')}</div>` : ''}
-    <p class="mute small">${esc(d.reps)}</p>
+    <p class="mute small">${esc(d.reps)}${d.feel ? ` · Feel: “${esc(d.feel)}”` : ''}</p>
     ${st ? `<div class="lbl">You</div><p class="small">Last ${fmtScore(m, st.last)} · best ${fmtScore(m, { score: st.best, of: st.last.of })} · ${st.n} logged</p>` : ''}
     ${onPick ? `<button class="btn primary big" data-pick>Add to this session</button>` : `
-    <div class="lbl">Log it now <span class="mute">(${esc(scoreHint)})</span></div>
+    <button class="btn big" data-plan>${icon('calendar')} Put it in a practice session</button>
+    <div class="lbl" style="margin-top:10px">Log it now <span class="mute">(${esc(scoreHint)})</span></div>
     <div class="row"><input inputmode="decimal" data-score placeholder="${m.type === 'count' && m.of ? `0–${m.of}` : 'score'}" style="flex:1" />${m.type === 'points' && !m.of ? '<input inputmode="numeric" data-of placeholder="out of" style="flex:1" />' : (m.type === 'count' || m.type === 'points') && m.of ? `<span class="mute" style="align-self:center">/ ${m.of}</span>` : ''}</div>
     <button class="btn primary big" data-log style="margin-top:8px">Save score</button>`}
-    <p class="mute small" style="margin-top:8px">Source: ${d.sources.map((u, i) => `<button class="link" data-src="${i}">${esc(new URL(u).hostname.replace('www.', ''))}</button>`).join(' · ')} · <button class="link" data-yt>YouTube</button></p>
+    <p class="mute small" style="margin-top:8px">${d.sources?.length ? `Source: ${d.sources.map((u, i) => `<button class="link" data-src="${i}">${esc(new URL(u).hostname.replace('www.', ''))}</button>`).join(' · ')} · ` : ''}<button class="link" data-yt>${d.sources?.length ? 'YouTube' : 'Search YouTube for it'}</button></p>
   </div>`;
   sheet.querySelector('[data-close]').onclick = () => sheet.remove();
   sheet.querySelector('[data-fav]').onclick = () => { const on = toggleFav(d.id); const b = sheet.querySelector('[data-fav]'); b.textContent = on ? '★' : '☆'; b.classList.toggle('on', on); onFav?.(); };
   sheet.querySelectorAll('[data-src]').forEach((b) => b.onclick = () => sourceSheet(d, d.sources[+b.dataset.src]));
   sheet.querySelector('[data-yt]').onclick = () => sourceSheet(d, null);
   sheet.querySelector('[data-pick]')?.addEventListener('click', () => { onPick(d); sheet.remove(); document.querySelector('.drilllib')?.remove(); });
+  sheet.querySelector('[data-plan]')?.addEventListener('click', () => { sheet.remove(); document.querySelector('.drilllib')?.remove(); import('./practice.js').then((P) => P.planWithDrill(d, { toast })); });
   sheet.querySelector('[data-log]')?.addEventListener('click', async () => {
     const score = parseFloat(sheet.querySelector('[data-score]').value);
     if (!Number.isFinite(score)) return toast('Enter the number first.');
