@@ -33,7 +33,7 @@ export function simulate({ ballSpeed, launch, spin, tempC = 15, pressureHpa = nu
     const ax = -k * (cd * vx + cl * vy), ay = -k * (cd * vy - cl * vx) - G;
     vx += ax * dt; vy += ay * dt;
     const ny = y + vy * dt;
-    if (ny < 0 && t > 0.05) { const f = y / (y - ny); x += vx * dt * f; t += dt * f; y = 0; break; }
+    if (ny < 0 && t > 0.05) { const f = y / (y - ny); x += vx * dt * f; t += dt * f; break; }
     x += vx * dt; y = ny; t += dt; w *= Math.exp(-DECAY * dt);
     if (y > apex) apex = y;
   }
