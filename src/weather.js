@@ -1,11 +1,17 @@
-// Weather for the shot: temperature and wind where you're standing (Open-Meteo, free, no key),
-// and a "plays like" distance. Rules of thumb (TrackMan-style averages, sea level):
-//   temperature: carry changes ~0.2% per °C away from 25 °C (hot air is thinner, the ball flies further)
+// Weather for the shot: temperature, humidity, pressure and wind where you're standing (Open-Meteo,
+// free, no key), and a "plays like" distance. One set of numbers, kept at standard conditions
+// (25 °C / 77 °F, sea level, still air — TrackMan's Normalize defaults): every saved shot is
+// converted to that day, and today's conditions are put back on top when you play. Coefficients
+// are the published rules of thumb (TrackMan / Titleist / Andrew Rice), checked 10 Nov 2026:
+//   temperature: ~1.5% per 20 °F (0.14% per °C) — 1 to 2 yards per 10 °F depending on the club
+//   air pressure (altitude and weather): ~2% more carry per 1,000 ft (0.6 × the pressure drop)
+//   humidity: under a yard across the whole range (humid air is slightly thinner)
 //   wind: a headwind costs ~1% per mph, a tailwind adds ~0.5% per mph; crosswind mostly moves it sideways
+// Not modelled: a cold ball (keep balls warm — Titleist), winter layers, flier lies.
 import { isNative, nativeSend, onNative } from './native.js';
 
 export const BASE_C = 25;
-const TEMP_PER_C = 0.002, HEAD_PER_MPH = 0.01, TAIL_PER_MPH = 0.005;
+const TEMP_PER_C = 0.0014, HEAD_PER_MPH = 0.01, TAIL_PER_MPH = 0.005;
 const COMPASS = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
 export const compass = (deg) => COMPASS[Math.round(((deg % 360) + 360) % 360 / 45) % 8];
 
