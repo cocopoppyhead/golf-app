@@ -443,3 +443,36 @@ export function drawCourseMap(cv, { geo = null, course = null, centre = null, sp
   schedule();
   return schedule;
 }
+
+// ---------- save a course for offline ----------
+/** Tile keys at zoom z covering a lat/lon bbox grown by `margin` metres. */
+function tilesFor(bounds, z, margin = 70) {
+  const [[lat0, lon0], [lat1, lon1]] = bounds;
+  const dLat = margin / mPerLat, dLon = margin / mPerLon((lat0 + lat1) / 2);
+  const a = merc(lat1 + dLat, lon0 - dLon, z), b = merc(lat0 - dLat, lon1 + dLon, z);
+  const out = [];
+  for (let x = Math.floor(a[0]); x <= Math.floor(b[0]); x++) for (let y = Math.floor(a[1]); y <= Math.floor(b[1]); y++) out.push(`${z}/${x}/${y}`);
+  return out;
+}
+/** Every tile the hole maps and the course hero will ask for; fetched once so the service worker holds them. */
+export function offlineTiles(geo, course) {
+  const keys = new Set();
+  const holes = (geo?.holes || []).slice();
+  (course?.holes || []).forEach((h, i) => { if (h.mark && !holes.some((x) => x.n === i + 1)) holes.push(markedHole(h.mark, i + 1)); });
+  for (const h of holes) {
+    const pts = [...h.line, ...(h.green?.poly || []), ...(h.tees || []).flatMap((t) => t.poly || [])];
+    const b = [[Math.min(...pts.map((p) => p[0])), Math.min(...pts.map((p) => p[1]))], [Math.max(...pts.map((p) => p[0])), Math.max(...pts.map((p) => p[1]))]];
+    for (const z of [17, 18]) tilesFor(b, z).forEach((k) => keys.add(k));
+  }
+  const all = geoBounds(geo, course);
+  if (all) for (const z of [14, 15, 16]) tilesFor(all, z, 300).forEach((k) => keys.add(k));
+  return [...keys];
+}
+export async function saveCourseOffline(geo, course, onProgress = () => {}) {
+  const keys = offlineTiles(geo, course);
+  let done = 0, failed = 0;
+  const work = keys.slice();
+  const worker = async () => { while (work.length) { const k = work.shift(); const [z, x, y] = k.split('/'); try { const r = await fetch(TILE(+z, +x, +y), { mode: 'no-cors' }); if (!r) failed++; } catch { failed++; } done++; onProgress(done, keys.length); } };
+  await Promise.all([worker(), worker(), worker(), worker()]);
+  return { total: keys.length, failed };
+}

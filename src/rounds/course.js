@@ -3,7 +3,7 @@
 // Play tab and the "Upcoming" scheduled rounds.
 import { listRounds, listCourses, putCourse, getSettings, saveSettings } from '../store.js';
 import { loadLibrary, importCourse, toggleStar, starred, isHome } from './library.js';
-import { loadGeo, geoHole, drawCourseMap, mountHoleMap, markedHole, markHoleSheet } from './holemap.js';
+import { loadGeo, geoHole, drawCourseMap, mountHoleMap, markedHole, markHoleSheet, offlineTiles, saveCourseOffline } from './holemap.js';
 import { dist as D, du } from '../units.js';
 import { calendarSheet } from '../calendar.js';
 import { icon } from '../icons.js';
@@ -146,6 +146,7 @@ export async function coursePage(group, api) {
       ${group.variants.map((c) => `<div class="tagrow"><span>${teeLine(c)}</span><button class="link" data-edit="${c.id}">Edit</button></div>`).join('')}
       ${L?.tees?.length > group.variants.length ? `<button class="link acc" data-x="addtee">+ Add another tee from the scorecard</button>` : ''}
       <p class="mute small" style="margin:8px 0 0">${coverage}${geo ? ' · shapes © OpenStreetMap contributors' : ''}. ${mapped < n && first.lat ? '<button class="link acc" data-x="mark">Mark holes on the satellite map</button>' : ''}</p>
+      ${mapped || marked ? `<p class="small" style="margin:6px 0 0"><button class="link acc" data-x="offline">${icon('download', 14)} ${(getSettings().offlineCourses || {})[group.key] ? `Saved for offline ${fmtD((getSettings().offlineCourses || {})[group.key])} · refresh` : 'Save the satellite map for offline'}</button> <span class="mute" data-offp></span></p>` : ''}
     </div>
     ${rec.list.length ? `<h2 style="margin:18px 0 8px">Rounds here</h2>${rec.list.map(({ r, score, par: p, full }) => `<div class="hist" data-open="${r.id}"><div class="sc">${score}</div><div><div class="t">${fmtD(r.date)} <span class="mute">${full ? toPar(score - p) : `${r.quick ? r.holesPlayed || '' : r.holes.filter((h) => h && h.score != null).length} holes`}</span></div><div class="s">${esc(r.tees || '')}${r.quick ? ' · score only' : ''}${r.learning === false ? ' · not counted' : ''}</div></div><div class="mute">›</div></div>`).join('')}` : ''}`;
   drawCourseMap(root.querySelector('.chero canvas'), { geo, course: first });
@@ -158,6 +159,14 @@ export async function coursePage(group, api) {
   root.querySelector('[data-x=card]').onclick = () => scorecardSheet(group, L);
   root.querySelector('[data-x=addtee]')?.addEventListener('click', () => pickTee(group, L, api, () => redraw(), true));
   root.querySelector('[data-x=mark]')?.addEventListener('click', () => markHoleSheet({ course: first, start: 0, geo, onSave: (k, mark) => saveMark(group, k, mark), onClose: redraw }));
+  root.querySelector('[data-x=offline]')?.addEventListener('click', async (e) => {
+    const b = e.currentTarget, p = root.querySelector('[data-offp]'); b.disabled = true;
+    const n = offlineTiles(geo, first).length; p.textContent = `0 / ${n}`;
+    const r = await saveCourseOffline(geo, first, (d, t) => { p.textContent = `${d} / ${t}`; });
+    const s = getSettings(); s.offlineCourses = { ...(s.offlineCourses || {}), [group.key]: Date.now() }; saveSettings(s);
+    p.textContent = r.failed ? `${r.total - r.failed} of ${r.total} tiles saved` : `${r.total} tiles saved (about ${Math.round((r.total * 18) / 1024)} MB)`;
+    toast('Saved. The holes here work without signal now.'); b.disabled = false;
+  });
   root.querySelectorAll('[data-edit]').forEach((b) => b.onclick = () => api.editCourse(b.dataset.edit));
   root.querySelectorAll('[data-open]').forEach((b) => b.onclick = () => api.openRound(b.dataset.open));
   root.querySelectorAll('[data-ev]').forEach((b) => b.onclick = () => scheduleSheet(group, { toast, done: redraw, existing: events().find((e) => e.id === b.dataset.ev) }));
