@@ -20,6 +20,7 @@ const P = {
   chevron: '<path d="M9 6l6 6-6 6"/>',
   pencil: '<path d="M4 20l4-1 11-11-3-3L5 16z"/><path d="M13 6l3 3"/>',
   download: '<path d="M12 3v12M7 10l5 5 5-5"/><path d="M4 21h16"/>',
+  upload: '<path d="M12 15V3M7 8l5-5 5 5"/><path d="M4 21h16"/>',
   bluetooth: '<path d="M7 7l10 10-5 4V3l5 4L7 17"/>',
   qr: '<rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h3v3h-3zM19 14h2M14 19h2M19 19h2v2"/>',
   edit: '<path d="M12 20h9"/><path d="M16.5 3.5l4 4L8 20l-5 1 1-5z"/>',

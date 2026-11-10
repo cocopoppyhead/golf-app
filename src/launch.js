@@ -2,13 +2,14 @@
 // speeds are the point — club speed, ball speed, smash, launch, spin — because a cheap sim with
 // range balls gets those roughly right and the distances wrong. You tick which columns and rows
 // to keep; carries only touch your Bag if you keep the carry column with a premium ball.
-import { getSettings, listLaunch, putLaunch, deleteLaunch, listShots, putShot } from './store.js';
+import { getSettings, listLaunch, putLaunch, deleteLaunch, putShot } from './store.js';
 import { readLaunchTable, aiFrom, aiReady } from './coach/ai.js';
 import { dist as D, du, isMetric } from './units.js';
 import { icon } from './icons.js';
 import { drillsLoaded, drillCardsHtml, bindDrillCards } from './drills.js';
 import { launchTakes, takesHtml, takesText } from './launchtakes.js';
 import { predictedCarry } from './flight.js';
+import { parseLaunchFile } from './launchfile.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const uid = (p) => `${p}_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
@@ -39,7 +40,7 @@ export function normaliseTable(t) {
       if (!Number.isFinite(v)) return;
       if (['clubSpeed', 'ballSpeed'].includes(c.key)) v = toMph(v, c.unit);
       if (['carry', 'total', 'apex', 'side', 'toTarget'].includes(c.key)) v = toYd(v, c.unit);
-      if (c.key === 'club') o.club = String(r[c.i]); else if (c.key === 'shot') o.n = v; else if (c.key !== 'other') o[c.key] = Math.round(v * 10) / 10;
+      if (c.key === 'club') o.club = String(r[c.i]); else if (c.key === 'shot') o.n = v; else if (c.key !== 'other') o[c.key] = Math.round(v * (c.key === 'smash' ? 100 : 10)) / (c.key === 'smash' ? 100 : 10);
     });
     if (o.ballSpeed && o.clubSpeed && !o.smash) o.smash = Math.round((o.ballSpeed / o.clubSpeed) * 100) / 100;
     return o;
@@ -99,17 +100,40 @@ export function importLaunchSheet({ toast = () => {}, onSaved = () => {}, club =
   inp.click();
 }
 
-function reviewSheet(sheet, T, { toast, onSaved, club }) {
+/** Pick a CSV/TSV export (Garmin R10, TrackMan, FlightScope, Rapsodo, a sim) → one review per club → save. */
+export function importLaunchFile({ toast = () => {}, onSaved = () => {} } = {}) {
+  const inp = document.createElement('input'); inp.type = 'file'; inp.accept = '.csv,.tsv,.txt,text/csv,text/tab-separated-values,text/plain'; inp.style.cssText = 'position:absolute;width:1px;height:1px;opacity:0';
+  document.body.appendChild(inp);
+  inp.onchange = async () => {
+    const file = inp.files?.[0]; inp.remove(); if (!file) return;
+    let groups;
+    try { groups = parseLaunchFile(await file.text(), { filename: file.name }); } catch (e) { return toast(`Couldn't read that file: ${e.message}`); }
+    if (!groups.length) return toast('No launch-monitor columns found. Export the session as CSV (Garmin Golf, TrackMan, FlightScope and Rapsodo all do) and try again.');
+    const queue = [...groups].sort((a, b) => b.table.rows.length - a.table.rows.length);
+    const next = () => {
+      const g = queue.shift(); if (!g) return;
+      const T = normaliseTable(g.table);
+      if (!T.rows.length) return next();
+      const sheet = document.createElement('div'); sheet.className = 'sheet itemsheet lmsheet'; sheet.innerHTML = '<div class="sheet-in"></div>'; document.body.appendChild(sheet);
+      reviewSheet(sheet, T, { toast, club: g.club || null, when: g.date || Date.now(), source: g.source, remaining: queue.length, onSaved: (rec) => { onSaved(rec); next(); }, onSkip: next });
+    };
+    next();
+  };
+  inp.click();
+}
+
+function reviewSheet(sheet, T, { toast, onSaved, club, when = Date.now(), source: source0 = '', remaining = 0, onSkip = null }) {
   const bag = (getSettings().bag || []).map((c) => c.club);
   const keep = new Set(T.cols.filter((k) => !['toTarget', 'azimuth'].includes(k)));
   const rows = T.rows.map((r) => ({ ...r, keep: true }));
-  let ball = 'range', source = '', when = Date.now();
+  let ball = 'range', source = source0;
   const unitOf = (k) => (COLS[k]?.unit === 'yd' ? du() : COLS[k]?.unit === 'mph' ? (isMetric() ? 'km/h' : 'mph') : COLS[k]?.unit || '');
   const show = (k, v) => (v == null ? '–' : COLS[k]?.unit === 'yd' ? D(v) : COLS[k]?.unit === 'mph' && isMetric() ? Math.round(v * 1.609) : k === 'backSpin' || k === 'sideSpin' || k === 'spin' ? Math.round(v) : v);
   const draw = () => {
     const kept = rows.filter((r) => r.keep);
     const avg = (k) => { const v = kept.map((r) => r[k]).filter((x) => x != null); return v.length ? mean(v) : null; };
-    sheet.querySelector('.sheet-in').innerHTML = `<div class="sheet-h"><b>Launch monitor</b><button class="link" data-close>Cancel</button></div>
+    sheet.querySelector('.sheet-in').innerHTML = `<div class="sheet-h"><b>Launch monitor${club ? ` · ${esc(club)}` : ''}</b><button class="link" data-close>${onSkip ? (remaining ? `Skip (${remaining} more)` : 'Skip') : 'Cancel'}</button></div>
+      ${when && Math.abs(Date.now() - when) > 36e5 ? `<p class="mute small" style="margin:0 0 6px">Session date from the file: ${new Date(when).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}</p>` : ''}
       <div class="row"><label class="small mute" style="flex:1">Club<select data-club>${[club, ...bag].filter((x, i, a) => x && a.indexOf(x) === i).map((c) => `<option ${c === club ? 'selected' : ''}>${esc(c)}</option>`).join('')}${club ? '' : '<option value="" selected>— pick —</option>'}</select></label>
         <label class="small mute" style="flex:1">Ball<select data-ball><option value="range">Range balls</option><option value="premium">Premium balls</option></select></label></div>
       <label class="small mute">Where <span>(optional)</span><input data-src placeholder="e.g. Topgolf bay 12, Trackman at Dubai Hills" /></label>
@@ -123,7 +147,7 @@ function reviewSheet(sheet, T, { toast, onSaved, club }) {
       ${T.notes ? `<p class="mute small">Reader note: ${esc(T.notes)}</p>` : ''}
       <button class="btn primary big" data-save style="margin-top:10px">Save ${kept.length} shot${kept.length === 1 ? '' : 's'}</button>`;
     const q = (x) => sheet.querySelector(x);
-    q('[data-close]').onclick = () => sheet.remove();
+    q('[data-close]').onclick = () => { sheet.remove(); onSkip?.(); };
     q('[data-ball]').value = ball; q('[data-src]').value = source;
     q('[data-club]').onchange = (e) => { club = e.target.value; };
     q('[data-ball]').onchange = (e) => { ball = e.target.value; draw(); };
@@ -159,8 +183,8 @@ export async function renderLaunchCard(el, { toast = () => {}, onOpenClub = null
   const S = await listLaunch().catch(() => []);
   const clubs = [...new Set(S.map((s) => s.club))];
   el.innerHTML = `<div class="card lmcard">
-    <div class="sechead" style="margin:0 0 4px"><h2 style="margin:0">Launch monitor</h2><button class="link acc" data-import>${icon('camera', 14)} Add from photo</button></div>
-    <p class="mute small" style="margin:0 0 8px">Photograph the bay's results table. Club speed, ball speed, smash and launch are worth keeping even when a sim's distances aren't.</p>
+    <div class="sechead" style="margin:0 0 4px"><h2 style="margin:0">Launch monitor</h2><span><button class="link acc" data-import>${icon('camera', 14)} Photo</button> <button class="link acc" data-import-file style="margin-left:10px">${icon('upload', 14)} File</button></span></div>
+    <p class="mute small" style="margin:0 0 8px">Photograph the bay's results table, or import the CSV a Garmin R10, TrackMan, FlightScope or Rapsodo exports. Club speed, ball speed, smash and launch are worth keeping even when a sim's distances aren't.</p>
     ${clubs.length ? `<table class="card-t lm-t"><thead><tr><th style="text-align:left">Club</th><th>Club</th><th>Ball</th><th>Smash</th><th>Launch</th><th>Shots</th></tr></thead>
       ${clubs.map((c) => { const q = clubSummary(S, c); return `<tr data-open="${esc(c)}"><td style="text-align:left"><b>${esc(c)}</b><br><span class="mute small">${fmtD(q.last)}</span></td><td>${q.clubSpeed ? `${q.clubSpeed.avg}<br><span class="mute small">±${q.clubSpeed.sd}</span>` : '–'}</td><td>${q.ballSpeed ? `${q.ballSpeed.avg}<br><span class="mute small">±${q.ballSpeed.sd}</span>` : '–'}</td><td>${q.smash ? `<b>${q.smash.avg}</b>` : '–'}</td><td>${q.launch ? `${q.launch.avg}°` : '–'}</td><td>${q.n}</td></tr>`; }).join('')}</table>
       <p class="mute small" style="margin:6px 0 0">Speeds in mph. Smash = ball speed ÷ club speed: about 1.48–1.50 is a flush driver, 1.33–1.38 a flush 7-iron.</p>
@@ -170,6 +194,7 @@ export async function renderLaunchCard(el, { toast = () => {}, onOpenClub = null
   </div>`;
   const redraw = () => renderLaunchCard(el, { toast, onOpenClub });
   el.querySelector('[data-import]').onclick = () => importLaunchSheet({ toast, onSaved: redraw });
+  el.querySelector('[data-import-file]').onclick = () => importLaunchFile({ toast, onSaved: redraw });
   bindDrillCards(el, { toast });
   el.querySelectorAll('[data-del]').forEach((b) => b.onclick = async () => { if (!confirm('Delete this launch-monitor session?')) return; await deleteLaunch(b.dataset.del); redraw(); });
   if (onOpenClub) el.querySelectorAll('[data-open]').forEach((tr) => tr.onclick = () => onOpenClub(tr.dataset.open));
