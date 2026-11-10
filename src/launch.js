@@ -210,5 +210,26 @@ export async function launchClubHtml(club) {
     <div class="kpis">${['clubSpeed', 'ballSpeed', 'smash', 'launch'].map(cell).join('')}</div>
     ${q.backSpin || q.carry || q.attack || pred ? `<div class="kpis">${['backSpin', 'attack', 'carry'].map(cell).join('')}${pred ? `<div><b>${D(pred)}</b><span>Should carry <span class="mute">(model)</span></span></div>` : ''}${['total', 'apex'].map(cell).join('')}</div>` : ''}
     ${takesBlock(q, club)}
+    ${sessionTrendHtml(S, club)}
     <p class="mute small">Carries here are what the bay measured; only premium-ball sessions feed your Bag number.</p></div>`;
+}
+
+/** Session by session for one club (latest first) with a sparkline per metric, once there are two sessions. */
+export function sessionTrendHtml(S, club) {
+  const mine = S.filter((s) => s.club === club && s.rows.some((r) => r.keep !== false)).sort((a, b) => a.date - b.date);
+  if (mine.length < 2) return '';
+  const per = mine.map((s) => ({ date: s.date, ball: s.ball, source: s.source, q: clubSummary([s], club) }));
+  const metric = [['clubSpeed', 'Club', 1], ['ballSpeed', 'Ball', 1], ['smash', 'Smash', 2], ['launch', 'Launch', 1], ['backSpin', 'Spin', 0]].filter(([k]) => per.some((p) => p.q?.[k]));
+  const spark = (vals) => {
+    const v = vals.filter((x) => x != null); if (v.length < 2) return '';
+    const lo = Math.min(...v), hi = Math.max(...v), W = 64, H = 18;
+    const pts = vals.map((x, i) => (x == null ? null : `${(i / (vals.length - 1)) * W},${H - 2 - (hi === lo ? H / 2 : ((x - lo) / (hi - lo)) * (H - 4))}`)).filter(Boolean).join(' ');
+    return `<svg class="spark" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" aria-hidden="true"><polyline points="${pts}" fill="none" stroke="currentColor" stroke-width="1.5" /></svg>`;
+  };
+  const fmt = (k, v, d) => (v == null ? '–' : k === 'launch' ? `${v.toFixed(1)}°` : v.toFixed(d));
+  return `<div class="lbl" style="margin-top:10px">Session by session</div>
+    <table class="card-t lm-t trend"><thead><tr><th style="text-align:left">When</th>${metric.map(([k, l]) => `<th>${l}</th>`).join('')}</tr></thead>
+      <tr class="sparks"><td></td>${metric.map(([k]) => `<td>${spark(per.map((p) => p.q?.[k]?.avg ?? null))}</td>`).join('')}</tr>
+      ${[...per].reverse().slice(0, 8).map((p) => `<tr><td style="text-align:left">${fmtD(p.date)}<br><span class="mute small">${p.q.n} shots${p.ball === 'premium' ? ' · premium' : ''}</span></td>${metric.map(([k, , d]) => `<td>${fmt(k, p.q?.[k]?.avg ?? null, d)}</td>`).join('')}</tr>`).join('')}</table>
+    <p class="mute small" style="margin:4px 0 0">Sparklines run oldest → newest. Different bays and balls move the numbers; compare like with like.</p>`;
 }

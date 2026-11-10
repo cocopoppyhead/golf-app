@@ -71,3 +71,15 @@ describe('launchTakes', () => {
     expect(driverWindow(90).spin[1]).toBeGreaterThan(driverWindow(110).spin[1]);
   });
 });
+
+import { sessionTrendHtml } from '../../src/launch.js';
+describe('session trend', () => {
+  it('needs two sessions, then lists them latest first with sparklines', () => {
+    const a = { id: 'a', date: Date.parse('2026-11-01'), club: 'Driver', ball: 'range', rows: [{ clubSpeed: 98, ballSpeed: 138, smash: 1.41, launch: 12, backSpin: 3500 }, { clubSpeed: 100, ballSpeed: 142, smash: 1.42, launch: 12, backSpin: 3400 }] };
+    const b = { id: 'b', date: Date.parse('2026-11-10'), club: 'Driver', ball: 'premium', rows: [{ clubSpeed: 101, ballSpeed: 147, smash: 1.46, launch: 13, backSpin: 2900 }] };
+    expect(sessionTrendHtml([a], 'Driver')).toBe('');
+    const html = sessionTrendHtml([a, b], 'Driver');
+    expect(html).toMatch(/Session by session/); expect((html.match(/<svg/g) || []).length).toBe(5);
+    expect(html.indexOf('1 shots · premium')).toBeLessThan(html.indexOf('2 shots'));
+  });
+});
