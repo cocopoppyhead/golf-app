@@ -11,7 +11,7 @@ test.describe('Play', () => {
     // hole map with front / centre / back from the tee position
     const dist = page.locator('.hm-dist');
     await expect(dist).toContainText('centre');
-    await expect(dist).toContainText(/from you|from the tee/);
+    await expect(dist).toContainText(/from where you stand|from the tee/);
     // tap to measure
     await page.click('.holemap canvas', { position: { x: 150, y: 250 } });
     await expect(page.locator('.hm-tap')).toContainText('to the green');

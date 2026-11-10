@@ -2,6 +2,7 @@
 // becomes a series over time and an area (putting, chipping…) becomes a trend. Data: public/drills/library.json.
 import { listSessions, putSession, getSettings, saveSettings } from './store.js';
 import { openExternal } from './native.js';
+import { icon } from './icons.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const uid = (p) => `${p}_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`;
@@ -107,7 +108,7 @@ export async function renderDrillsCard(el, { toast = () => {} } = {}) {
         ${spark(st.series.map((r) => r.score), d.metric.higher !== false)}
         <span class="dl">${fmtScore(d.metric, st.last)} ${arrow(st.trend)}</span></button>`).join('')
       : '<p class="mute small">Nothing logged yet. Open the library, pick a drill, do it, log the number.</p>'}
-    <div class="row" style="margin-top:8px"><button class="btn" data-lib2 style="flex:1">+ Log a drill</button><button class="btn" data-tempo style="flex:1">♩ Tempo</button></div>
+    <div class="row" style="margin-top:8px"><button class="btn" data-lib2 style="flex:1">+ Log a drill</button><button class="btn" data-tempo style="flex:1">${icon('tempo')} Tempo</button></div>
   </div>`;
   const redraw = () => renderDrillsCard(el, { toast });
   el.querySelector('[data-tempo]').onclick = () => import('./metronome.js').then((m) => m.openMetronome({ toast }));
@@ -194,7 +195,7 @@ function sourceSheet(d, url) {
   const sheet = document.createElement('div'); sheet.className = 'sheet drillsheet srcsheet';
   sheet.innerHTML = `<div class="sheet-in"><div class="sheet-h"><b>${esc(d.name)}</b><button class="link" data-close>Back</button></div>
     ${url ? `<p class="small">${esc(url)}</p><button class="btn primary big" data-open>Open in browser</button>` : ''}
-    <button class="btn big" data-yt style="margin-top:8px">▶ Search on YouTube</button>
+    <button class="btn big" data-yt style="margin-top:8px">${icon('play')} Search on YouTube</button>
     <p class="mute small" style="margin-top:8px">Opens outside osolo; come back with the app switcher.</p></div>`;
   sheet.querySelector('[data-close]').onclick = () => sheet.remove();
   sheet.querySelector('[data-open]')?.addEventListener('click', () => openExternal(url));

@@ -1,6 +1,7 @@
 // UAE course library: published scorecards (par, stroke index, yardage per tee, rating/slope)
 // bundled with the app, so a course is two taps instead of typing or photographing a card.
 import { putCourse, listCourses, getSettings, saveSettings } from '../store.js';
+import { icon } from '../icons.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 let cache = null;
@@ -66,7 +67,7 @@ export async function openLibrary({ onPicked = () => {}, toast = () => {} } = {}
       lastRank = r;
       const par = c.par.reduce((a, b) => a + (b || 0), 0);
       const d = here && c.lat ? ` · ${km(here, c).toFixed(km(here, c) < 10 ? 1 : 0)} km` : '';
-      return `${head}<div class="librow"><button class="libitem" data-id="${esc(c.id)}"><b>${r === 0 ? '🏠 ' : ''}${esc(c.name)}</b><span class="mute small">${esc(c.emirate)} · ${c.holes} holes · par ${par}${d}</span></button><button class="star ${st.has(c.id) ? 'on' : ''}" data-star="${esc(c.id)}" aria-label="Star">${st.has(c.id) ? '★' : '☆'}</button></div>`;
+      return `${head}<div class="librow"><button class="libitem" data-id="${esc(c.id)}"><b>${r === 0 ? `${icon('home', 14)} ` : ''}${esc(c.name)}</b><span class="mute small">${esc(c.emirate)} · ${c.holes} holes · par ${par}${d}</span></button><button class="star ${st.has(c.id) ? 'on' : ''}" data-star="${esc(c.id)}" aria-label="Star">${st.has(c.id) ? '★' : '☆'}</button></div>`;
     }).join('') || '<p class="mute">No match. Use "+ Course" to add it by hand.</p>';
   };
 
@@ -93,7 +94,7 @@ export async function openLibrary({ onPicked = () => {}, toast = () => {} } = {}
     }
     el.innerHTML = `<div class="onb-in"><div class="onb-top"><b>UAE courses</b><button class="link" data-close>Close</button></div>
       <div class="onb-body"><input id="libQ" placeholder="Search courses" value="${esc(q)}" />
-      ${here ? '' : '<button class="link acc" id="nearBtn" style="margin:10px 0 0">📍 Nearest first</button>'}
+      ${here ? '' : `<button class="link acc" id="nearBtn" style="margin:10px 0 0">${icon('pin', 14)} Nearest first</button>`}
       <div class="liblist">${list()}</div>
       <p class="mute small" style="margin-top:12px">Scorecards from each club's published card. Course outlines © OpenStreetMap contributors.</p></div></div>`;
     el.querySelector('[data-close]').onclick = close;

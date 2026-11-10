@@ -10,6 +10,7 @@ import { getSettings, saveSettings, listSessions, putSession, deleteSession } fr
 import { activeWork, editWorkSheet } from './workingon.js';
 import { openLibrary } from './drills.js';
 import { calendarSheet as calSheet } from './calendar.js';
+import { icon } from './icons.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const uid = (p = 'ps') => `${p}_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`;
@@ -151,7 +152,7 @@ export function sessionPlanner(existing, { toast = () => {}, done = () => {} } =
       <div class="row">
         ${s.when === 'today' ? `<button class="btn primary big" data-startnow style="flex:2">Start now</button><button class="btn big" data-save style="flex:1">Save</button>` : `<button class="btn primary big" data-save style="flex:1">Save session</button>`}
       </div>
-      ${s.when === 'weekly' || s.when === 'date' ? `<button class="btn" data-cal style="width:100%;margin-top:8px">📅 Add to calendar</button>` : ''}
+      ${s.when === 'weekly' || s.when === 'date' ? `<button class="btn" data-cal style="width:100%;margin-top:8px">${icon('calendar')} Add to calendar</button>` : ''}
       ${existing ? '<button class="link" data-del style="margin-top:12px;color:var(--work)">Delete session</button>' : ''}
     </div>`;
     const read = () => {

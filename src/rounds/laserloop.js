@@ -117,7 +117,7 @@ function shotCard({ round, course, i, k, x, pl, pick, bag, cond, target }) {
   const why = [pl.slope !== Math.round(read) ? `slope ${pl.slope}` : null, windTxt, cond && Math.abs(cond.tempC - 25) >= 6 ? `${Math.round(cond.tempC)}°C` : null].filter(Boolean).join(' · ');
   let left = AUTO_ACCEPT_S, timer = null;
   el.innerHTML = `<div class="sheet-in lp">
-    <div class="lp-top"><span class="mute small">Hole ${i + 1} · ${target ? 'target from the tee' : `shot ${k + 1}`}${x.gps ? ' · 📍' : ''}</span><button class="link" data-x="no">Not a shot</button></div>
+    <div class="lp-top"><span class="mute small">Hole ${i + 1} · ${target ? 'target from the tee' : `shot ${k + 1}`}${x.gps ? ' · position saved' : ''}</span><button class="link" data-x="no">Not a shot</button></div>
     <div class="lp-num"><b>${D(read)}</b><span>${unit}</span>${pl.plays !== Math.round(read) ? `<em>plays ${D(pl.plays)}</em>` : ''}</div>
     ${why ? `<div class="mute small">${esc(why)}</div>` : ''}
     ${best ? `<button class="btn primary big lp-ok" data-x="ok">✓ ${esc(best.club)}${best.swing !== 'full' ? ` ${best.swing}` : ''} <span class="lp-cd">${left}</span></button>

@@ -19,6 +19,7 @@ import { practiceContext } from '../practice.js';
 import { drillContext } from '../drills.js';
 import { loadGeo, geoHole, mountHoleMap, markedHole, markHoleSheet } from './holemap.js';
 import { renderChecklist } from '../checklist.js';
+import { icon } from '../icons.js';
 import { renderFriendsCard, inviteSheet } from './friends.js';
 import { inviteLink, remoteEvents, removeSummary, takePendingInvite, joinEvent, addFriendByCode } from '../cloud/social.js';
 import { currentUser } from '../cloud/supabase.js';
@@ -66,10 +67,10 @@ export async function roundsHome() {
   root.innerHTML = `
     ${open ? `<div class="card event-card"><b>Round in progress</b><p class="mute small">${esc(open.courseName)} · ${fmtD(open.date)} · ${played(open).length} holes logged</p><div class="row"><button class="btn primary" data-act="resume" data-id="${open.id}">Resume round</button><button class="btn" data-act="endopen" data-id="${open.id}">End / discard</button></div></div>` : ''}
     <div id="gettingStarted"></div>
-    ${upcoming.length ? `<div class="card"><div class="lbl">Upcoming</div>${upcoming.map((e) => `<div class="evrow"><div><b>${esc(e.courseName)}</b><div class="mute small">${fmtWhen(e.when)}${e.who ? ` · with ${esc(e.who)}` : ''}${e.note ? ` · ${esc(e.note)}` : ''}</div></div><div class="row" style="gap:6px">${e.code ? `<button class="link" data-act="evinvite" data-id="${e.id}">Invite</button>` : ''}<button class="btn sm" data-act="evstart" data-id="${e.id}">Start</button><button class="link" data-act="evcal" data-id="${e.id}">📅</button><button class="link" data-act="evedit" data-id="${e.id}">${e.joined ? 'Leave' : 'Edit'}</button></div></div>`).join('')}</div>` : ''}
+    ${upcoming.length ? `<div class="card"><div class="lbl">Upcoming</div>${upcoming.map((e) => `<div class="evrow"><div><b>${esc(e.courseName)}</b><div class="mute small">${fmtWhen(e.when)}${e.who ? ` · with ${esc(e.who)}` : ''}${e.note ? ` · ${esc(e.note)}` : ''}</div></div><div class="row" style="gap:6px">${e.code ? `<button class="link" data-act="evinvite" data-id="${e.id}">Invite</button>` : ''}<button class="btn sm" data-act="evstart" data-id="${e.id}">Start</button><button class="link" data-act="evcal" data-id="${e.id}" aria-label="Calendar">${icon('calendar', 16)}</button><button class="link" data-act="evedit" data-id="${e.id}">${e.joined ? 'Leave' : 'Edit'}</button></div></div>`).join('')}</div>` : ''}
     <div class="sechead"><h2>Your courses</h2><button class="link acc" data-act="library">+ Find a course</button></div>
-    ${groups.length ? courseCardsHtml(groups, rounds) : '<div class="card"><p class="mute">Pick your course from the UAE list and the scorecard, map and tees fill in. Tap a course for its page: start or schedule a round, preview the holes, your record there.</p><button class="btn primary big" data-act="library">🇦🇪 Find a UAE course</button></div>'}
-    <div class="row" style="margin-top:8px"><button class="btn" data-act="post">＋ Post a score</button><button class="btn" data-act="import">📷 Import a scorecard</button><button class="btn" data-act="newcourse">+ By hand</button></div>
+    ${groups.length ? courseCardsHtml(groups, rounds) : `<div class="card"><p class="mute">Pick your course from the UAE list and the scorecard, map and tees fill in. Tap a course for its page: start or schedule a round, preview the holes, your record there.</p><button class="btn primary big" data-act="library">${icon('search')} Find a UAE course</button></div>`}
+    <div class="row" style="margin-top:8px"><button class="btn" data-act="post">${icon('plus')} Post a score</button><button class="btn" data-act="import">${icon('camera')} Import a scorecard</button><button class="btn" data-act="newcourse">${icon('edit')} By hand</button></div>
     <div id="friendsCard"></div>
     ${A ? statsCard(A, `Last ${A.rounds} round${A.rounds > 1 ? 's' : ''}`) : ''}
     ${await (async () => {
@@ -208,7 +209,7 @@ async function editCourse(id) {
       <button class="btn" data-x="back">‹ Back</button>
       <div class="card form">
         <h2>${id ? 'Edit course' : 'New course'}</h2>
-        <button class="btn" data-x="photo" style="width:100%;margin-bottom:12px">📷 Fill from scorecard photo</button>
+        <button class="btn" data-x="photo" style="width:100%;margin-bottom:12px">${icon('camera')} Fill from scorecard photo</button>
         <input type="file" accept="image/*" id="coursePhoto" hidden />
         <label>Course name<input id="cName" value="${esc(c.name)}" placeholder="e.g. Emirates Majlis" /></label>
         <label>Tees<input id="cTees" value="${esc(c.tees)}" placeholder="e.g. Blue" /></label>
@@ -638,7 +639,7 @@ async function postScore(courseId, pre = {}) {
     <div class="card"><h2>${pre.id ? 'Edit score' : 'Post a score'}</h2>
       <p class="mute small">A round you didn't log hole by hole. Counts for your handicap and scoring average.</p>
       <label class="small mute">Course and tees${courses.length ? `<select id="psCourse">${courses.map((c) => `<option value="${c.id}" ${sel && c.id === sel.id ? 'selected' : ''}>${esc(c.name)}${c.tees ? ` · ${esc(c.tees)}` : ''}${c.rating ? ` (${c.rating}/${c.slope})` : ''}</option>`).join('')}</select>` : '<p class="mute" style="margin:4px 0">No courses yet.</p>'}</label>
-      <button class="btn" data-x="library" style="width:100%;margin:6px 0 10px">🇦🇪 ${courses.length ? 'Another course or tee' : 'Find the course'}</button>
+      <button class="btn" data-x="library" style="width:100%;margin:6px 0 10px">${icon('search')} ${courses.length ? 'Another course or tee' : 'Find the course'}</button>
       ${sel && !(sel.rating && sel.slope) ? '<p class="small" style="color:var(--work);margin:-4px 0 8px">This course has no rating/slope, so the score won\'t count toward your handicap. Add them in Edit course.</p>' : ''}
       <label class="small mute">Date played<input type="date" id="psDate" value="${x.date}" max="${dayStr(Date.now())}" /></label>
       <div class="row"><label class="small mute" style="flex:1">Gross score<input id="psScore" inputmode="numeric" value="${x.score}" placeholder="e.g. 79" /></label><label class="small mute" style="flex:1">Putts (optional)<input id="psPutts" inputmode="numeric" value="${x.putts}" placeholder="e.g. 31" /></label></div>
@@ -700,11 +701,11 @@ async function importCard(courseId, when = null) {
     <div class="card"><h2>Import a scorecard</h2>
       <p class="mute small">The scoring side of a card doesn't say where or when, so set those first.</p>
       <label class="small mute">Course${courses.length ? `<select id="impCourse">${courses.map((c) => `<option value="${c.id}" ${sel && c.id === sel.id ? 'selected' : ''}>${esc(c.name)}${c.tees ? ` · ${esc(c.tees)}` : ''} (par ${c.holes.reduce((a, h) => a + h.par, 0)})</option>`).join('')}</select>` : '<p class="mute" style="margin:4px 0">No courses yet.</p>'}</label>
-      <button class="btn" data-x="library" style="width:100%;margin:6px 0 10px">🇦🇪 ${courses.length ? 'Another course' : 'Find the course'}</button>
+      <button class="btn" data-x="library" style="width:100%;margin:6px 0 10px">${icon('search')} ${courses.length ? 'Another course' : 'Find the course'}</button>
       <label class="small mute">Date played<input type="date" id="impDate" value="${date}" max="${dayStr(Date.now())}" /></label>
       <label class="small mute">Name or initials on your row (optional)<input id="pName" value="${esc(s.cardName || '')}" placeholder="e.g. CM" /></label>
       <p class="mute small" style="margin:8px 0 0">Photograph the scoring side flat and well lit. Tip: a small number next to each score (5²) is read as putts, a dot as a fairway hit.</p>
-      ${sel ? '<button type="button" class="btn primary big" id="cardBtn" style="margin-top:10px">📷 Take or choose photo</button><input type="file" accept="image/*" id="cardPhoto" style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none" />' : ''}
+      ${sel ? `<button type="button" class="btn primary big" id="cardBtn" style="margin-top:10px">${icon('camera')} Take or choose photo</button><input type="file" accept="image/*" id="cardPhoto" style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none" />` : ''}
     </div>`;
   root.querySelector('[data-x=back]').onclick = roundsHome;
   root.querySelector('[data-x=library]').onclick = () => openLibrary({ toast: ctx.toast, onPicked: (c) => importCard(c?.id, root.querySelector('#impDate')?.value) });

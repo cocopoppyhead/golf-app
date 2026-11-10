@@ -6,6 +6,7 @@ import { loadLibrary, importCourse, toggleStar, starred, isHome } from './librar
 import { loadGeo, geoHole, drawCourseMap, mountHoleMap, markedHole, markHoleSheet } from './holemap.js';
 import { dist as D, du } from '../units.js';
 import { calendarSheet } from '../calendar.js';
+import { icon } from '../icons.js';
 import { createEvent, updateEvent, deleteEvent } from '../cloud/social.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -92,7 +93,7 @@ export function courseCardsHtml(groups, rounds) {
     .sort((a, b) => rank(a.g) - rank(b.g) || b.last - a.last);
   return rows.map(({ g, rec }) => `<div class="ccard" data-course="${esc(g.key)}">
       <canvas class="cthumb" data-thumb="${esc(g.key)}"></canvas>
-      <div class="cbody"><b>${rank(g) === 0 ? '🏠 ' : ''}${esc(g.name)}</b>
+      <div class="cbody"><b>${rank(g) === 0 ? `${icon('home', 15)} ` : ''}${esc(g.name)}</b>
         <span class="mute small">${g.variants.map((c) => c.tees).filter(Boolean).join(' · ') || 'no tees set'}${rec.played ? ` · ${rec.played} round${rec.played > 1 ? 's' : ''}` : ''}</span>
         ${rec.played ? `<span class="small">${rec.best != null ? `Best <b>${rec.best}</b> · avg <b>${rec.avg.toFixed(1)}</b> · worst <b>${rec.worst}</b>` : `Last: ${rec.last.full ? rec.last.score : `${rec.last.holes.length || rec.last.r.holesPlayed || '?'} holes`} on ${fmtD(rec.last.r.date)}`}</span>` : '<span class="small mute">Not played yet</span>'}
       </div><span class="mute">›</span></div>`).join('');
@@ -125,10 +126,10 @@ export async function coursePage(group, api) {
       <div class="chero-t"><h1>${esc(group.name)}</h1><span>${esc(L?.emirate || '')}${L?.emirate ? ' · ' : ''}${n} holes · par ${par}</span></div>
       <button class="star ${st.has(group.libId) ? 'on' : ''}" data-x="star" aria-label="Star">${st.has(group.libId) ? '★' : '☆'}</button></div></div>
     <div class="cactions">
-      <button class="btn primary" data-x="start">▶ Start round</button>
-      <button class="btn" data-x="schedule">📅 Schedule</button>
-      <button class="btn" data-x="preview" ${mapped || marked || first.lat ? '' : 'disabled'}>🗺 Preview holes</button>
-      <button class="btn" data-x="card">🧾 Scorecard</button>
+      <button class="btn primary" data-x="start">${icon('play')} Start round</button>
+      <button class="btn" data-x="schedule">${icon('calendar')} Schedule</button>
+      <button class="btn" data-x="preview" ${mapped || marked || first.lat ? '' : 'disabled'}>${icon('map')} Preview holes</button>
+      <button class="btn" data-x="card">${icon('card')} Scorecard</button>
     </div>
     ${up.length ? `<div class="card"><div class="lbl">Upcoming here</div>${up.map((e) => `<div class="evrow"><div><b>${fmtWhen(e.when)}</b><div class="mute small">${esc([e.who && `with ${e.who}`, e.note].filter(Boolean).join(' · '))}</div></div><button class="link" data-ev="${e.id}">Edit</button></div>`).join('')}</div>` : ''}
     <div class="card"><div class="lbl">Your record here</div>

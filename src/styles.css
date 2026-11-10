@@ -527,3 +527,4 @@ table.t5, table.dk { width: 100%; border-collapse: collapse; font-size: 13px; } 
 .qrwrap { display: flex; justify-content: center; } .qrwrap svg { width: 200px; height: 200px; background: #fff; padding: 8px; border-radius: 12px; }
 .invite .code { font-size: 22px; letter-spacing: .2em; }
 .ft td, .ft th { padding: 6px 4px; } .ft tr.me td { background: var(--panel2); } .pname { display: inline-flex; align-items: center; gap: 6px; } .pname img { width: 22px; height: 22px; border-radius: 50%; object-fit: cover; }
+.ic { vertical-align: -3px; flex: none; } .btn .ic { margin-right: 2px; } .link .ic { vertical-align: -2px; }
