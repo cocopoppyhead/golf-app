@@ -100,7 +100,7 @@ export function initLaserLoop(a) {
     const onTee = !!(fix && fix.acc <= 40 && gh && metres([fix.lat, fix.lon], gh.line[0]) < 45);
     const yds = course.holes[i]?.yds;
     const slot = shotSlot(h, { par, yds, raw: r.raw, onTee });
-    let k = slot.k; const target = slot.target;
+    const k = slot.k, target = slot.target;
     const pl = playsFrom(r, cond);
     const pick = pickClub(bag, pl.plays, true);
     const gps = fix && fix.acc <= 60 ? { lat: +fix.lat.toFixed(6), lon: +fix.lon.toFixed(6), acc: Math.round(fix.acc) } : null;
