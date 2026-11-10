@@ -36,6 +36,9 @@ export function roundStats(round, course) {
     birdies: 0, pars: 0, bogeys: 0, doubles: 0, triples: 0, quick: !!round.quick,
     cost: 0, saved: 0, byCause: {}, byShot: {}, byStrike: {}, byResult: {}, untagged: 0,
     front: 0, back: 0,
+    planN: 0, planned: 0, satN: 0, satSum: 0, byLie: {}, fp: { L: 0, P: 0, S: 0, LF: 0, C: 0, R: 0 }, fpN: 0, // shot Details: as planned / stars / lie detail; first putt from the flag
+    // the break-80 numbers (Golf Digest / Lou Stagner / Arccos): GIR+1, recovery ("dirt") drives, the 150–200 zone, lag 3-putts
+    gir1: 0, gir1Opp: 0, dirt: 0, zone: 0, zoneDbl: 0, lagOpp: 0, lag3: 0,
   };
   if (round.quick) {
     // posted total only: score and par, nothing hole-by-hole
@@ -57,6 +60,10 @@ export function roundStats(round, course) {
       S.putts += h.putts; S.puttsHoles++;
       if (h.putts >= 3) S.threePutts++; if (h.putts === 1) S.onePutts++;
     }
+    if (h.putts != null) { S.gir1Opp++; if (h.score - h.putts <= par - 1) S.gir1++; }
+    if (h.putts != null && h.firstPutt != null && h.firstPutt >= 20) { S.lagOpp++; if (h.putts >= 3) S.lag3++; }
+    if (par >= 4 && h.shots?.[0]) { const t = h.shots[0]; if (t.res === 'LT' || t.res === 'RT' || ['FB', 'WS', 'PN'].includes(t.res2) || t.pen) S.dirt++; }
+    if (h.shots) { const a = h.shots[Math.max(0, par - 3)]; if (a && a.dist != null && a.dist >= 150 && a.dist < 200 && !(par >= 4 && a.res === 'FW')) { S.zone++; if (d >= 2) S.zoneDbl++; } }
     if (par >= 4 && h.tee) {
       S.firOpp++;
       if (h.tee === 'FW') S.fir++;
@@ -81,6 +88,15 @@ export function roundStats(round, course) {
       for (const [k, m] of [['cause', S.byCause], ['shot', S.byShot], ['flight', S.byStrike], ['strike', S.byStrike], ['result', S.byResult]]) if (t[k]) m[t[k]] = (m[t[k]] || 0) + t.cost;
     }
     if (d > 0 && tagged < d) S.untagged += d - tagged;
+    for (const x of h.shots || []) {
+      if (!x?.d) continue;
+      if (x.d.plan === true || x.d.plan === false) { S.planN++; if (x.d.plan) S.planned++; }
+      if (x.d.sat) { S.satN++; S.satSum += x.d.sat; }
+      // a lie detail counts against the lie when the shot wasn't what you wanted, cost a stroke, or rated ≤2
+      const bad = x.d.plan === false || (x.d.cost > 0) || (x.d.sat && x.d.sat <= 2);
+      for (const l of x.d.lies || []) { const m = (S.byLie[l] ||= { n: 0, bad: 0 }); m.n++; if (bad) m.bad++; }
+    }
+    if (h.fpLong && h.fpSide) { S.fpN++; S.fp[h.fpLong]++; S.fp[h.fpSide]++; }
   });
   S.toPar = S.score - S.par;
   return S;
@@ -100,6 +116,9 @@ export function aggregate(list) {
     A[k] = {};
     list.forEach((x) => Object.entries(x.stats[k]).forEach(([c, v]) => (A[k][c] = (A[k][c] || 0) + v)));
   }
+  for (const k of ['planN', 'planned', 'satN', 'satSum', 'fpN', 'gir1', 'gir1Opp', 'dirt', 'zone', 'zoneDbl', 'lagOpp', 'lag3']) A[k] = list.reduce((a, x) => a + (x.stats[k] || 0), 0);
+  A.fp = { L: 0, P: 0, S: 0, LF: 0, C: 0, R: 0 }; list.forEach((x) => Object.keys(A.fp).forEach((m) => (A.fp[m] += x.stats.fp?.[m] || 0)));
+  A.byLie = {}; list.forEach((x) => Object.entries(x.stats.byLie || {}).forEach(([l, m]) => { const t = (A.byLie[l] ||= { n: 0, bad: 0 }); t.n += m.n; t.bad += m.bad; }));
   const per18 = 18 / (A.holes || 1);
   A.per18 = per18;
   A.avgToPar = ((A.score - A.par) * per18);
@@ -107,6 +126,7 @@ export function aggregate(list) {
 }
 
 const LABEL = Object.fromEntries(Object.values(CODES).flat().filter(([, l]) => l).map(([c, l]) => [c, l.toLowerCase()]));
+const LIE_WORD = { abv: 'Ball-above-feet', blw: 'Ball-below-feet', up: 'Uphill-lie', dn: 'Downhill-lie', fc: 'First-cut', hvy: 'Heavy-rough', fly: 'Flyer-lie', div: 'Divot', hp: 'Hardpan', wet: 'Wet-lie' };
 const nm = (c) => (LABEL[c] ? `${c} (${LABEL[c]})` : c);
 const pct = (a, b) => (b ? Math.round((100 * a) / b) : null);
 const top = (m) => Object.entries(m).sort((a, b) => b[1] - a[1]);
@@ -126,6 +146,9 @@ export function roundTendencies(A) {
     if (n / teeMiss >= 0.65) out.push({ key: 'tee-' + side, text: `Tee shots miss ${side}`, detail: `${n} of ${teeMiss} missed fairways went ${side}`, weight: 2 + n / teeMiss });
   }
   if (A.teeTrouble * p18 >= 2) out.push({ key: 'tee-trouble', text: 'Tee shots finding trouble', detail: `${(A.teeTrouble * p18).toFixed(1)} per round in trees/OB/hazard`, weight: 2.5 });
+  if (A.dirt * p18 >= 2.5) out.push({ key: 'dirt', text: 'Drives that need a recovery shot', detail: `${(A.dirt * p18).toFixed(1)} per round in trouble, fairway bunkers or waste — pick the safe side, treat bunkers like water`, weight: 2.3 });
+  if (A.zone >= 6 && A.zoneDbl / A.zone >= 0.2) out.push({ key: 'zone', text: 'Doubles from 150–200', detail: `${Math.round((100 * A.zoneDbl) / A.zone)}% of holes with a 150–200 approach became a double — aim at the fat side, GIR+1 is the goal`, weight: 2.2 });
+  if (A.lagOpp >= 6 && A.lag3 / A.lagOpp >= 0.3) out.push({ key: 'lag', text: 'Three-putting from 20 ft and beyond', detail: `${Math.round((100 * A.lag3) / A.lagOpp)}% of first putts from 20+ became three putts — speed, not line`, weight: 2 });
   const greenMiss = Object.values(A.miss).reduce((a, b) => a + b, 0);
   if (greenMiss >= 4) {
     const [m, c] = top(A.miss)[0];
@@ -140,6 +163,16 @@ export function roundTendencies(A) {
   if (strikes.length && strikes[0][1] >= 3) out.push({ key: 'strike-' + strikes[0][0], text: `Costliest bad shot: ${nm(strikes[0][0])}`, detail: `${strikes[0][1]} strokes across ${A.rounds} round${A.rounds > 1 ? 's' : ''}`, weight: 1.6 });
   const shots = top(A.byShot);
   if (shots.length && shots[0][1] >= 3) out.push({ key: 'shot-' + shots[0][0], text: `Most strokes lost on ${nm(shots[0][0])}`, detail: `${(shots[0][1] * p18).toFixed(1)} per round`, weight: 1.7 });
+  // first putts: where approaches finish relative to the flag
+  if (A.fpN >= 8) {
+    const ld = [['S', 'short of the flag'], ['L', 'past the flag']].map(([k, w]) => [k, w, A.fp[k] / A.fpN]).sort((a, b) => b[2] - a[2])[0];
+    if (ld[2] >= 0.55) out.push({ key: 'fp-' + ld[0], text: `Approaches finish ${ld[1]}`, detail: `${Math.round(ld[2] * 100)}% of first putts were ${ld[1]}${ld[0] === 'S' ? ' — take one more club' : ''}`, weight: 1.6 + ld[2] });
+    const side = [['LF', 'left'], ['R', 'right']].map(([k, w]) => [k, w, A.fp[k] / A.fpN]).sort((a, b) => b[2] - a[2])[0];
+    if (side[2] >= 0.5) out.push({ key: 'fpside-' + side[0], text: `Approaches finish ${side[1]} of the flag`, detail: `${Math.round(side[2] * 100)}% of first putts were ${side[1]}`, weight: 1.5 + side[2] });
+  }
+  // lies that go wrong more often than not
+  for (const [l, m] of Object.entries(A.byLie)) if (m.n >= 4 && m.bad / m.n >= 0.5) out.push({ key: 'lie-' + l, text: `${LIE_WORD[l] || l} shots go wrong`, detail: `${m.bad} of ${m.n} weren't the shot you wanted — practise that lie`, weight: 1.4 + m.bad / m.n });
+  if (A.planN >= 15 && A.planned / A.planN < 0.5) out.push({ key: 'plan', text: 'Fewer than half your shots come off as planned', detail: `${Math.round((100 * A.planned) / A.planN)}% as planned across ${A.planN} rated shots`, weight: 1.6 });
   return out.sort((a, b) => b.weight - a.weight);
 }
 
@@ -158,7 +191,11 @@ export function roundSummaryText(A) {
     `by shot: ${top(A.byShot).map(([k, v]) => `${k} ${f(v)}`).join(', ') || 'none'}`,
     `by strike: ${top(A.byStrike).map(([k, v]) => `${k} ${v}`).join(', ') || 'none'}`,
     `by result: ${top(A.byResult).map(([k, v]) => `${k} ${v}`).join(', ') || 'none'}`,
-  ];
+    `GIR+1 (on the green with a shot to spare) ${pct(A.gir1, A.gir1Opp) ?? '–'}%, recovery drives ${f(A.dirt)}/18, doubles+ ${f(A.doubles)}/18, 150–200 approaches ${A.zone} with ${A.zoneDbl} doubles, 3-putts from 20+ ft ${A.lag3}/${A.lagOpp}`,
+    A.planN ? `shots as planned ${pct(A.planned, A.planN)}% of ${A.planN} rated${A.satN ? `, satisfaction ${(A.satSum / A.satN).toFixed(1)}/5` : ''}` : null,
+    A.fpN ? `first putts vs flag: ${A.fp.S} short, ${A.fp.P} pin high, ${A.fp.L} long; ${A.fp.LF} left, ${A.fp.C} on line, ${A.fp.R} right` : null,
+    Object.keys(A.byLie).length ? `lies (shots that went wrong/total): ${Object.entries(A.byLie).map(([l, m]) => `${LIE_WORD[l] || l} ${m.bad}/${m.n}`).join(', ')}` : null,
+  ].filter(Boolean);
   return parts.join('; ') + '.';
 }
 

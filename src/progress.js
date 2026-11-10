@@ -4,6 +4,8 @@
 import { listRounds, getCourse } from './store.js';
 import { roundStats } from './rounds/stats.js';
 import { roundSG, SG_LABELS } from './rounds/sg.js';
+import { approachBands, executionSummary, bandLabel } from './rounds/bands.js';
+import { puttLabel, puttUnit, du, dist as D } from './units.js';
 import { tiger5, TIGER5, TIGER5_LABEL, TIGER5_TOUR } from './rounds/tiger.js';
 import { sgCard } from './rounds/ui.js';
 import { autoShotType } from './rounds/hole.js';
@@ -169,6 +171,32 @@ export async function renderScoring(el) {
   const avg = full.length ? full.reduce((a, x) => a + x.S.score, 0) / full.length : null;
   const G = R.filter((x) => x.G && x.G.complete >= Math.min(9, x.G.holes));
   const sgAvg = G.length ? Object.fromEntries(['ott', 'app', 'arg', 'putt', 'total'].map((k) => [k, G.reduce((a, x) => a + x.G[k] * (18 / x.G.holes), 0) / G.length])) : null;
+  const AB = approachBands(ALL); const EX = executionSummary(ALL);
+  const proxTxt = (ft) => (ft == null ? '–' : ft === 0 ? 'in' : `${puttLabel([3, 6, 10, 20, 30, 50].reduce((a, b) => (Math.abs(b - ft) < Math.abs(a - ft) ? b : a)))} ${puttUnit() === 'feet' ? 'ft' : 'm'}`);
+  // the break-80 plan numbers (Golf Digest "The Game Plan": 7 bogeys + 11 pars, no doubles; GIR+1 16–17 of 18; recovery drives; the 150–200 zone; lag speed)
+  const T = (k) => L.reduce((a, x) => a + (x.S[k] || 0), 0);
+  const holesL = T('holes');
+  const planCard = holesL >= 18 ? (() => {
+    const p18 = 18 / holesL;
+    const rows = [
+      ['Doubles or worse', `${(T('doubles') * p18).toFixed(1)} / round`, 'under 1', T('doubles') * p18 <= 1],
+      ['GIR+1 (on in par−1)', T('gir1Opp') ? `${Math.round((100 * T('gir1')) / T('gir1Opp'))}%` : '–', '85%+ (16 of 18)', T('gir1Opp') ? T('gir1') / T('gir1Opp') >= 0.85 : null],
+      ['Recovery drives', `${(T('dirt') * p18).toFixed(1)} / round`, 'under 1.5', T('dirt') * p18 < 1.5],
+      ['Doubles from 150–200', T('zone') ? `${Math.round((100 * T('zoneDbl')) / T('zone'))}% of ${T('zone')}` : '–', 'under 10%', T('zone') ? T('zoneDbl') / T('zone') < 0.1 : null],
+      ['3-putts from 20 ft+', T('lagOpp') ? `${Math.round((100 * T('lag3')) / T('lagOpp'))}% of ${T('lagOpp')}` : '–', 'under 15%', T('lagOpp') ? T('lag3') / T('lagOpp') < 0.15 : null],
+    ];
+    return `<div class="card"><h2>The scoring plan</h2>
+      <p class="mute small" style="margin:0 0 8px">Scores drop by avoiding bogeys and doubles, not by chasing birdies: a 10-handicap makes one fewer birdie than scratch but 2½ more doubles. The five numbers that decide it, from your hole-by-hole rounds.</p>
+      <table class="bands"><tr><th>Number</th><th>You</th><th>Breaking 80</th></tr>
+        ${rows.map(([l, v, t, ok]) => `<tr class="${ok === true ? 'best' : ok === false ? 'worst' : 'thin'}"><td>${l}</td><td>${v}</td><td class="mute">${t}</td></tr>`).join('')}</table>
+      <p class="mute small" style="margin:8px 0 0">Par 3s ${parAvg(3) != null ? (parAvg(3) - 3).toFixed(2) : '–'} · par 4s ${parAvg(4) != null ? (parAvg(4) - 4).toFixed(2) : '–'} · par 5s ${parAvg(5) != null ? (parAvg(5) - 5).toFixed(2) : '–'} over par per hole. For 80-shooters the 3s and 5s are the par chances.</p></div>`;
+  })() : '';
+  const bandsCard = AB.total >= 10 ? `<div class="card"><h2>Where you score from</h2>
+    <p class="mute small" style="margin:0 0 8px">Approach shots by the distance you hit them from, all your rounds. Strokes to finish = the approach plus what it left you (tour baseline in grey). ${AB.best ? `You score best from <b>${bandLabel(AB.best.band, D)}</b>${AB.worst && AB.worst !== AB.best ? `, worst from <b>${bandLabel(AB.worst.band, D)}</b>` : ''}: when you can't reach, lay up to ${bandLabel(AB.best.band, D)}.` : 'Needs 5+ shots in a band.'}</p>
+    <table class="bands"><tr><th>From (${du()})</th><th>Shots</th><th>Green</th><th>1st putt</th><th>To finish</th></tr>
+      ${AB.bands.filter((b) => b.n).map((b) => `<tr class="${AB.best === b ? 'best' : AB.worst === b ? 'worst' : ''} ${b.enough ? '' : 'thin'}"><td>${bandLabel(b.band, D)}</td><td>${b.n}</td><td>${b.gir != null ? Math.round(b.gir * 100) + '%' : '–'}</td><td>${proxTxt(b.prox)}</td><td>${b.finish != null ? b.finish.toFixed(2) : '–'} <span class="mute small">${b.tour.toFixed(2)}</span></td></tr>`).join('')}</table>
+    ${EX.n >= 10 ? `<p class="mute small" style="margin:8px 0 0">Shots that came off as planned: <b>${EX.planned != null ? Math.round(EX.planned * 100) + '%' : '–'}</b>${EX.sat != null ? ` · average satisfaction <b>${EX.sat.toFixed(1)}★</b>` : ''} (from shot Details).</p>` : ''}
+  </div>` : '';
   // per-18 scaling for counts from 9-hole rounds
   const p18 = (x, v) => v * (18 / Math.max(9, x.S.holes));
   const t5 = Object.fromEntries(TIGER5.map((id) => [id, L.length ? L.reduce((a, x) => a + p18(x, x.T.by[id] || 0), 0) / L.length : 0]));
@@ -201,6 +229,8 @@ export async function renderScoring(el) {
     </div>` : '<div class="card"><h2>Tiger 5</h2><p class="mute small">Needs hole-by-hole rounds. Posted totals only feed the handicap and scoring average.</p></div>'}
 
     ${sgAvg ? sgCard(sgAvg, `Per 18 holes, average of ${G.length} round${G.length > 1 ? 's' : ''} with shot data`) : '<div class="card"><h2>Strokes gained</h2><p class="mute small">Shows once rounds have shot distances (from the rangefinder) and first-putt distances.</p></div>'}
+    ${planCard}
+    ${bandsCard}
 
     <div class="card">
       <h2>How you score, against other golfers</h2>

@@ -9,6 +9,17 @@ export const DIRS = [['S', 'Short'], ['L', 'Long'], ['LF', 'Left'], ['R', 'Right
 export const SWING_TYPES = [['full', 'Full'], ['3q', '¾'], ['half', '½'], ['pitch', 'Pitch'], ['chip', 'Chip'], ['splash', 'Bunker'], ['punch', 'Punch'], ['putter', 'Putt']];
 // what you meant to hit (tee shots and full swings); what actually happened goes in Details → ball flight
 export const INTENT = [['D', 'Draw'], ['S', 'Straight'], ['F', 'Fade']];
+// the lie in more detail (Details, optional, several can apply): slope, turf, trouble
+export const LIE_DETAIL = [['abv', 'Ball above feet'], ['blw', 'Ball below feet'], ['up', 'Uphill'], ['dn', 'Downhill'], ['fc', 'First cut'], ['hvy', 'Heavy rough'], ['fly', 'Flyer lie'], ['div', 'Divot'], ['hp', 'Hardpan'], ['wet', 'Wet / mud']];
+// where the first putt was, relative to the flag: long / pin high / short × left / on line / right
+export const FP_LONG = [['L', 'Long'], ['P', 'Pin high'], ['S', 'Short']];
+export const FP_SIDE = [['LF', 'Left'], ['C', 'On line'], ['R', 'Right']];
+/** Did the shot come off as planned? From the planned shape and the logged flight when Details has both; null if unknown. */
+export const asPlanned = (x) => {
+  if (x.d?.plan === true || x.d?.plan === false) return x.d.plan;
+  if (!x.intent || !x.d?.flight) return null;
+  return ({ D: 'DRW', S: 'STR', F: 'FAD' })[x.intent] === x.d.flight;
+};
 export const autoSwing = (x, k) => {
   if (k === 0) return 'full';
   const d = x.dist ?? null, lie = x.lie || x.lieAuto;

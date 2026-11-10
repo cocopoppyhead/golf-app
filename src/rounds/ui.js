@@ -20,7 +20,8 @@ import { drillContext } from '../drills.js';
 import { loadGeo, geoHole, mountHoleMap, markedHole, markHoleSheet } from './holemap.js';
 import { renderChecklist } from '../checklist.js';
 import { icon } from '../icons.js';
-import { ENDED, TEE_EXTRA, DIRS, SWING_TYPES, INTENT, autoSwing, autoShotType, blankHole, ensureShots, defaultLie, derive, nextBogeyFrom } from './hole.js';
+import { approachBands } from './bands.js';
+import { ENDED, TEE_EXTRA, DIRS, SWING_TYPES, INTENT, LIE_DETAIL, FP_LONG, FP_SIDE, asPlanned, autoSwing, autoShotType, blankHole, ensureShots, defaultLie, derive, nextBogeyFrom } from './hole.js';
 export { SWING_TYPES, INTENT, autoShotType } from './hole.js';
 import { renderFriendsCard, inviteSheet } from './friends.js';
 import { inviteLink, remoteEvents, removeSummary, takePendingInvite, joinEvent, addFriendByCode } from '../cloud/social.js';
@@ -121,7 +122,7 @@ async function handlePendingInvite() {
   } catch (e) { ctx.toast(e.message || 'That invite didn\'t work.'); }
 }
 /** What the course page needs from here. */
-const courseApi = () => ({ root, toast: ctx.toast, startRound, openRound, editCourse, back: roundsHome, clubs: effectiveClubs });
+const courseApi = () => ({ root, toast: ctx.toast, startRound, openRound, editCourse, back: roundsHome, clubs: effectiveClubs, bestBand: bestBandCached });
 export async function openCoursePage(courseId) {
   const groups = groupCourses(await listCourses().catch(() => []));
   const g = groups.find((x) => x.variants.some((c) => c.id === courseId));
@@ -301,8 +302,10 @@ function renderHole() {
   const sg = putts != null ? holeSG({ ...h, shots: h.shots.map((x) => ({ ...x, lie: x.lie || x.lieAuto })) }, par, ch.yds) : null;
   const tot = round.holes.reduce((a, x, k) => (x && x.score != null ? { s: a.s + x.score, p: a.p + course.holes[k].par } : a), { s: 0, p: 0 });
   const word = diff == null ? '' : diff <= -2 ? 'Eagle' : diff === -1 ? 'Birdie' : diff === 0 ? 'Par' : diff === 1 ? 'Bogey' : diff === 2 ? 'Double' : `+${diff}`;
-  const detBadge = (x) => x.d ? [x.d.club, x.d.flight, x.d.strike, x.d.cause, x.d.result, x.d.cost ? `+${x.d.cost}` : null].filter(Boolean).map(esc).join(' · ') : '';
+  const LIE_D = Object.fromEntries(LIE_DETAIL);
+  const detBadge = (x) => x.d ? [x.d.club, asPlanned(x) === true ? 'as planned ✓' : asPlanned(x) === false ? 'not the shot ✗' : null, x.d.sat ? `${'★'.repeat(x.d.sat)}` : null, ...(x.d.lies || []).map((l) => LIE_D[l]), x.d.flight, x.d.strike, x.d.cause, x.d.result, x.d.cost ? `+${x.d.cost}` : null].filter(Boolean).map(esc).join(' · ') : '';
 
+  const cue = round.cuesOff || review ? '' : shotCue(h, par, ch.yds);
   const RES_LABEL = Object.fromEntries([...TEE_ZONES, ...ENDED, ...TEE_EXTRA]);
   const DIR_LABEL = Object.fromEntries(DIRS);
   const panel = (x, k) => {
@@ -346,6 +349,7 @@ function renderHole() {
     <div class="holedots">${round.holes.map((x, k) => `<i class="${k === i ? 'on' : ''} ${x && x.score != null ? (x.score < course.holes[k].par ? 'b' : x.score === course.holes[k].par ? 'p' : 'o') : ''}" data-go="${k}"></i>`).join('')}</div>
     <p class="mute small center">${esc(round.courseName)} · ${tot.s ? `${tot.s} (${toParStr(tot.s - tot.p)}) thru ${played(round).length}` : 'not started'}${review ? ' · reviewing bogeys' : ''}</p>
     ${round.quick ? '' : '<div id="holeMap"></div><div id="holeHist"></div>'}
+    ${cue ? `<div class="cue"><span>${cue}</span><button class="link" data-cue-off title="Hide cues for this round">✕</button></div>` : ''}
 
     <div class="scorebar"><div><span class="mute small">Score</span><b class="${diff < 0 ? 'under' : diff > 0 ? 'over' : ''}">${score ?? '–'}</b><span class="small">${word}</span></div>
       ${sg && sg.complete ? `<span class="sgpill ${sg.total >= 0 ? 'pos' : 'neg'}" style="float:none">SG ${sg.total >= 0 ? '+' : ''}${sg.total.toFixed(1)}</span>` : ''}</div>
@@ -356,7 +360,9 @@ function renderHole() {
     <div class="card">
       <div class="lbl">Putts</div>
       <div class="seg5">${[0, 1, 2, 3, 4].map((n) => `<button class="${putts === n ? 'on' : ''}" data-pt="${n}">${n}${n === 4 ? '+' : ''}</button>`).join('')}</div>
-      ${putts ? `<div class="lbl">1st putt <span class="mute">(${puttUnit()})</span></div><div class="seg5 sm">${PUTT_FT.map((n) => `<button class="${h.firstPutt === n ? 'on' : ''}" data-fp="${n}">${puttLabel(n)}</button>`).join('')}</div>` : ''}
+      ${putts ? `<div class="lbl">1st putt <span class="mute">(${puttUnit()})</span></div><div class="seg5 sm">${PUTT_FT.map((n) => `<button class="${h.firstPutt === n ? 'on' : ''}" data-fp="${n}">${puttLabel(n)}</button>`).join('')}</div>
+      <div class="lbl">Where, from the flag <span class="mute">(optional)</span></div>
+      <div class="fpgrid">${FP_LONG.flatMap(([lv, ll]) => FP_SIDE.map(([sv, sl]) => `<button class="${h.fpLong === lv && h.fpSide === sv ? 'on' : ''} ${lv === 'P' && sv === 'C' ? 'flag' : ''}" data-fpl="${lv}" data-fps="${sv}" title="${ll}, ${sl.toLowerCase()}">${lv === 'P' && sv === 'C' ? '⛳' : `${lv === 'L' ? '↑' : lv === 'S' ? '↓' : ''}${sv === 'LF' ? '←' : sv === 'R' ? '→' : ''}`}<small>${lv === 'P' && sv === 'C' ? 'pin high' : `${ll}${sv !== 'C' ? ` ${sl.toLowerCase()}` : ''}`}</small></button>`)).join('')}</div>` : ''}
       ${putts === 0 ? '<p class="mute small">Holed from off the green. Nice.</p>' : ''}
     </div>
 
@@ -380,11 +386,11 @@ function renderHole() {
   const mapEl = root.querySelector('#holeMap');
   if (mapEl) {
     holeMap?.destroy(); holeMap = null;
-    Promise.all([loadGeo(course.libId), effectiveClubs()]).then(([geo, clubs]) => {
+    Promise.all([loadGeo(course.libId), effectiveClubs(), bestBandCached()]).then(([geo, clubs, bestBand]) => {
       if (!mapEl.isConnected) return;
       const gh = geoHole(geo, i + 1) || markedHole(ch.mark, i + 1);
       if (!gh && !ch.yds && !course.lat) { mapEl.remove(); return; }
-      holeMap = mountHoleMap(mapEl, { gh, geo, par, yds: ch.yds, teeName: course.tees, clubs, inGame: true, cond: round.cond?.start || null, geoId: course.libId || course.id, canMark: !!course.lat, onMark: () => markHoleSheet({ course, start: i, geo, onSave: (k, mark) => { course.holes[k].mark = mark; putCourse(course); }, onClose: renderHole }) });
+      holeMap = mountHoleMap(mapEl, { gh, geo, par, yds: ch.yds, teeName: course.tees, clubs, inGame: true, bestBand, cond: round.cond?.start || null, geoId: course.libId || course.id, canMark: !!course.lat, onMark: () => markHoleSheet({ course, start: i, geo, onSave: (k, mark) => { course.holes[k].mark = mark; putCourse(course); }, onClose: renderHole }) });
     });
   }
   const histEl = root.querySelector('#holeHist');
@@ -410,8 +416,10 @@ function renderHole() {
   root.querySelectorAll('[data-rm]').forEach((b) => b.onclick = () => { h.shots.splice(+b.dataset.rm, 1); redo(); });
   root.querySelector('[data-add]').onclick = () => { h.shots.push({ lie: null, dist: null }); redo(); setTimeout(() => root.querySelectorAll('.shotpanel')[h.shots.length - 1]?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 50); };
   root.querySelectorAll('[data-det]').forEach((b) => b.onclick = () => shotDetails(h, +b.dataset.det, par, i, redo));
+  root.querySelector('[data-cue-off]')?.addEventListener('click', () => { round.cuesOff = true; redo(); });
   root.querySelectorAll('[data-pt]').forEach((b) => b.onclick = () => { h.putts = +b.dataset.pt; if (!h.putts) h.firstPutt = null; redo(); });
   root.querySelectorAll('[data-fp]').forEach((b) => b.onclick = () => { h.firstPutt = h.firstPutt === +b.dataset.fp ? null : +b.dataset.fp; redo(); });
+  root.querySelectorAll('[data-fpl]').forEach((b) => b.onclick = () => { const same = h.fpLong === b.dataset.fpl && h.fpSide === b.dataset.fps; h.fpLong = same ? null : b.dataset.fpl; h.fpSide = same ? null : b.dataset.fps; redo(); });
   root.querySelector('[data-learn]').onchange = (e) => { round.learning = e.target.checked; save(); };
   root.querySelectorAll('[data-pp]').forEach((b) => b.onclick = () => { const p = round.players[+b.dataset.pp]; const v = p.scores[i]; p.scores[i] = v == null ? par : Math.max(1, v + +b.dataset.d); save(); renderHole(); });
   root.querySelectorAll('[data-pq]').forEach((b) => b.onclick = () => { const p = round.players[+b.dataset.pq]; const v = p.putts[i]; p.putts[i] = v == null ? 2 : Math.max(0, v + +b.dataset.d); save(); renderHole(); });
@@ -478,9 +486,30 @@ function discardSheet(round) {
 }
 
 /** Optional per-shot details: club and Conor's codes, for practice. Not required. */
+/**
+ * One line of course management for the shot in hand, from the break-80 data (Arccos via Golf Digest):
+ * 200+ from the fairway is a double one time in five for a 10-handicap, 150–200 is the zone, inside 100 it's under 5%.
+ * Shown while a shot has a distance and no result yet; nothing to read once you're inside 100.
+ */
+export function shotCue(h, par, yds) {
+  const shots = h.shots || [];
+  let k = shots.findIndex((x, n) => x && x.res == null && (n > 0 || par === 3));
+  if (k < 0) return '';
+  const x = shots[k];
+  const d = x.dist ?? (k === 0 ? yds : null);
+  if (d == null) return '';
+  const lie = x.lie || x.lieAuto;
+  const rough = lie === 'rgh' || lie === 'wst' || lie === 'fbk';
+  if (d >= 200) return `${Math.round(d)} out: one hole in five from here becomes a double, even from the fairway. Green in regulation +1 is the goal — ${par >= 5 || k >= 1 ? 'lay up to the distance you score from (★ on the map) rather than force it' : 'aim at the fat side of the green and take bogey off the table'}.`;
+  if (d >= 150) return `150–200 is the double-bogey zone${rough ? ', more so from the rough: take enough club' : ''}. Aim at the fat side of the green, not the flag: a miss on the easy-chip side still leaves GIR+1.`;
+  if (d >= 100) return 'Aim between the middle of the green and the pin. Short-siding yourself is the only bad miss from here.';
+  return '';
+}
+
 function shotDetails(h, k, par, holeIdx, done) {
   const x = h.shots[k];
-  const d = { club: null, shot: null, cause: null, flight: null, strike: null, result: null, cost: null, ...(x.d || {}) };
+  const d = { club: null, shot: null, cause: null, flight: null, strike: null, result: null, cost: null, plan: null, sat: null, lies: [], ...(x.d || {}) };
+  d.lies = Array.isArray(d.lies) ? d.lies : [];
   const clubs = getBag().map((c) => c.club).filter(Boolean);
   const sheet = document.createElement('div'); sheet.className = 'sheet';
   const draw = () => {
@@ -489,6 +518,9 @@ function shotDetails(h, k, par, holeIdx, done) {
     sheet.innerHTML = `<div class="sheet-in">
       <div class="sheet-h"><b>Hole ${holeIdx + 1} · ${k === 0 ? 'tee shot' : `shot ${k + 1}`}</b><button class="link" data-close>Cancel</button></div>
       <div class="lbl">Club</div><div class="clubchips">${clubs.map((c) => `<button class="${d.club === c ? 'on' : ''}" data-club="${esc(c)}">${esc(c)}</button>`).join('')}</div>
+      <div class="row2"><div><div class="lbl">The shot you wanted?</div><div class="seg2">${[[true, 'Yes'], [false, 'No']].map(([v, l]) => `<button class="${d.plan === v ? 'on' : ''} ${d.plan == null && asPlanned({ ...x, d }) === v ? 'auto' : ''}" data-plan="${v}">${l}</button>`).join('')}</div></div>
+        <div><div class="lbl">Happy with it?</div><div class="stars">${[1, 2, 3, 4, 5].map((n) => `<button class="${d.sat >= n ? 'on' : ''}" data-sat="${n}">★</button>`).join('')}</div></div></div>
+      ${k > 0 || par === 3 ? `<div class="lbl">Lie <span class="mute">(tap all that apply)</span></div><div class="chips3">${LIE_DETAIL.map(([v, l]) => `<button class="${d.lies.includes(v) ? 'on' : ''}" data-lie2="${v}">${l}</button>`).join('')}</div>` : ''}
       ${row('flight', CODES.flight, 'Ball flight')}${row('strike', [['PUR', 'Pure'], ...CODES.strike], 'Strike')}
       ${row('cause', CODES.cause, 'Execution (if it went wrong)')}${row('result', CODES.result, 'Positioning')}
       ${row('shot', CODES.shot, 'Shot type')}
@@ -498,6 +530,9 @@ function shotDetails(h, k, par, holeIdx, done) {
     sheet.querySelectorAll('[data-k]').forEach((b) => b.onclick = () => { d[b.dataset.k] = d[b.dataset.k] === b.dataset.v ? null : b.dataset.v; draw(); });
     sheet.querySelectorAll('[data-club]').forEach((b) => b.onclick = () => { d.club = d.club === b.dataset.club ? null : b.dataset.club; draw(); });
     sheet.querySelectorAll('[data-cost]').forEach((b) => b.onclick = () => { d.cost = b.dataset.cost === 'null' ? null : +b.dataset.cost; draw(); });
+    sheet.querySelectorAll('[data-plan]').forEach((b) => b.onclick = () => { const v = b.dataset.plan === 'true'; d.plan = d.plan === v ? null : v; draw(); });
+    sheet.querySelectorAll('[data-sat]').forEach((b) => b.onclick = () => { d.sat = d.sat === +b.dataset.sat ? null : +b.dataset.sat; draw(); });
+    sheet.querySelectorAll('[data-lie2]').forEach((b) => b.onclick = () => { d.lies = d.lies.includes(b.dataset.lie2) ? d.lies.filter((v) => v !== b.dataset.lie2) : [...d.lies, b.dataset.lie2]; draw(); });
     sheet.querySelector('[data-close]').onclick = () => sheet.remove();
     sheet.querySelector('[data-clear]')?.addEventListener('click', () => { delete x.d; sheet.remove(); done(); });
     sheet.querySelector('[data-ok]').onclick = async () => {
@@ -519,10 +554,14 @@ function shotDetails(h, k, par, holeIdx, done) {
 // Emotional state, 1–10 (5 = calm, focused, energised). Asked at the start, at the turn and at the end.
 export const MOOD_WORDS = { low: 'Lethargic · uninterested · sluggish', mid: 'Calm · focused · energised', high: 'Agitated · erratic · jumpy' };
 const WARMUP = [['none', 'None'], ['putt', 'Putting only'], ['range', 'Range balls'], ['full', 'Full warm-up']];
+// One thing for today: the intention you take to the first tee and rate at the end. Most of the
+// difference between a good round and a bad one is here, not in the swing.
+export const INTENTIONS = [['commit', 'Commit to every target'], ['safe', 'Play the safe side'], ['routine', 'Routine on every shot'], ['present', 'One shot at a time'], ['club', 'Take enough club'], ['lag', 'Lag putts to the hole'], ['bogey', 'Bogey is fine, no doubles'], ['tempo', 'Smooth tempo']];
+export const intentionLabel = (k) => (INTENTIONS.find((x) => x[0] === k) || [null, k])[1];
 const moodColor = (n) => `hsl(${n <= 5 ? 200 - (n - 1) * 20 : 120 - (n - 5) * 24}, 75%, 50%)`;
 function moodSheet(round, key, done) {
   round.mood ||= {};
-  let v = round.mood[key] ?? null, w = round.warmup ?? null;
+  let v = round.mood[key] ?? null, w = round.warmup ?? null, it = round.intention ?? null, kept = round.intentionKept ?? null;
   const sheet = document.createElement('div'); sheet.className = 'sheet';
   const title = { start: 'Before you tee off', turn: 'At the turn', finish: 'Round done' }[key];
   const draw = () => {
@@ -531,12 +570,16 @@ function moodSheet(round, key, done) {
       <div class="lbl">How do you feel right now?</div>
       <div class="moodscale">${Array.from({ length: 10 }, (_, n) => `<button class="${v === n + 1 ? 'on' : ''}" data-m="${n + 1}" style="--c:${moodColor(n + 1)}">${n + 1}</button>`).join('')}</div>
       <div class="moodlbl">${[['Low', MOOD_WORDS.low, 1], ['Ideal', MOOD_WORDS.mid, 5], ['High', MOOD_WORDS.high, 10]].map(([t, w, n]) => `<span style="color:${moodColor(n)}">${t}${w.split(' · ').map((x) => `<small>${x[0].toUpperCase() + x.slice(1)}</small>`).join('')}</span>`).join('')}</div>
-      ${key === 'start' ? `<div class="lbl">Any practice or warm-up before the round?</div><div class="seg4">${WARMUP.map(([k, l]) => `<button class="${w === k ? 'on' : ''}" data-w="${k}">${l}</button>`).join('')}</div>` : ''}
+      ${key === 'start' ? `<div class="lbl">Any practice or warm-up before the round?</div><div class="seg4">${WARMUP.map(([k, l]) => `<button class="${w === k ? 'on' : ''}" data-w="${k}">${l}</button>`).join('')}</div>
+      <div class="lbl">One thing for today <span class="mute">(optional — you'll rate it at the end)</span></div><div class="chips3">${INTENTIONS.map(([k, l]) => `<button class="${it === k ? 'on' : ''}" data-it="${k}">${l}</button>`).join('')}</div>` : ''}
+      ${key === 'finish' && it ? `<div class="lbl">Did you keep to it: “${esc(intentionLabel(it))}”?</div><div class="stars">${[1, 2, 3, 4, 5].map((n) => `<button class="${kept >= n ? 'on' : ''}" data-kept="${n}">★</button>`).join('')}</div>` : ''}
       <button class="btn primary big" data-ok ${v ? '' : 'disabled'}>${key === 'start' ? 'Start hole 1' : key === 'turn' ? 'On to the back nine' : 'See my round'}</button></div>`;
     sheet.querySelectorAll('[data-m]').forEach((b) => b.onclick = () => { v = +b.dataset.m; draw(); });
     sheet.querySelectorAll('[data-w]').forEach((b) => b.onclick = () => { w = b.dataset.w; draw(); });
+    sheet.querySelectorAll('[data-it]').forEach((b) => b.onclick = () => { it = it === b.dataset.it ? null : b.dataset.it; draw(); });
+    sheet.querySelectorAll('[data-kept]').forEach((b) => b.onclick = () => { kept = kept === +b.dataset.kept ? null : +b.dataset.kept; draw(); });
     sheet.querySelector('[data-skip]').onclick = () => { round.mood[key] = round.mood[key] ?? 0; sheet.remove(); save(); done(); };
-    sheet.querySelector('[data-ok]').onclick = () => { round.mood[key] = v; if (key === 'start') round.warmup = w; sheet.remove(); save(); done(); };
+    sheet.querySelector('[data-ok]').onclick = () => { round.mood[key] = v; if (key === 'start') { round.warmup = w; round.intention = it; } if (key === 'finish') round.intentionKept = kept; sheet.remove(); save(); done(); };
   };
   draw();
   document.body.appendChild(sheet);
@@ -544,10 +587,22 @@ function moodSheet(round, key, done) {
 export const moodLine = (r) => {
   const m = r.mood || {}; const f = (x) => (x ? `${x}/10` : '–');
   if (!m.start && !m.turn && !m.finish) return '';
-  return `Emotional state: start ${f(m.start)}, turn ${f(m.turn)}, finish ${f(m.finish)}${r.warmup ? ` · warm-up: ${(WARMUP.find((x) => x[0] === r.warmup) || [null, r.warmup])[1].toLowerCase()}` : ''}`;
+  return `Emotional state: start ${f(m.start)}, turn ${f(m.turn)}, finish ${f(m.finish)}${r.warmup ? ` · warm-up: ${(WARMUP.find((x) => x[0] === r.warmup) || [null, r.warmup])[1].toLowerCase()}` : ''}${r.intention ? ` · intention: “${intentionLabel(r.intention)}”${r.intentionKept ? `, kept ${r.intentionKept}/5` : ''}` : ''}`;
 };
 
 const nextBogey = (i) => nextBogeyFrom(cur.round, cur.course, i);
+
+// the distance band you score best from (Progress → Where you score from), for the ★ on the tee arcs
+let bandCache = { t: 0, band: null };
+export async function bestBandCached() {
+  if (Date.now() - bandCache.t < 10 * 60e3) return bandCache.band;
+  try {
+    const rounds = (await listRounds()).filter((r) => r.finished && r.learning !== false && !r.quick).slice(0, 60);
+    const withCourse = []; for (const r of rounds) { const c = await getCourse(r.courseId).catch(() => null); if (c) withCourse.push({ r, c }); }
+    bandCache = { t: Date.now(), band: approachBands(withCourse).best?.band || null };
+  } catch { bandCache = { t: Date.now(), band: null }; }
+  return bandCache.band;
+}
 
 
 // ---------------- Post a score (total only) ----------------
