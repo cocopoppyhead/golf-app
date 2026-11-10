@@ -32,5 +32,5 @@ test('a Garmin CSV imports club by club into the launch-monitor card, with the t
   await expect(card.locator('.dcard').first()).toBeVisible();
   // the club page carries the model carry and the takes
   await card.locator('tr[data-open="Driver"]').click();
-  await expect(page.locator('.kpis')).toContainText('Should carry');
+  await expect(page.locator('.kpis').filter({ hasText: 'Should carry' })).toHaveCount(1);
 });
