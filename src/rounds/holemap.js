@@ -57,6 +57,21 @@ export function alongLine(line, m) {
 }
 export const showLeave = () => getSettings().mapLeave !== false;
 
+/** Carry or total on the arcs, and how firm the ground is when a total has to be estimated. */
+export const distBasis = () => (getSettings().mapDist === 'total' ? 'total' : 'carry');
+export const firmness = () => getSettings().mapFirm || 'normal';
+// typical roll-out as a share of carry on normal ground: low, running drives roll; wedges stop
+const ROLL = { driver: 0.1, wood: 0.08, hybrid: 0.06, iron: 0.035, wedge: 0.01 };
+const FIRM = { soft: 0.5, normal: 1, firm: 1.6 };
+/** The distance an arc is drawn at: carry, or the club's total (typed/learned, else carry + estimated roll). */
+export function arcDistance(c, basis = distBasis(), firm = firmness()) {
+  if (basis !== 'total') return c.carry;
+  if (c.total > 0) return c.total;
+  return Math.round(c.carry * (1 + ROLL[kind(c.club)] * (FIRM[firm] || 1)));
+}
+/** Clubs with `carry` replaced by the chosen basis (so every arc routine stays in one unit). */
+const withBasis = (clubs) => { const b = distBasis(), f = firmness(); return clubs.map((c) => ({ ...c, carry: arcDistance(c, b, f), carryReal: c.carry })); };
+
 /**
  * What a shot plays in these conditions: air (temperature, humidity, pressure), wind along the
  * shot's bearing, and the rise to the target. yards in, yards out, with the reasons.
@@ -242,11 +257,11 @@ export function mountHoleMap(el, opts) {
         if (dir > 0) { ctx.beginPath(); ctx.arc(lx2, ly2, 3, 0, 7); ctx.fillStyle = color; ctx.fill(); }
         const lx = cx0 + r * Math.cos(base + half) + 4; let ly = cy0 + r * Math.sin(base + half) + 4;
         if (lastY > -99 && Math.abs(ly - lastY) < 15) ly = lastY + (dir > 0 ? -15 : 15); lastY = ly; // keep labels from stacking
-        ctx.fillStyle = 'rgba(0,0,0,.6)'; const label = `${c.club} ${D(c.carry)}${leave}`; const w = ctx.measureText(label).width + 6;
+        ctx.fillStyle = 'rgba(0,0,0,.6)'; const label = `${c.club} ${c.carryReal != null && c.carry !== c.carryReal && !c.total ? '≈' : ''}${D(c.carry)}${leave}`; const w = ctx.measureText(label).width + 6;
         ctx.fillRect(lx - 3, ly - 11, w, 14); ctx.fillStyle = color; ctx.fillText(label, lx, ly);
       }
     };
-    const clubs = (o.clubs || []).filter((c) => c.carry > 0);
+    const clubs = withBasis((o.clubs || []).filter((c) => c.carry > 0));
     const centreYds = metres(ref.p, G) / YD;
     const pl = o.inGame ? playsLike(centreYds, { cond: o.cond, bearingDeg: (bearing(ref.p, G) * 180) / Math.PI, riseM: elev ? elev.green - elev.tee : null }) : null;
     if (mode === 'tee') arcs(ref.p, teeClubs(clubs, { par: o.par, toGo: o.par === 3 || ref.gps ? (pl ? pl.plays : centreYds) : null }), 1, '#ffd23f');
@@ -274,6 +289,7 @@ export function mountHoleMap(el, opts) {
     tapEl.innerHTML = tap ? `Tap: ${fmt(metres(ref.p, tap))} ${unitLabel()} out · ${fmt(metres(tap, G))} ${unitLabel()} to the green · ${fmt(metres(tap, F))} front` : `${mode === 'tee' && o.par !== 3 ? `<label class="check inl"><input type="checkbox" data-leave ${leaveOn ? 'checked' : ''}/> what each club leaves</label>` : 'Tap the map to measure.'}${o.gh.marked ? ' <button class="link" data-mark>Re-mark</button>' : o.approxGreen && o.canMark ? ' <button class="link acc" data-mark>Mark the green</button>' : ''}`;
     tapEl.querySelector('[data-mark]')?.addEventListener('click', () => o.onMark?.());
     tapEl.querySelector('[data-leave]')?.addEventListener('change', (e) => { const s = getSettings(); s.mapLeave = e.target.checked; saveSettings(s); schedule(); });
+    basisRow();
     wantGps();
   }
 
@@ -287,15 +303,27 @@ export function mountHoleMap(el, opts) {
     ctx.fillStyle = 'rgba(120,180,255,.7)'; ctx.fillRect(cx0 - 18, bottom - 6, 36, 12);
     ctx.font = '600 11px Inter, system-ui'; ctx.fillStyle = '#fff'; ctx.textAlign = 'left';
     for (let y = 50; y < yds; y += 50) { const py = bottom - y * YD * s; ctx.fillStyle = 'rgba(255,255,255,.35)'; ctx.fillRect(cx0 - 40, py, 80, 1); ctx.fillStyle = 'rgba(255,255,255,.8)'; ctx.fillText(`${D(y)}`, cx0 + 44, py + 4); }
-    const clubs = (o.clubs || []).filter((c) => c.carry > 0);
+    const clubs = withBasis((o.clubs || []).filter((c) => c.carry > 0));
     const arcs = (fromTee, list, color) => { let lastY = -99; for (const c of [...list].sort((a, b) => a.carry - b.carry)) { const r = c.carry * YD * s; const cy0 = fromTee ? bottom : top; const base = fromTee ? -Math.PI / 2 : Math.PI / 2; const half = Math.min(0.5, Math.atan2(40 * YD * s, r)); ctx.beginPath(); ctx.arc(cx0, cy0, r, base - half, base + half); ctx.strokeStyle = color; ctx.lineWidth = 1.4; ctx.setLineDash(fromTee ? [] : [3, 4]); ctx.stroke(); ctx.setLineDash([]); const lx = cx0 + r * Math.cos(base + half) + 4; let ly = cy0 + r * Math.sin(base + half) + 4; if (lastY > -99 && Math.abs(ly - lastY) < 15) ly = lastY + (fromTee ? -15 : 15); lastY = ly; const leave = fromTee && showLeave() && yds - c.carry > 25 ? ` · ${D(yds - c.carry)} left` : ''; ctx.fillStyle = 'rgba(0,0,0,.6)'; const label = `${c.club} ${D(c.carry)}${leave}`; ctx.fillRect(lx - 3, ly - 11, ctx.measureText(label).width + 6, 14); ctx.fillStyle = color; ctx.fillText(label, lx, ly); } };
     if (mode === 'tee') arcs(true, teeClubs(clubs, { par: o.par }), '#ffd23f');
     if (mode === 'green') arcs(false, clubs.filter((c) => c.carry <= 150).sort((a, b) => b.carry - a.carry).slice(0, 4), '#8fd3ff');
     distEl.innerHTML = `<div><b class="c">${D(yds)}</b><span>card</span></div><span class="src">no map for this course · ${unitLabel()}</span>`;
     tapEl.innerHTML = `No map shapes for this course yet, so this is the card yardage with your club arcs.${o.canMark ? ' <button class="link acc" data-mark>Mark this hole on the satellite map</button>' : ''}`;
     tapEl.querySelector('[data-mark]')?.addEventListener('click', () => o.onMark?.());
+    basisRow();
   }
   const schedule = () => { if (!raf) raf = requestAnimationFrame(draw); };
+  // Carry / Total under the map (and how firm the fairways are when a total has to be estimated)
+  function basisRow() {
+    let row = el.querySelector('.hm-basis');
+    if (!row) { row = document.createElement('div'); row.className = 'hm-basis'; el.querySelector('.hm-attr').before(row); }
+    if (mode === 'off') { row.innerHTML = ''; return; }
+    const b = distBasis(), f = firmness();
+    row.innerHTML = `<span class="mute small">Arcs:</span><div class="hm-mode sm">${[['carry', 'Carry'], ['total', 'Total']].map(([v, l]) => `<button data-basis="${v}" class="${b === v ? 'on' : ''}">${l}</button>`).join('')}</div>
+      ${b === 'total' ? `<span class="mute small">ground:</span><div class="hm-mode sm">${[['soft', 'Soft'], ['normal', 'Normal'], ['firm', 'Firm']].map(([v, l]) => `<button data-firm="${v}" class="${f === v ? 'on' : ''}">${l}</button>`).join('')}</div>` : ''}`;
+    row.querySelectorAll('[data-basis]').forEach((x) => x.onclick = () => { const s = getSettings(); s.mapDist = x.dataset.basis; saveSettings(s); schedule(); });
+    row.querySelectorAll('[data-firm]').forEach((x) => x.onclick = () => { const s = getSettings(); s.mapFirm = x.dataset.firm; saveSettings(s); schedule(); });
+  }
 
   el.querySelectorAll('[data-m]').forEach((b) => b.onclick = () => { mode = lastMode = b.dataset.m; el.querySelectorAll('[data-m]').forEach((x) => x.classList.toggle('on', x === b)); schedule(); });
   cv.addEventListener('click', (e) => { if (!frame?.s) return; const r = cv.getBoundingClientRect(); const p = toLatLon(e.clientX - r.left, e.clientY - r.top); tap = tap && metres(tap, p) < 8 ? null : p; schedule(); });
@@ -340,6 +368,17 @@ export function markHoleSheet({ course, start = 0, geo = null, onSave, onClose }
   const toPx = (p) => { const s = W / view.span; return [W / 2 + (p[1] - view.c[1]) * kx() * s, H / 2 - (p[0] - view.c[0]) * ky * s]; };
   const toLL = (x, y) => { const s = W / view.span; return [view.c[0] + (H / 2 - y) / s / ky, view.c[1] + (x - W / 2) / s / kx()]; };
   const schedule = () => { if (!raf) raf = requestAnimationFrame(draw); };
+  // Carry / Total under the map (and how firm the fairways are when a total has to be estimated)
+  function basisRow() {
+    let row = el.querySelector('.hm-basis');
+    if (!row) { row = document.createElement('div'); row.className = 'hm-basis'; el.querySelector('.hm-attr').before(row); }
+    if (mode === 'off') { row.innerHTML = ''; return; }
+    const b = distBasis(), f = firmness();
+    row.innerHTML = `<span class="mute small">Arcs:</span><div class="hm-mode sm">${[['carry', 'Carry'], ['total', 'Total']].map(([v, l]) => `<button data-basis="${v}" class="${b === v ? 'on' : ''}">${l}</button>`).join('')}</div>
+      ${b === 'total' ? `<span class="mute small">ground:</span><div class="hm-mode sm">${[['soft', 'Soft'], ['normal', 'Normal'], ['firm', 'Firm']].map(([v, l]) => `<button data-firm="${v}" class="${f === v ? 'on' : ''}">${l}</button>`).join('')}</div>` : ''}`;
+    row.querySelectorAll('[data-basis]').forEach((x) => x.onclick = () => { const s = getSettings(); s.mapDist = x.dataset.basis; saveSettings(s); schedule(); });
+    row.querySelectorAll('[data-firm]').forEach((x) => x.onclick = () => { const s = getSettings(); s.mapFirm = x.dataset.firm; saveSettings(s); schedule(); });
+  }
   function size() { W = el.querySelector('.mk-wrap').clientWidth; H = el.querySelector('.mk-wrap').clientHeight; dpr = Math.min(2, devicePixelRatio || 1); cv.width = W * dpr; cv.height = H * dpr; }
   function draw() {
     raf = 0; if (!W) size();

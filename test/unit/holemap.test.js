@@ -82,3 +82,16 @@ describe('clubs drawn from the tee', () => {
     expect(alongLine(line, 999)).toEqual(line[2]);
   });
 });
+
+describe('carry or total on the arcs', () => {
+  it('uses the club total when known, else carry plus a roll that depends on the club and the ground', async () => {
+    const { arcDistance } = await import('../../src/rounds/holemap.js');
+    expect(arcDistance({ club: 'Driver', carry: 255 }, 'carry')).toBe(255);
+    expect(arcDistance({ club: 'Driver', carry: 255, total: 284 }, 'total')).toBe(284);
+    expect(arcDistance({ club: 'Driver', carry: 255 }, 'total', 'normal')).toBe(281); // +10%
+    expect(arcDistance({ club: 'Driver', carry: 255 }, 'total', 'firm')).toBe(296); // +16%
+    expect(arcDistance({ club: 'Driver', carry: 255 }, 'total', 'soft')).toBe(268);
+    expect(arcDistance({ club: '7 iron', carry: 165 }, 'total', 'normal')).toBe(171);
+    expect(arcDistance({ club: '56°', carry: 85 }, 'total', 'firm')).toBe(86);
+  });
+});

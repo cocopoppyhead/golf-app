@@ -43,7 +43,7 @@ let clubsCache = { t: 0, list: [] };
 async function effectiveClubs() {
   if (Date.now() - clubsCache.t < 60000) return clubsCache.list;
   const shots = await listShots().catch(() => []);
-  clubsCache = { t: Date.now(), list: getBag().map((c) => resolveClub(c, shots)).filter((c) => c.carry > 0).map((c) => ({ club: c.club, carry: c.carry })) };
+  clubsCache = { t: Date.now(), list: getBag().map((c) => resolveClub(c, shots)).filter((c) => c.carry > 0).map((c) => ({ club: c.club, carry: c.carry, total: c.total > 0 ? c.total : null })) };
   return clubsCache.list;
 }
 
