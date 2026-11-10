@@ -138,8 +138,8 @@ async function aggStats(rounds) {
     list.push({ round: r, course: c, stats: r._stats });
   }
   const A = aggregate(list);
-  if (A) A.debriefs = list.filter((x) => x.round.debrief?.notes || x.round.debrief?.tags?.length).slice(0, 5)
-    .map((x) => `${new Date(x.round.date).toDateString()} ${x.course.name} ${x.stats.score}: ${[...(x.round.debrief.tags || []), x.round.debrief.notes].filter(Boolean).join('; ')}`);
+  if (A) A.debriefs = list.filter((x) => x.round.debrief?.notes || x.round.debrief?.tags?.length || x.round.debrief?.again).slice(0, 5)
+    .map((x) => `${new Date(x.round.date).toDateString()} ${x.course.name} ${x.stats.score}: ${[...(x.round.debrief.tags || []), x.round.debrief.notes, x.round.debrief.again ? `would do differently: ${x.round.debrief.again}` : null, x.round.intention ? `intention “${intentionLabel(x.round.intention)}”${x.round.intentionKept ? ` kept ${x.round.intentionKept}/5` : ''}` : null].filter(Boolean).join('; ')}`);
   return A;
 }
 
@@ -562,6 +562,7 @@ const moodColor = (n) => `hsl(${n <= 5 ? 200 - (n - 1) * 20 : 120 - (n - 5) * 24
 function moodSheet(round, key, done) {
   round.mood ||= {};
   let v = round.mood[key] ?? null, w = round.warmup ?? null, it = round.intention ?? null, kept = round.intentionKept ?? null;
+  let lastAgain = null; // what you said you'd do differently, last time on this course
   const sheet = document.createElement('div'); sheet.className = 'sheet';
   const title = { start: 'Before you tee off', turn: 'At the turn', finish: 'Round done' }[key];
   const draw = () => {
@@ -571,6 +572,7 @@ function moodSheet(round, key, done) {
       <div class="moodscale">${Array.from({ length: 10 }, (_, n) => `<button class="${v === n + 1 ? 'on' : ''}" data-m="${n + 1}" style="--c:${moodColor(n + 1)}">${n + 1}</button>`).join('')}</div>
       <div class="moodlbl">${[['Low', MOOD_WORDS.low, 1], ['Ideal', MOOD_WORDS.mid, 5], ['High', MOOD_WORDS.high, 10]].map(([t, w, n]) => `<span style="color:${moodColor(n)}">${t}${w.split(' · ').map((x) => `<small>${x[0].toUpperCase() + x.slice(1)}</small>`).join('')}</span>`).join('')}</div>
       ${key === 'start' ? `<div class="lbl">Any practice or warm-up before the round?</div><div class="seg4">${WARMUP.map(([k, l]) => `<button class="${w === k ? 'on' : ''}" data-w="${k}">${l}</button>`).join('')}</div>
+      ${lastAgain ? `<div class="again"><b>Last time here you said you'd:</b> ${esc(lastAgain.text)} <span class="mute small">(${fmtD(lastAgain.date)}, ${lastAgain.score})</span></div>` : ''}
       <div class="lbl">One thing for today <span class="mute">(optional — you'll rate it at the end)</span></div><div class="chips3">${INTENTIONS.map(([k, l]) => `<button class="${it === k ? 'on' : ''}" data-it="${k}">${l}</button>`).join('')}</div>` : ''}
       ${key === 'finish' && it ? `<div class="lbl">Did you keep to it: “${esc(intentionLabel(it))}”?</div><div class="stars">${[1, 2, 3, 4, 5].map((n) => `<button class="${kept >= n ? 'on' : ''}" data-kept="${n}">★</button>`).join('')}</div>` : ''}
       <button class="btn primary big" data-ok ${v ? '' : 'disabled'}>${key === 'start' ? 'Start hole 1' : key === 'turn' ? 'On to the back nine' : 'See my round'}</button></div>`;
@@ -583,6 +585,10 @@ function moodSheet(round, key, done) {
   };
   draw();
   document.body.appendChild(sheet);
+  if (key === 'start') listRounds().then((rs) => {
+    const prev = rs.filter((r) => r.id !== round.id && r.courseId === round.courseId && r.finished && r.debrief?.again?.trim()).sort((a, b) => b.date - a.date)[0];
+    if (prev && sheet.isConnected) { lastAgain = { text: prev.debrief.again.trim(), date: prev.date, score: prev.score ?? played(prev).reduce((a, h) => a + h.score, 0) }; draw(); }
+  }).catch(() => {});
 }
 export const moodLine = (r) => {
   const m = r.mood || {}; const f = (x) => (x ? `${x}/10` : '–');
@@ -865,6 +871,9 @@ async function renderSummary(r, c) {
         <textarea data-hn="${i}" rows="2" placeholder="What happened on ${i + 1}?">${esc(h.note || '')}</textarea></div>`).join('')}
       <div class="lbl">What cost you most today?</div>
       <div class="dtags">${DEBRIEF_TAGS.map((t) => `<button class="${r.debrief?.tags?.includes(t) ? 'on' : ''}" data-dt="${esc(t)}">${esc(t)}</button>`).join('')}</div>
+      <div class="lbl">If you played this round again, what would you do differently?</div>
+      <textarea id="debriefAgain" rows="3" placeholder="e.g. 3-wood off 5 and 14. Lay up on 9. Pick a target on every putt before I walk in.">${esc(r.debrief?.again || '')}</textarea>
+      ${r.intention ? `<p class="mute small" style="margin:4px 0 0">Today's one thing: “${esc(intentionLabel(r.intention))}”${r.intentionKept ? ` · kept ${'★'.repeat(r.intentionKept)}` : ''}</p>` : ''}
       <div class="lbl">Notes</div>
       <textarea id="debriefNotes" rows="4" placeholder="e.g. Two driver slices into water on 5 and 14. Went for 9 in two when I should have laid up. Putted well.">${esc(r.debrief?.notes || '')}</textarea>
       <p class="mute small" id="dbSaved"></p>
@@ -882,6 +891,7 @@ async function renderSummary(r, c) {
   const saveDb = () => { clearTimeout(dbT); dbT = setTimeout(async () => { await putRound(r); const el = root.querySelector('#dbSaved'); if (el) el.textContent = 'Saved'; }, 600); };
   r.debrief ||= { notes: '', tags: [] };
   root.querySelector('#debriefNotes').addEventListener('input', (e) => { r.debrief.notes = e.target.value; saveDb(); });
+  root.querySelector('#debriefAgain').addEventListener('input', (e) => { r.debrief.again = e.target.value; saveDb(); });
   root.querySelectorAll('[data-hn]').forEach((t) => t.addEventListener('input', (e) => { r.holes[+t.dataset.hn].note = e.target.value; saveDb(); }));
   root.querySelectorAll('[data-dt]').forEach((b) => (b.onclick = () => {
     const t = b.dataset.dt, i = r.debrief.tags.indexOf(t);
@@ -902,7 +912,7 @@ async function renderSummary(r, c) {
         const A = await aggStats(recent);
         const swings = await listSwings().catch(() => []);
         const holeLog = r.holes.map((h, i) => h ? `H${i + 1} par ${c.holes[i].par}: ${h.score} (${h.putts ?? '?'} putts${h.tee ? `, tee ${h.tee}` : ''}${h.miss ? `, missed green ${h.miss}` : ''}${h.bunker ? ', bunker' : ''}${(h.tags || []).length ? `, tags: ${h.tags.map((t) => [t.shot, t.cause, t.flight, t.strike, t.result].filter(Boolean).join('/') + (t.cost ? ` +${t.cost}` : ' saved')).join('; ')}` : ''}${(h.shots || []).some((x) => x.d || x.res || x.dist) ? `, shots: ${h.shots.map((x, k) => `${k + 1}${x.lie && x.lie !== 'tee' ? ` from ${x.lie}` : ''}${x.dist ? ` ${Math.round(x.dist)}y` : ''}${x.sw ? ` ${x.sw}` : ''}${x.intent ? ` (planned ${({ D: 'draw', S: 'straight', F: 'fade' })[x.intent]})` : ''}${x.res ? ` → ${x.res}${x.dir ? ` missed ${x.dir}` : ''}${x.ss ? ' short-sided' : ''}` : ''}${x.d ? ` [${[x.d.club, x.d.flight, x.d.strike, x.d.cause, x.d.result].filter(Boolean).join('/')}]` : ''}`).join('; ')}` : ''}${h.note ? `, golfer's note: "${h.note}"` : ''})` : null).filter(Boolean).join('\n');
-        const roundText = `${c.name}${c.tees ? ` (${c.tees})` : ''}: ${S.score} (${toParStr(S.toPar)}). ${moodLine(r) ? moodLine(r) + ' (1 = lethargic, 5 = calm/focused ideal, 10 = agitated). ' : ''}${roundSummaryText(aggregate([{ round: r, course: c, stats: S }]))}\nRules the golfer plays by: ${checkRules(r, c, ctx.settings().roundRules || DEFAULT_RULES).map((x) => `${x.label}: ${x.holes.length ? `broken on ${x.holes.join(',')}` : 'kept'}`).join('; ')}.\nHole by hole:\n${holeLog}${r.debrief?.tags?.length || r.debrief?.notes ? `\nGolfer's debrief: ${[...(r.debrief.tags || []), r.debrief.notes].filter(Boolean).join('; ')}` : ''}`;
+        const roundText = `${c.name}${c.tees ? ` (${c.tees})` : ''}: ${S.score} (${toParStr(S.toPar)}). ${moodLine(r) ? moodLine(r) + ' (1 = lethargic, 5 = calm/focused ideal, 10 = agitated). ' : ''}${roundSummaryText(aggregate([{ round: r, course: c, stats: S }]))}\nRules the golfer plays by: ${checkRules(r, c, ctx.settings().roundRules || DEFAULT_RULES).map((x) => `${x.label}: ${x.holes.length ? `broken on ${x.holes.join(',')}` : 'kept'}`).join('; ')}.\nHole by hole:\n${holeLog}${r.debrief?.tags?.length || r.debrief?.notes ? `\nGolfer's debrief: ${[...(r.debrief.tags || []), r.debrief.notes].filter(Boolean).join('; ')}` : ''}${r.debrief?.again ? `\nWhat they'd do differently next time: ${r.debrief.again}` : ''}`;
         const { text, meta } = await reviewRound({ ...aiFrom(s), roundText: `${wxLine(r) ? `Conditions: ${wxLine(r).replace(/<[^>]+>/g, '').replace('☁ ', '')}\n` : ''}${roundText}`, recentText: A ? roundSummaryText(A) : '', history: coachContext(swings, recent.length ? A : null), golfer: [s.golfer, workContext(), await practiceContext().catch(() => ''), await drillContext().catch(() => '')].filter(Boolean).join(' ') });
         r.ai = text; await putRound(r);
         if (meta?.note && r.learning !== false) addCoachNote(`[round] ${String(meta.note).slice(0, 280)}`);
