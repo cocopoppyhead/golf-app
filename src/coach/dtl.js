@@ -33,7 +33,6 @@ export function analyseDTL(fr, ph, { club = 'iron', heightIn = 70 } = {}) {
 
   const bend0 = bend(A), knee0 = knee(A);
   const base = { head: headC(A), hip: hipC(A), box: headBox(A), ball: null, bend: bend0, ballSide: b };
-  const butt = hipC(A).x - b * 0.12 * Math.hypot(shC(A).x - hipC(A).x, shC(A).y - hipC(A).y); // approx. back of the hips
   const spineLen = Math.hypot(shC(A).x - hipC(A).x, shC(A).y - hipC(A).y);
 
   const bTop = bend(TP), bImp = bend(IM), bFin = bend(FN);

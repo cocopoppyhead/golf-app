@@ -160,7 +160,6 @@ export async function renderScoring(el) {
   const R = ALL.slice(0, 20);
   if (!R.length) { el.innerHTML = '<div class="card"><h2>No rounds yet</h2><p class="mute">Log a round in Play. Your scoring, Tiger 5 and strokes gained build up here.</p></div>'; return; }
   const full = R.filter((x) => x.S.holes >= 18);
-  const n = R.length;
   const sum = (f) => R.reduce((a, x) => a + (f(x) || 0), 0);
   const L = R.filter((x) => !x.S.quick); // hole-by-hole rounds, for stats that need holes
   const per = (f) => (L.length ? L.reduce((a, x) => a + (f(x) || 0), 0) / L.length : null);

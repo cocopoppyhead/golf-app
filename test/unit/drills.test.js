@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import fs from 'node:fs';
 
 const lib = JSON.parse(fs.readFileSync('public/drills/library.json', 'utf8'));

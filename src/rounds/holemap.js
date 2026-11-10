@@ -100,7 +100,7 @@ export function pickTee(gh, yds, teeName) {
 }
 
 // ---------- shared GPS watch (one for the whole app; stops when no map is on screen) ----------
-let fix = null, watchId = null, lastUse = 0, fixListeners = new Set();
+let fix = null, watchId = null, lastUse = 0; const fixListeners = new Set();
 let lastMode = 'tee'; // Tee / Green / Off survives re-renders of the hole screen
 function wantGps() {
   lastUse = Date.now();
@@ -401,7 +401,7 @@ export function markHoleSheet({ course, start = 0, geo = null, onSave, onClose }
   const allGreens = [...(geo?.holes || []).map((h) => h.green).filter((g) => g?.poly), ...(geo?.extraGreens || [])];
   const snapGreen = (p) => { let best = null, d0 = 12; for (const g of allGreens) { if (inRing(p, g.poly)) return g.c; const d = metres(p, g.c); if (d < d0) { d0 = d; best = g.c; } } return best || p; };
   // gestures
-  let ptrs = new Map(), moved = false, pinch0 = null;
+  const ptrs = new Map(); let moved = false, pinch0 = null;
   cv.addEventListener('pointerdown', (e) => { cv.setPointerCapture(e.pointerId); ptrs.set(e.pointerId, [e.clientX, e.clientY]); moved = false; if (ptrs.size === 2) { const [p, q] = [...ptrs.values()]; pinch0 = { d: Math.hypot(p[0] - q[0], p[1] - q[1]), span: view.span }; } });
   cv.addEventListener('pointermove', (e) => {
     if (!ptrs.has(e.pointerId)) return;

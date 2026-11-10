@@ -125,7 +125,6 @@ export async function renderBag(root) {
     const factor = comp() ? 1 : carryFactor(cond, wind);
     const play = ny ? playsLike(ny, factor) : null;
     const pick = ny && !comp() ? pickClub(eff, play, partials) : null;
-    const sw = (s) => (s === 'full' ? '' : ` ${s}`);
     const sorted = eff.filter((c) => c.carry).sort((a, b) => b.carry - a.carry);
     const gaps = sorted.slice(1).map((c, k) => ({ a: sorted[k], b: c, gap: sorted[k].carry - c.carry })).filter((g) => g.gap >= 18);
     const key = COLS[mode];

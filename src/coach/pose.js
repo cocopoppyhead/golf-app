@@ -154,7 +154,6 @@ export async function findSwings(video, { quality = 'full', onProgress = () => {
   const hand = (f) => mid(f.lm[15], f.lm[16]);
   const shY = (f) => (f.lm[11].y + f.lm[12].y) / 2;
   const hipY = (f) => (f.lm[23].y + f.lm[24].y) / 2;
-  const med = (a) => { const b = [...a].sort((x, y) => x - y); return b[b.length >> 1] ?? 0; };
 
 
   const spd = ok.map((f, i) => (i ? Math.hypot(hand(f).x - hand(ok[i - 1]).x, hand(f).y - hand(ok[i - 1]).y) / (f.t - ok[i - 1].t || step) : 0));

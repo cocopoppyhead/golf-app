@@ -110,7 +110,6 @@ export function drawOverlay(ctx, A, lm, { cp = null, card = false, cpIndex = 0, 
 function drawPositionLines(ctx, A, lm, u, { cp, frame }) {
   const { address: a0, top: tp, impact: im } = A.refs;
   const S = A.scale, t = A.target;
-  const H = ctx.canvas.height;
   const sev = (v, ok, work) => (v >= work ? COLORS.work : v >= ok ? COLORS.ok : COLORS.good);
   const vline = (x, y0, y1, label, align = 'center') => {
     ctx.strokeStyle = 'rgba(255,255,255,0.85)'; ctx.lineWidth = u * 0.13;

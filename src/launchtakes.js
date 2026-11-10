@@ -30,7 +30,7 @@ export function launchTakes(q, club) {
   if (!q) return [];
   const kind = KIND(club);
   const out = [];
-  const cs = q.clubSpeed?.avg, bs = q.ballSpeed?.avg, sm = q.smash?.avg, sdS = q.smash?.sd || 0, n = q.smash?.n || q.n;
+  const cs = q.clubSpeed?.avg, sm = q.smash?.avg, sdS = q.smash?.sd || 0, n = q.smash?.n || q.n;
   const launch = q.launch?.avg, spin = q.backSpin?.avg, attack = q.attack?.avg, axis = q.spinAxis?.avg;
   const rangeNote = q.range ? ' Range balls spin low and erratically, so confirm with a premium ball.' : '';
   const flush = FLUSH[kind], low = LOW[kind];

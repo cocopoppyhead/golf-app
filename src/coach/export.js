@@ -28,14 +28,14 @@ export async function exportMp4(video, fr, A, { slow = 3, holdSec = 2.5, summary
   const enc = new VideoEncoder({ output: (chunk, meta) => muxer.addVideoChunk(chunk, meta), error: (e) => { err = e; } });
   enc.configure(config);
 
-  let ts = 0, n = 0, lastKey = -1e9;
+  let ts = 0, lastKey = -1e9;
   const push = async (durSec) => {
     const frame = new VideoFrame(canvas, { timestamp: Math.round(ts * 1e6), duration: Math.round(durSec * 1e6) });
     const key = ts - lastKey >= 2;
     if (key) lastKey = ts;
     enc.encode(frame, { keyFrame: key });
     frame.close();
-    ts += durSec; n++;
+    ts += durSec;
     if (enc.encodeQueueSize > 8) await new Promise((r) => setTimeout(r, 20));
   };
   const seekV = (t) => seek(video, t);
