@@ -37,6 +37,7 @@ let ctx = { settings: () => ({}), toast: () => {} };
 let root;
 let cur = null; // { round, course, hole, review }
 let holeMap = null; // the mounted hole map (holemap.js), rebuilt with each hole render
+const expandedShots = new Set(); // 'hole:shot' panels the golfer opened again after logging
 let clubsCache = { t: 0, list: [] };
 /** Your clubs with resolved carries (typed + learned), for the hole map arcs. Cached for a minute. */
 async function effectiveClubs() {
@@ -302,11 +303,19 @@ function renderHole() {
   const word = diff == null ? '' : diff <= -2 ? 'Eagle' : diff === -1 ? 'Birdie' : diff === 0 ? 'Par' : diff === 1 ? 'Bogey' : diff === 2 ? 'Double' : `+${diff}`;
   const detBadge = (x) => x.d ? [x.d.club, x.d.flight, x.d.strike, x.d.cause, x.d.result, x.d.cost ? `+${x.d.cost}` : null].filter(Boolean).map(esc).join(' · ') : '';
 
+  const RES_LABEL = Object.fromEntries([...TEE_ZONES, ...ENDED, ...TEE_EXTRA]);
+  const DIR_LABEL = Object.fromEntries(DIRS);
   const panel = (x, k) => {
     const tee = k === 0;
     const lie = x.lie || x.lieAuto;
     const sw = x.sw || autoSwing(x, k);
     const missed = x.res && !['G', 'HO', 'FW'].includes(x.res);
+    // a shot that's been logged folds to one line; tap it to edit. The shot in hand stays open.
+    const open = expandedShots.has(`${i}:${k}`) || !x.res || k === h.shots.length - 1;
+    if (!open) {
+      const bits = [x.d?.club, !tee && x.dist != null ? `${dist(x.dist)} ${du()}` : null, RES_LABEL[x.res] || x.res, x.dir ? `missed ${DIR_LABEL[x.dir] || x.dir}` : null, x.res2 ? RES_LABEL[x.res2] : null, x.pen ? '+1 pen' : null].filter(Boolean).join(' · ');
+      return `<button class="card shotline" data-expand="${k}"><span class="sn">${k + 1}</span><span><b>${tee ? 'Tee shot' : `Shot ${k + 1}`}</b><span class="mute small">${esc(bits)}</span></span><span class="mute">${icon('edit', 15)}</span></button>`;
+    }
     const res = tee && par >= 4
       ? `<div class="zones">${TEE_ZONES.map(([z, l]) => `<button class="${x.res === z ? 'on' : ''} z${z}" data-res="${k}" data-v="${z}">${z[0] === 'L' ? '◀ ' : ''}${l}${z[0] === 'R' ? ' ▶' : ''}</button>`).join('')}</div>
          <div class="chips3">${TEE_EXTRA.map(([v, l]) => `<button class="${x.res2 === v ? 'on' : ''}" data-res2="${k}" data-v="${v}">${l}</button>`).join('')}</div>`
@@ -382,6 +391,7 @@ function renderHole() {
   if (histEl) holeHistory(histEl, course, i, round);
   syncLoopConfig();
   const redo = () => { derive(h, par); save(); renderHole(); };
+  root.querySelectorAll('[data-expand]').forEach((b) => b.onclick = () => { expandedShots.add(`${i}:${b.dataset.expand}`); renderHole(); });
   root.querySelectorAll('[data-res]').forEach((b) => b.onclick = () => {
     const x = h.shots[+b.dataset.res]; x.res = x.res === b.dataset.v ? null : b.dataset.v;
     if (x.res === 'PN' && !x.pen) x.pen = true;
