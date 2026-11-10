@@ -4,7 +4,7 @@
 //   • Bluetooth for the Bushnell laser (works on iPhone too, unlike the web version)
 //   • sharing the exported swing video
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, BackHandler, PermissionsAndroid, Platform, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, BackHandler, Linking, PermissionsAndroid, Platform, StyleSheet, Text, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WebView } from 'react-native-webview';
@@ -214,6 +214,7 @@ function Shell() {
     }
     else if (msg.type === 'laser.disconnect') laserDisconnect();
     else if (msg.type === 'share.file') shareFile(msg);
+    else if (msg.type === 'open.url' && /^https?:\/\//.test(msg.url || '')) Linking.openURL(msg.url).catch(() => {});
   }, [laserConnect, laserScan, laserDisconnect, shareFile]);
 
   return (

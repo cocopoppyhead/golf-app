@@ -15,3 +15,9 @@ export async function blobToBase64(blob) {
   for (let i = 0; i < buf.length; i += 0x8000) s += String.fromCharCode.apply(null, buf.subarray(i, i + 0x8000));
   return btoa(s);
 }
+
+/** Open a link outside the app: the native shell hands it to the system browser; the web opens a tab. */
+export function openExternal(url) {
+  if (isNative()) return nativeSend({ type: 'open.url', url });
+  window.open(url, '_blank', 'noopener');
+}

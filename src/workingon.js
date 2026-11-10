@@ -43,6 +43,8 @@ export function renderWork(el, { toast = () => {} } = {}) {
   el.querySelectorAll('[data-wedit]').forEach((b) => b.onclick = () => editSheet(getWork().find((w) => w.id === b.dataset.wedit), redraw));
 }
 
+export function editWorkSheet(w, done) { return editSheet(w, done); }
+export const markWorkDone = (id, done = true) => saveWork(getWork().map((w) => (w.id === id ? { ...w, done: done ? Date.now() : null } : w)));
 function editSheet(w, done) {
   const x = w ? { ...w } : { id: uid(), text: '', why: '', drills: [], since: Date.now(), done: null };
   const sheet = document.createElement('div'); sheet.className = 'sheet';

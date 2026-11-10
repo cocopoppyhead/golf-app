@@ -22,7 +22,7 @@ import { roundTendencies } from './rounds/stats.js';
 import { savePlan as savePlanX } from './coach/profile.js';
 import { renderAccount, initPasswordRecovery } from './cloud/account.js';
 import { renderScoring, practiceFromRounds } from './progress.js';
-import { renderWork, workContext } from './workingon.js';
+import { workContext } from './workingon.js';
 import { renderPracticeLog, practiceContext } from './practice.js';
 import { renderDrillsCard, drillContext } from './drills.js';
 import { renderRangefinder } from './rangefinder.js';
@@ -781,7 +781,6 @@ async function renderCoachPanel(all) {
 
 // Practice hub (on the Practice tab, under the swing tiles): range work, what the rounds say to work on, the coach's read
 async function renderPractice() {
-  renderWork($('#rangeWork'), { toast });
   renderPracticeLog($('#practiceLog'), { toast });
   renderDrillsCard($('#drillsCard'), { toast });
   practiceFromRounds().then((h) => { $('#practiceRounds').innerHTML = h; }).catch(() => {});

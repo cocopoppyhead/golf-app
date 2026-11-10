@@ -1,6 +1,7 @@
 // Drill library: practise with purpose. Each drill has one number you log (its "metric"), so a drill
 // becomes a series over time and an area (putting, chipping…) becomes a trend. Data: public/drills/library.json.
-import { listSessions, putSession } from './store.js';
+import { listSessions, putSession, getSettings, saveSettings } from './store.js';
+import { openExternal } from './native.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const uid = (p) => `${p}_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`;
@@ -32,11 +33,21 @@ export function norm(m, r) {
 
 /** All logged drill results, newest first: [{ drillId, score, of, at, sessionId }]. */
 export async function drillResults() {
-  const S = await listSessions().catch(() => []);
+  const S = (await listSessions().catch(() => [])).filter((s) => s.status !== 'planned');
   const out = [];
   for (const s of S) for (const it of s.items || []) if (it.drillId && it.score != null) out.push({ drillId: it.drillId, score: it.score, of: it.of ?? null, at: it.at || s.date, sessionId: s.id });
   return out.sort((a, b) => b.at - a.at);
 }
+/** Goal items ("10 in a row at 150"): attempts it took, newest first, grouped by goal text. */
+export async function goalResults() {
+  const S = (await listSessions().catch(() => [])).filter((s) => s.status === 'done');
+  const out = [];
+  for (const s of S) for (const it of s.items || []) if (it.mode === 'attempts' && it.attempts != null) out.push({ key: `goal:${String(it.title).toLowerCase().replace(/[^a-z0-9]+/g, '-')}`, title: it.title, target: it.target, attempts: it.attempts, achieved: it.achieved !== false, fails: it.fails || [], at: it.at || s.date });
+  return out.sort((a, b) => b.at - a.at);
+}
+export const favDrills = () => new Set(getSettings().favDrills || []);
+export function toggleFav(id) { const s = getSettings(); const f = new Set(s.favDrills || []); f.has(id) ? f.delete(id) : f.add(id); s.favDrills = [...f]; saveSettings(s); return f.has(id); }
+const FAIL_LABEL = { THN: 'thin', FAT: 'fat', TOE: 'toe', HEL: 'heel', PUL: 'pull', PUS: 'push', HK: 'hook', SL: 'slice', SHT: 'short', LNG: 'long', RSH: 'rushed', DEC: 'decision' };
 
 /** Per drill: last, best, trend (last 3 vs previous 3), count. */
 export function drillStats(d, results) {
@@ -81,14 +92,16 @@ const spark = (vals, hi) => {
 
 /** Card on the Practice tab: your drills' trends + the library button. */
 export async function renderDrillsCard(el, { toast = () => {} } = {}) {
-  const [lib, results] = await Promise.all([loadDrills(), drillResults()]);
+  const [lib, results, goals] = await Promise.all([loadDrills(), drillResults(), goalResults()]);
   const logged = lib.drills.map((d) => ({ d, st: drillStats(d, results) })).filter((x) => x.st).sort((a, b) => b.st.last.at - a.st.last.at);
+  const gkeys = [...new Set(goals.map((g) => g.key))].map((k) => { const G = goals.filter((g) => g.key === k); const best = Math.min(...G.filter((g) => g.achieved).map((g) => g.attempts).concat([Infinity])); const fails = {}; G.forEach((g) => g.fails.forEach((f) => { fails[f] = (fails[f] || 0) + 1; })); const top = Object.entries(fails).sort((a, b) => b[1] - a[1]).slice(0, 2).map(([f]) => FAIL_LABEL[f] || f); let trend = 0; if (G.length >= 2) { const a = G[0].attempts, b = G.slice(1, 4).reduce((x, y) => x + y.attempts, 0) / Math.min(3, G.length - 1); trend = a < b ? 1 : a > b ? -1 : 0; } return { k, title: G[0].title, G, best, top, trend }; });
   const areas = lib.areas.map(([k, l]) => ({ k, l, t: areaTrend(k, lib, results) })).filter((a) => a.t);
   const arrow = (t) => (t > 0 ? '<span class="goodc">▲</span>' : t < 0 ? '<span class="workc">▼</span>' : '<span class="mute">▬</span>');
   el.innerHTML = `<div class="card">
     <div class="sechead" style="margin:0 0 4px"><h2 style="margin:0">Drills</h2><button class="link acc" data-lib>Library ›</button></div>
     <p class="mute small" style="margin:0 0 8px">${lib.drills.length} drills, each with one number to log, so you can see putting, chipping and the rest improving (or not).</p>
     ${areas.length ? `<div class="areatrend">${areas.map((a) => `<div><span class="small">${esc(a.l)}</span><b>${Math.round(a.t.now * 100)}%</b><span class="small ${a.t.delta == null ? 'mute' : a.t.delta >= 0 ? 'goodc' : 'workc'}">${a.t.delta == null ? `${a.t.n} logged` : `${a.t.delta >= 0 ? '+' : ''}${Math.round(a.t.delta * 100)} vs before`}</span></div>`).join('')}</div>` : ''}
+    ${gkeys.length ? `<div class="lbl" style="margin:6px 0 2px">Goals · attempts it took</div>${gkeys.slice(0, 5).map((g) => `<div class="drow"><span class="dn"><b>${esc(g.title)}</b><span class="mute small">${g.G.length} tr${g.G.length === 1 ? 'y' : 'ies'}${Number.isFinite(g.best) ? ` · best ${g.best}` : ''}${g.top.length ? ` · misses: ${g.top.join(', ')}` : ''}</span></span>${spark(g.G.slice(0, 10).reverse().map((x) => x.attempts), false)}<span class="dl">${g.G[0].attempts}${g.G[0].achieved ? '' : '<small>✕</small>'} ${arrow(g.trend)}</span></div>`).join('')}<div class="lbl" style="margin:8px 0 2px">Drills</div>` : ''}
     ${logged.length ? logged.slice(0, 6).map(({ d, st }) => `<button class="drow" data-open="${esc(d.id)}">
         <span class="dn"><b>${esc(d.name)}</b><span class="mute small">${esc(lib.areas.find((a) => a[0] === d.area)?.[1] || d.area)} · ${st.n} logged · best ${fmtScore(d.metric, { score: st.best, of: st.last.of })}</span></span>
         ${spark(st.series.map((r) => r.score), d.metric.higher !== false)}
@@ -106,33 +119,36 @@ export async function renderDrillsCard(el, { toast = () => {} } = {}) {
 export async function openLibrary({ toast = () => {}, onLogged = () => {}, drillId = null, onPick = null } = {}) {
   const [lib, results] = await Promise.all([loadDrills(), drillResults()]);
   const el = document.createElement('div'); el.className = 'onb drilllib';
-  let area = drillId ? lib.drills.find((d) => d.id === drillId)?.area : lib.areas[0]?.[0];
+  let fav = favDrills();
+  let area = drillId ? lib.drills.find((d) => d.id === drillId)?.area : fav.size ? 'fav' : lib.areas[0]?.[0];
   let q = '';
   const draw = () => {
-    const list = lib.drills.filter((d) => (q ? (d.name + d.purpose + d.sub).toLowerCase().includes(q.toLowerCase()) : d.area === area));
+    fav = favDrills();
+    const list = lib.drills.filter((d) => (q ? (d.name + d.purpose + d.sub).toLowerCase().includes(q.toLowerCase()) : area === 'fav' ? fav.has(d.id) : d.area === area));
     el.innerHTML = `<div class="onb-in">
-      <div class="onb-top"><h2 style="margin:0">Drill library</h2><button class="link" data-close>Close</button></div>
+      <div class="onb-top"><h2 style="margin:0">Drill library</h2><button class="link" data-close>${onPick ? 'Back to session' : 'Close'}</button></div>
       <input class="libq" placeholder="Search drills" value="${esc(q)}" />
-      ${q ? '' : `<div class="areatabs">${lib.areas.map(([k, l]) => `<button class="${k === area ? 'on' : ''}" data-area="${k}">${esc(l)}</button>`).join('')}</div>`}
-      <div class="dlist">${list.map((d) => { const st = drillStats(d, results); return `<button class="ditem" data-d="${esc(d.id)}">
+      ${q ? '' : `<div class="areatabs"><button class="${area === 'fav' ? 'on' : ''}" data-area="fav">★ Favourites${fav.size ? ` ${fav.size}` : ''}</button>${lib.areas.map(([k, l]) => `<button class="${k === area ? 'on' : ''}" data-area="${k}">${esc(l)}</button>`).join('')}</div>`}
+      <div class="dlist">${list.map((d) => { const st = drillStats(d, results); return `<div class="ditem" data-d="${esc(d.id)}">
         <span><b>${esc(d.name)}</b><span class="mute small">${esc(d.sub)} · ${esc(d.level)}</span><span class="small">${esc(d.purpose)}</span></span>
-        <span class="dl">${st ? `${fmtScore(d.metric, st.last)}<small>last</small>` : '<small class="mute">›</small>'}</span></button>`; }).join('') || '<p class="mute small">Nothing matches.</p>'}</div>
+        <span class="dl">${st ? `${fmtScore(d.metric, st.last)}<small>last</small>` : ''}<button class="star ${fav.has(d.id) ? 'on' : ''}" data-fav="${esc(d.id)}" aria-label="Favourite">${fav.has(d.id) ? '★' : '☆'}</button></span></div>`; }).join('') || `<p class="mute small">${area === 'fav' ? 'No favourites yet. Tap ☆ on a drill.' : 'Nothing matches.'}</p>`}</div>
     </div>`;
     el.querySelector('[data-close]').onclick = () => el.remove();
     el.querySelector('.libq').addEventListener('input', (e) => { q = e.target.value; draw(); el.querySelector('.libq').focus(); });
     el.querySelectorAll('[data-area]').forEach((b) => b.onclick = () => { area = b.dataset.area; draw(); });
-    el.querySelectorAll('[data-d]').forEach((b) => b.onclick = () => drillSheet(lib.drills.find((d) => d.id === b.dataset.d), lib, results, { toast, onPick, onLogged: async () => { results.splice(0, results.length, ...(await drillResults())); draw(); onLogged(); } }));
+    el.querySelectorAll('[data-fav]').forEach((b) => b.onclick = (e) => { e.stopPropagation(); toggleFav(b.dataset.fav); draw(); });
+    el.querySelectorAll('[data-d]').forEach((b) => b.onclick = (e) => { if (e.target.closest('[data-fav]')) return; drillSheet(lib.drills.find((d) => d.id === b.dataset.d), lib, results, { toast, onPick, onFav: draw, onLogged: async () => { results.splice(0, results.length, ...(await drillResults())); draw(); onLogged(); } }); });
   };
   draw(); document.body.appendChild(el);
   if (drillId) { const d = lib.drills.find((x) => x.id === drillId); if (d) drillSheet(d, lib, results, { toast, onPick, onLogged: async () => { results.splice(0, results.length, ...(await drillResults())); draw(); onLogged(); } }); }
 }
 
-function drillSheet(d, lib, results, { toast, onLogged, onPick }) {
+function drillSheet(d, lib, results, { toast, onLogged, onPick, onFav }) {
   const m = d.metric; const st = drillStats(d, results);
   const sheet = document.createElement('div'); sheet.className = 'sheet drillsheet';
   const scoreHint = m.type === 'count' ? `${m.label || 'how many'}${m.of ? ` out of ${m.of}` : ''}` : m.type === 'streak' ? 'longest streak' : m.type === 'strokes' ? `total strokes${m.par ? ` (par ${m.par})` : ''}` : m.type === 'points' ? `points${m.of ? ` out of ${m.of}` : ''}` : m.type === 'feet' ? 'feet' : m.type === 'yards' ? 'yards' : m.label || m.unit || 'number';
   sheet.innerHTML = `<div class="sheet-in">
-    <div class="sheet-h"><b>${esc(d.name)}</b><button class="link" data-close>Close</button></div>
+    <div class="sheet-h"><b>${esc(d.name)}</b><span class="row" style="gap:10px"><button class="star big ${favDrills().has(d.id) ? 'on' : ''}" data-fav>${favDrills().has(d.id) ? '★' : '☆'}</button><button class="link" data-close>Close</button></span></div>
     <p class="small" style="margin:0 0 6px"><span class="tag">${esc(lib.areas.find((a) => a[0] === d.area)?.[1] || d.area)}</span> <span class="tag">${esc(d.sub)}</span> <span class="tag">${esc(d.level)}</span></p>
     <p style="margin:4px 0 8px">${esc(d.purpose)}</p>
     <div class="lbl">Setup</div><p class="small">${esc(d.setup)}</p>
@@ -145,10 +161,13 @@ function drillSheet(d, lib, results, { toast, onLogged, onPick }) {
     <div class="lbl">Log it now <span class="mute">(${esc(scoreHint)})</span></div>
     <div class="row"><input inputmode="decimal" data-score placeholder="${m.type === 'count' && m.of ? `0–${m.of}` : 'score'}" style="flex:1" />${m.type === 'points' && !m.of ? '<input inputmode="numeric" data-of placeholder="out of" style="flex:1" />' : (m.type === 'count' || m.type === 'points') && m.of ? `<span class="mute" style="align-self:center">/ ${m.of}</span>` : ''}</div>
     <button class="btn primary big" data-log style="margin-top:8px">Save score</button>`}
-    <p class="mute small" style="margin-top:8px">Source: ${d.sources.map((u) => `<a href="${esc(u)}" target="_blank" rel="noopener">${esc(new URL(u).hostname.replace('www.', ''))}</a>`).join(' · ')}</p>
+    <p class="mute small" style="margin-top:8px">Source: ${d.sources.map((u, i) => `<button class="link" data-src="${i}">${esc(new URL(u).hostname.replace('www.', ''))}</button>`).join(' · ')} · <button class="link" data-yt>YouTube</button></p>
   </div>`;
   sheet.querySelector('[data-close]').onclick = () => sheet.remove();
-  sheet.querySelector('[data-pick]')?.addEventListener('click', () => { onPick(d); sheet.remove(); });
+  sheet.querySelector('[data-fav]').onclick = () => { const on = toggleFav(d.id); const b = sheet.querySelector('[data-fav]'); b.textContent = on ? '★' : '☆'; b.classList.toggle('on', on); onFav?.(); };
+  sheet.querySelectorAll('[data-src]').forEach((b) => b.onclick = () => sourceSheet(d, d.sources[+b.dataset.src]));
+  sheet.querySelector('[data-yt]').onclick = () => sourceSheet(d, null);
+  sheet.querySelector('[data-pick]')?.addEventListener('click', () => { onPick(d); sheet.remove(); document.querySelector('.drilllib')?.remove(); });
   sheet.querySelector('[data-log]')?.addEventListener('click', async () => {
     const score = parseFloat(sheet.querySelector('[data-score]').value);
     if (!Number.isFinite(score)) return toast('Enter the number first.');
@@ -160,15 +179,30 @@ function drillSheet(d, lib, results, { toast, onLogged, onPick }) {
   document.body.appendChild(sheet);
 }
 
+/** A source link opens in a small modal first, so you can get back to the app: open in the browser, or search YouTube. */
+function sourceSheet(d, url) {
+  const yt = `https://www.youtube.com/results?search_query=${encodeURIComponent(`${d.name} golf drill`)}`;
+  const sheet = document.createElement('div'); sheet.className = 'sheet drillsheet srcsheet';
+  sheet.innerHTML = `<div class="sheet-in"><div class="sheet-h"><b>${esc(d.name)}</b><button class="link" data-close>Back</button></div>
+    ${url ? `<p class="small">${esc(url)}</p><button class="btn primary big" data-open>Open in browser</button>` : ''}
+    <button class="btn big" data-yt style="margin-top:8px">▶ Search on YouTube</button>
+    <p class="mute small" style="margin-top:8px">Opens outside osolo; come back with the app switcher.</p></div>`;
+  sheet.querySelector('[data-close]').onclick = () => sheet.remove();
+  sheet.querySelector('[data-open]')?.addEventListener('click', () => openExternal(url));
+  sheet.querySelector('[data-yt]').onclick = () => openExternal(yt);
+  document.body.appendChild(sheet);
+}
+
 /** Append a drill result to today's session for that area (creating one if needed). */
 export async function logDrill(d, { score, of = null, sessionId = null }) {
   const S = await listSessions().catch(() => []);
   const where = AREA_WHERE[d.area] || 'range';
   const dayStart = new Date(); dayStart.setHours(0, 0, 0, 0);
-  let s = sessionId ? S.find((x) => x.id === sessionId) : S.find((x) => x.date >= dayStart.getTime() && x.where === where) || S.find((x) => x.date >= dayStart.getTime());
-  if (!s) s = { id: uid('ps'), date: Date.now(), where, minutes: null, items: [], feel: null, note: '' };
+  const today = (x) => x.status !== 'planned' && x.date >= dayStart.getTime();
+  let s = sessionId ? S.find((x) => x.id === sessionId) : S.find((x) => x.status === 'active') || S.find((x) => today(x) && (Array.isArray(x.where) ? x.where : [x.where]).includes(where)) || S.find(today);
+  if (!s) s = { id: uid('ps'), status: 'done', date: Date.now(), where: [where], minutes: null, items: [], rating: null, note: '' };
   s.items = s.items || [];
-  s.items.push({ drillId: d.id, title: d.name, score, of, at: Date.now(), drills: [] });
+  s.items.push({ id: uid('it'), mode: 'score', drillId: d.id, title: d.name, score, of, at: Date.now() });
   await putSession(s);
   window.dispatchEvent(new CustomEvent('practice-changed'));
   return s;
