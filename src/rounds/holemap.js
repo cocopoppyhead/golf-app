@@ -4,12 +4,11 @@
 // Front / centre / back of the green from where you stand (GPS) or from the tee, and tap anywhere
 // to measure. Courses without OSM shapes get the same arcs on a plain yardage strip.
 import { dist as D, du } from '../units.js';
+import { YD, mPerLat, mPerLon, metres, bearing, destination, inRing, merc, unmerc, zoomFor } from '../geo.js';
 
 const BASE = import.meta.env.BASE_URL;
 const TILE = (z, x, y) => `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/${z}/${y}/${x}`;
 export const ATTRIBUTION = 'Imagery © Esri, Maxar, Earthstar Geographics · Map data © OpenStreetMap contributors';
-const YD = 0.9144;
-const R = 6371000, rad = Math.PI / 180;
 
 // ---------- course geometry files ----------
 const geoCache = new Map();
@@ -21,10 +20,7 @@ export function loadGeo(libId) {
 }
 export const geoHole = (geo, n) => geo?.holes?.find((h) => h.n === n) || null;
 
-// ---------- maths ----------
-const mPerLat = R * rad, mPerLon = (lat) => R * rad * Math.cos(lat * rad);
-const metres = (a, b) => Math.hypot((b[1] - a[1]) * mPerLon((a[0] + b[0]) / 2), (b[0] - a[0]) * mPerLat);
-const bearing = (a, b) => Math.atan2((b[1] - a[1]) * mPerLon(a[0]), (b[0] - a[0]) * mPerLat); // radians, 0 = north, clockwise
+// ---------- tee choice ----------
 /** Which mapped tee matches the card? The one whose distance to the green is nearest the card yardage. */
 export function pickTee(gh, yds, teeName) {
   if (!gh) return null;
@@ -68,8 +64,6 @@ function tile(z, x, y, onload) {
   else if (!img.complete) img.addEventListener('load', () => onload?.(), { once: true });
   return img.complete && img.naturalWidth ? img : null;
 }
-const merc = (lat, lon, z) => { const n = 2 ** z; return [((lon + 180) / 360) * n, ((1 - Math.log(Math.tan(lat * rad) + 1 / Math.cos(lat * rad)) / Math.PI) / 2) * n]; };
-const unmerc = (tx, ty, z) => { const n = 2 ** z; return [(Math.atan(Math.sinh(Math.PI * (1 - (2 * ty) / n))) / rad), (tx / n) * 360 - 180]; };
 
 /**
  * Mount a hole map into `el`. Returns { update(opts), destroy() }.
@@ -98,8 +92,8 @@ export function mountHoleMap(el, opts) {
       // where the card says it is, along the line's final bearing, and say so
       o.approxGreen = false;
       if (!gh.green && o.yds && Math.abs(metres(T, G) - o.yds * YD) > o.yds * YD * 0.2) {
-        const end = gh.line[gh.line.length - 1], from = gh.line.length > 2 ? gh.line[gh.line.length - 2] : T; const b = bearing(from, end); const L = o.yds * YD - metres(T, end);
-        G = [end[0] + (L * Math.cos(b)) / mPerLat, end[1] + (L * Math.sin(b)) / mPerLon(end[0])]; o.approxGreen = true;
+        const end = gh.line[gh.line.length - 1], from = gh.line.length > 2 ? gh.line[gh.line.length - 2] : T;
+        G = destination(end, bearing(from, end), o.yds * YD - metres(T, end)); o.approxGreen = true;
       }
       const theta = bearing(T, G);
       const project = (p) => { // local metres from T, rotated so the hole points up: returns [x right, y up]
@@ -112,7 +106,7 @@ export function mountHoleMap(el, opts) {
       for (const [x, y] of pts) { x0 = Math.min(x0, x - 15); x1 = Math.max(x1, x + 15); y0 = Math.min(y0, y - 15); y1 = Math.max(y1, y + 15); }
       const s = Math.min((W - 8) / (x1 - x0), (H - 8) / (y1 - y0)); // px per metre
       const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
-      const mpp = 1 / (s * dpr); const z = Math.max(15, Math.min(19, Math.round(Math.log2((156543.03 * Math.cos(T[0] * rad)) / mpp))));
+      const z = zoomFor(T[0], 1 / (s * dpr), 15, 19);
       frame = { T, G, theta, s, W, H, cx, cy, z, dpr, project, toPx: ([x, y]) => [(W / 2 + (x - cx) * s), (H / 2 - (y - cy) * s)] };
     } else frame = { W, H, dpr, s: null };
   };
@@ -263,7 +257,7 @@ export function markHoleSheet({ course, start = 0, geo = null, onSave, onClose }
   function draw() {
     raf = 0; if (!W) size();
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.fillStyle = '#1d2a1f'; ctx.fillRect(0, 0, W, H);
-    const mpp = view.span / (W * dpr); const z = Math.max(13, Math.min(19, Math.round(Math.log2((156543.03 * Math.cos(view.c[0] * rad)) / mpp))));
+    const z = zoomFor(view.c[0], view.span / (W * dpr), 13, 19);
     const [a, b] = [toLL(0, 0), toLL(W, H)].map((ll) => merc(ll[0], ll[1], z));
     const tx0 = Math.floor(a[0]), tx1 = Math.floor(b[0]), ty0 = Math.floor(a[1]), ty1 = Math.floor(b[1]);
     if ((tx1 - tx0 + 1) * (ty1 - ty0 + 1) <= 48) for (let x = tx0; x <= tx1; x++) for (let y = ty0; y <= ty1; y++) {
@@ -290,7 +284,6 @@ export function markHoleSheet({ course, start = 0, geo = null, onSave, onClose }
   }
   // a tap inside a mapped green (or within 12 m of one) takes that green's centre
   const allGreens = [...(geo?.holes || []).map((h) => h.green).filter((g) => g?.poly), ...(geo?.extraGreens || [])];
-  const inRing = (p, r) => { let ins = false; for (let a = 0, b = r.length - 1; a < r.length; b = a++) { const [yi, xi] = r[a], [yj, xj] = r[b]; if ((yi > p[0]) !== (yj > p[0]) && p[1] < ((xj - xi) * (p[0] - yi)) / (yj - yi) + xi) ins = !ins; } return ins; };
   const snapGreen = (p) => { let best = null, d0 = 12; for (const g of allGreens) { if (inRing(p, g.poly)) return g.c; const d = metres(p, g.c); if (d < d0) { d0 = d; best = g.c; } } return best || p; };
   // gestures
   let ptrs = new Map(), moved = false, pinch0 = null;
@@ -337,7 +330,7 @@ export function geoBounds(geo, course) {
 export function drawCourseMap(cv, { geo = null, course = null, centre = null, span = null, shapes = true }) {
   const ctx = cv.getContext('2d');
   const b = geoBounds(geo, course);
-  let c = centre || (b ? [(b[0][0] + b[1][0]) / 2, (b[0][1] + b[1][1]) / 2] : course?.lat ? [course.lat, course.lon] : null);
+  const c = centre || (b ? [(b[0][0] + b[1][0]) / 2, (b[0][1] + b[1][1]) / 2] : course?.lat ? [course.lat, course.lon] : null);
   if (!c) return () => {};
   let raf = 0;
   const draw = () => {
@@ -350,7 +343,7 @@ export function drawCourseMap(cv, { geo = null, course = null, centre = null, sp
     const toPx = (p) => [W / 2 + (p[1] - c[1]) * kx * s, H / 2 - (p[0] - c[0]) * ky * s];
     const toLL = (x, y) => [c[0] + (H / 2 - y) / s / ky, c[1] + (x - W / 2) / s / kx];
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.fillStyle = '#1d2a1f'; ctx.fillRect(0, 0, W, H);
-    const mpp = sp / (W * dpr); const z = Math.max(12, Math.min(18, Math.round(Math.log2((156543.03 * Math.cos(c[0] * rad)) / mpp))));
+    const z = zoomFor(c[0], sp / (W * dpr), 12, 18);
     const [a, d] = [toLL(0, 0), toLL(W, H)].map((ll) => merc(ll[0], ll[1], z));
     for (let x = Math.floor(a[0]); x <= Math.floor(d[0]); x++) for (let y = Math.floor(a[1]); y <= Math.floor(d[1]); y++) {
       const img = tile(z, x, y, schedule); if (!img) continue;

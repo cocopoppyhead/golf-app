@@ -14,17 +14,15 @@ let permAsked = false;
 let permWait = null;
 onNative('location.permission', (m) => { permWait?.(m.granted); permWait = null; });
 
-function position() {
-  return new Promise(async (resolve, reject) => {
-    if (!navigator.geolocation) return reject(new Error('Location not available on this device.'));
-    // inside the app, Android needs the app-level permission first
-    if (isNative() && !permAsked) {
-      permAsked = true;
-      await new Promise((r) => { permWait = r; nativeSend({ type: 'location.permission' }); setTimeout(() => r(true), 8000); });
-    }
-    navigator.geolocation.getCurrentPosition((p) => resolve({ lat: p.coords.latitude, lon: p.coords.longitude }),
-      () => reject(new Error('Location is off, so no weather. Allow location for osolo.')), { timeout: 10000, maximumAge: 300000 });
-  });
+async function position() {
+  if (!navigator.geolocation) throw new Error('Location not available on this device.');
+  // inside the app, Android needs the app-level permission first
+  if (isNative() && !permAsked) {
+    permAsked = true;
+    await new Promise((r) => { permWait = r; nativeSend({ type: 'location.permission' }); setTimeout(() => r(true), 8000); });
+  }
+  return new Promise((resolve, reject) => navigator.geolocation.getCurrentPosition((p) => resolve({ lat: p.coords.latitude, lon: p.coords.longitude }),
+    () => reject(new Error('Location is off, so no weather. Allow location for osolo.')), { timeout: 10000, maximumAge: 300000 }));
 }
 
 /** Current conditions at your position. Cached for 10 minutes. */

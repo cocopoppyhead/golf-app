@@ -1,11 +1,16 @@
 {
   "name": "golf-app",
   "version": "0.1.0",
-  "description": "Personal golf app: swing coach first, rounds + laser later",
+  "description": "osolo \u2014 a golf app: swing coach, rounds with shot-by-shot logging and strokes gained, hole maps, the Bushnell loop, practice with purpose",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "lint": "eslint .",
+    "test": "vitest run && playwright test",
+    "test:unit": "vitest run",
+    "test:e2e": "playwright test",
+    "osm:build": "node scripts/osm/build.mjs .osm"
   },
   "dependencies": {
     "@mediapipe/tasks-vision": "1.1.1",
@@ -13,7 +18,14 @@
     "mp4-muxer": "5.2.2"
   },
   "devDependencies": {
-    "vite": "8.3.4"
+    "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.65.0",
+    "eslint": "^10.14.0",
+    "globals": "^17.14.0",
+    "jsdom": "^31.0.0",
+    "prettier": "^3.9.10",
+    "vite": "8.3.4",
+    "vitest": "^5.1.0"
   },
   "private": true,
   "type": "module"

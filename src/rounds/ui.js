@@ -1,7 +1,7 @@
 // Rounds module UI: courses, hole-by-hole logging (Conor's shot codes), scorecard photo import, summaries.
-import { CODES, TEE_ZONES, MISS, isGir, roundStats, aggregate, roundTendencies, roundSummaryText, pct, top, played } from './stats.js';
+import { CODES, TEE_ZONES, roundStats, aggregate, roundTendencies, roundSummaryText, pct, top, played } from './stats.js';
 import { openLibrary, isHome, starred } from './library.js';
-import { differential, courseHandicap, adjustedGross, indexFrom } from './handicap.js';
+import { differential } from './handicap.js';
 import { getConditions, condText } from '../weather.js';
 import { getSettings as S0, saveSettings as S1 } from '../store.js';
 import { isMetric } from '../units.js';
@@ -555,7 +555,7 @@ function moodSheet(round, key, done) {
 export const moodLine = (r) => {
   const m = r.mood || {}; const f = (x) => (x ? `${x}/10` : '–');
   if (!m.start && !m.turn && !m.finish) return '';
-  return `Emotional state: start ${f(m.start)}, turn ${f(m.turn)}, finish ${f(m.finish)}${r.warmup ? ` · warm-up: ${(WARMUP.find((x) => x[0] === r.warmup) || [, r.warmup])[1].toLowerCase()}` : ''}`;
+  return `Emotional state: start ${f(m.start)}, turn ${f(m.turn)}, finish ${f(m.finish)}${r.warmup ? ` · warm-up: ${(WARMUP.find((x) => x[0] === r.warmup) || [null, r.warmup])[1].toLowerCase()}` : ''}`;
 };
 
 function nextBogey(i) {

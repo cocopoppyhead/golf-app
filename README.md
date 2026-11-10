@@ -1,99 +1,70 @@
-# Golf app
+# osolo
 
-Personal golf app. Module 1 is a **swing coach**; rounds, scorecards and the Bushnell laser come next.
+A golf app for people who like proper stats: swing coach, rounds logged shot by shot with strokes gained and the Tiger 5, hole maps, the Bushnell loop (laser lock-on → shot card), practice with purpose, a WHS handicap.
 
-Live: https://cocopoppyhead.github.io/golf-app/
+Live: https://cocopoppyhead.github.io/golf-app/ (private beta; noindex). Native shell for iPhone/Android in `native/`.
 
-## Swing coach
-
-The raised camera button in the middle of the nav opens the Swing page: **Record a swing** (opens the camera) or **Upload a video** (gallery), club, learning mode, filming tips, and recent swings. Tap a recent swing to replay its full analysis (videos are kept on the phone; switch off in Settings).
-
-1. Film a face-on swing (portrait, hip height, 3–4 m away, whole body + ball in frame; slow-mo or 60 fps helps).
-2. Pick the club and the video, then **trim** to one swing (drag the start/end handles to cut walking in, practice swings and walking off). Pose tracking (MediaPipe Pose Landmarker) runs **on the phone**. No video is uploaded anywhere.
-3. Tap the ball.
-4. You get the four checkpoints (address, top, impact, finish) with YOU vs TOUR PRO, pro marks on the video, and the biggest opportunity. If a checkpoint lands on the wrong frame, nudge it with ◀ ▶ and everything re-measures.
-5. Optional:
-   - **AI coach** sends the measurements and four annotated frames to Claude, using your own API key, which is stored on the phone only.
-   - **Save video** renders an annotated MP4 to share.
-6. **Learning mode** (tickbox, on by default): swings that count build your coach profile. It finds recurring faults (tendencies), sets one work-in-progress focus, checks every new swing against it, and marks it fixed at 4 of 5 on target. The AI coach gets this history and its own notebook, so reviews follow on from the last one. Untick for test swings. Rounds will feed the same profile.
-7. Every swing is saved to **Progress** (on the phone, IndexedDB) with a trend table.
-
-### What it measures (face-on)
-
-| Checkpoint | Measures |
-|---|---|
-| Address | Ball position in stance, spine tilt, stance width vs shoulders |
-| Top | Head shift, hip shift / sway past trail foot, spine tilt |
-| Impact | Hip shift toward target, head vs address + ball, spine tilt vs address, hands ahead of ball |
-| Finish | Weight over lead foot, trail heel up, chest facing target |
-
-Inches are scaled from your height (Settings), so they're approximate. Target direction is detected automatically from where the hands go at the top, so right/left-handed and mirrored selfie video all work.
-
-## Rounds
-
-- **Courses**: type pars (tap to cycle 3/4/5), stroke index and yards, or fill them from a scorecard photo (Claude reads it).
-- **Log on the course**, hole by hole, with big buttons: score, putts, first-putt distance, tee shot (◀ trouble / rough / fairway / rough / trouble ▶), green hit is worked out automatically (or set by hand), miss direction plus green-side bunker, up-and-down and sand saves calculated.
-- **Bogey or worse → "what caused it?"** Tag the shot with your codes: shot (DRV/TEE/IRN/APP/CHP/BNK/PT), cause (TAC/SWE/FOC/BAC), flight/strike (HK/PL/SL/PU/THN/FAT/TOE/HEL), where it ended up (BNK/OBS/WDS/RGH/SS/LNG/SHT), cost +1/+2, or "saved it" on a par.
-- **Or after the round**: photograph the card, check the scores it read, then it walks you through only the bogey holes to tag them.
-- **Stats**: fairways, greens, miss patterns, putts, 3-putts, scrambling, sand saves, scoring mix, strokes lost by cause/shot/strike. Per round and per-round average across recent rounds.
-- **Coach link**: on-course patterns (e.g. "tee shots miss right", "most shots lost to SWE") show in Progress next to swing tendencies and go to the AI coach. **AI round review** reads the round, recent rounds and your swing profile together. Untick "count toward my coach profile" for scrambles or fun rounds.
-
-## Also in the app
-
-- **Swing score /10** with one priority and a built-in drill for every fault; streaks; confetti when a focus is fixed.
-- **From behind (down-the-line)**: posture, knee flex, spine angle kept, head height, early extension, finish balance.
-- **Range mode**: record 3–4+ swings in one clip; the app splits, reviews each and gives a session recap (can read it out).
-- **Save shot**: after a club suggestion, log where it finished (±), swing (full/¾/½/mishit), direction, contact, shape. **Club pages** show true distance (last 10, outliers and mishits dropped), accuracy, shape and strike map; the Bag switches to true distances at 5+ shots.
-- **Round rules** (Tiger 5s + extras) checked after every round; **round debrief** (hole notes, tags, notes) read by the coach.
-- **My swing keys** (Settings): your own notes, shown on the Swing page and used by the AI coach.
-- **Themes**: dark, light, or match the phone. **Export / import** all data (not videos) as JSON.
-- **Supabase** schema for login, sync, shared courses, friends and leagues: `supabase/schema.sql` (app wiring next).
-
-## Native app (Expo)
-
-`native/` is an Expo SDK 58 shell that runs the live web app in a WebView and adds native Bluetooth (laser on iPhone and Android) and video sharing. Build with EAS — see `native/README.md`.
-
-## Install
-
-It's an installable app (PWA): Android Chrome → **Install app** (shows in the app drawer, full screen, laser works); iPhone Safari → Share → **Add to Home Screen** (full screen, no laser — Apple blocks Bluetooth for web apps). The Swing page and Settings show an install button with the steps.
-
-**Units**: Settings → Yards · inches or Metres · cm. Everything is stored in yards/inches and converted for display.
-
-## Bag
-
-Your clubs with **full, ¾ and ½ carries** (editable; seeded with approximate numbers), gap warnings, and a "which club?" box that picks across full and ¾ swings. **Bushnell laser**: Connect (Chrome on Android) and each lock-on fills the distance (plays-as/slope-adjusted) and suggests a club. **Competition mode** shows distance only. iPhone browsers have no Bluetooth: use Bluefy for now; a native iPhone build is planned.
-
-## Code map
+## Running it
 
 ```
-src/coach/pose.js     MediaPipe on video frames (coarse scan to find the swing, then dense pass)
-src/coach/phases.js   cleaning + checkpoint detection (speed-normalised, works for slow-mo)
-src/coach/metrics.js  measurements + tour benchmarks + summary
-src/coach/render.js   overlay drawing (skeleton, head box, ball line, pro marks, cards)
-src/coach/player.js   slow playback with checkpoint freezes
-src/coach/export.js   MP4 export (WebCodecs + mp4-muxer)
-src/coach/ai.js       Claude API coaching (with coaching history)
-src/coach/profile.js  coach memory: tendencies, current focus, progress, notebook
-src/rounds/stats.js   round stats, on-course tendencies (pure)
-src/rounds/ui.js      courses, hole logger, tag sheet, scorecard import, summaries
-src/bag.js            clubs, full/¾ carries, club picker, competition mode
-src/units.js          yards/metres + inches/cm conversion
-src/install.js        install prompt / iPhone steps
-src/laser.js          Bushnell Pro X3(+) Web Bluetooth connect + packet decode + diagnostics log
-src/store.js          settings + IndexedDB (swings, media, rounds, courses)
+npm ci
+npm run dev            # Vite dev server
+npm run lint           # ESLint
+npm run test:unit      # vitest: maths and data checks (fast)
+npm run test:e2e       # Playwright against the built app (needs `npx playwright install chromium` once)
+npm run build          # dist/ — GitHub Pages deploys this on every push to main
 ```
 
-## Dev
+CI (`.github/workflows/ci.yml`) runs lint, unit tests, the build and the end-to-end suite on every push and pull request; `deploy.yml` publishes `dist/` to GitHub Pages. The native app loads the published site, so a push to main updates the installed app too; `native/` changes need an EAS build.
+
+Secrets: none in this repo. The Supabase publishable key is public by design; the secret key is never used. AI keys (Claude / OpenAI / Gemini) are typed by the user and stay on the phone. Personal data (yardages, swing story, scores) is imported from JSON files or synced per account, never committed.
+
+## Architecture
+
+Vanilla JS ES modules, no framework. One Vite PWA; state is local-first (localStorage for settings, IndexedDB for swings / rounds / courses / shots / sessions) with optional sync to Supabase (`src/cloud/`). Every screen is a function that renders into a root element and binds its own handlers.
 
 ```
-npm install
-npm run dev        # http://localhost:5173/golf-app/
-npm run build
+index.html, src/main.js      tabs (Play · Practice · Progress · Bag · Settings), routing, AI coach panel
+src/store.js                  settings + IndexedDB + change tracking for sync
+src/cloud/                    Supabase auth, sync, account sheet
+src/units.js                  yards/inches ⇄ metres/cm (everything is stored in yards)
+src/geo.js                    lat/lon maths shared by the maps, the laser loop and the OSM build (tested)
+src/weather.js                Open-Meteo conditions, wind components, carry factor, plays-like
+src/bag.js, src/shots.js      the bag: typed carries blended with saved shots, club pick, range work
+src/laser.js, src/laserlearn.js  rangefinder packets (Bushnell protocol, teach mode for others)
+src/native.js                 bridge to the Expo shell (BLE, share, open URL, notifications)
+src/rounds/
+  ui.js                       Play tab, hole screen, summaries, post a score, scorecard import
+  course.js                   course cards, course page, scheduling, tee picker, scorecard
+  holemap.js                  hole map (tiles + OSM shapes + club arcs), mark-a-hole, course hero
+  laserloop.js                the Bushnell loop: lock-on → shot card, GPS per read, hole advance
+  library.js                  bundled UAE course library (public/courses/uae.json)
+  stats.js, sg.js, tiger.js, handicap.js   pure maths (tested)
+src/practice.js, src/drills.js, src/workingon.js   practice sessions, drill library, working-on points
+src/progress.js               handicap, scoring history, putting, activity
+src/coach/                    swing coach: pose (MediaPipe), checkpoints, rendering, AI review
+public/courses/uae.json       scorecards: par, SI, tees with lengths, rating/slope, centre
+public/courses/osm/<id>.json  per-course geometry built from OpenStreetMap (see below)
+scripts/osm/                  pull.py (Overpass) + build.mjs → public/courses/osm
+test/unit, test/e2e           vitest and Playwright
+native/                       Expo SDK 58 WebView shell: BLE, background shot notifications, sharing
+supabase/schema.sql           tables + policies, safe to re-run
 ```
 
-Pushing to `main` deploys to GitHub Pages via `.github/workflows/deploy.yml`.
+### Data shapes worth knowing
 
-## Roadmap
+- **Round**: `{ id, date, courseId, courseName, tees, holes: [hole|null], players: [{ name, scores[], putts[] }], cond: { start, finish }, mood, quick?, score?, finished }`.
+- **Hole**: `{ score, putts, firstPutt, tee, miss, shots: [{ lie, dist, plays?, src: 'laser'|'manual'|'club'|'card', gps?, target?, d: { club, swing, … } }], tags, note }`. Shot 0 is the tee shot.
+- **Course** (local): `{ id, libId?, name, tees, rating, slope, lat, lon, holes: [{ par, si, yds, green?, mark?: { tee, green } }] }`. One local course per tee set; `libId` groups them.
+- **Course geometry** (`public/courses/osm/<id>.json`): `{ holes: [{ n, par, line: [[lat,lon]…], tees: [{ c, poly, m }], green: { c, f, b, poly, depth } }], bunkers / water / fairways: [{ h, c, poly }], extraGreens, outline }`.
 
-- Down-the-line view: swing plane, posture, early extension
-- Bushnell Pro X3 over Web Bluetooth (Android Chrome): lock-on → club recommendation from your carries
+### Course maps
+
+OpenStreetMap is the free source. `scripts/osm/pull.py <raw-dir>` pulls everything tagged `golf=*` around each library course from Overpass (run it from a normal network; it is resumable and the public servers are often overloaded). `node scripts/osm/build.mjs <raw-dir>` assigns holes to courses (rules in the script for sites that share ground), attaches greens, tees, bunkers, water and fairways to hole lines and writes the compact per-course files. Imagery is Esri World Imagery (attribution shown in the app). Courses OSM hasn't mapped can be marked in the app: two taps per hole on the satellite image.
+
+## Conventions
+
+- Keep modules pure where possible; DOM only in the render functions. Maths goes in a module with a unit test.
+- Distances are yards internally; convert at the edge with `src/units.js`.
+- A new persisted field goes in three places: the IndexedDB store (`store.js`), sync (`cloud/sync.js` KINDS / SETTINGS_KEYS) and backup (`backup.js` KEEP).
+- Commit messages say what changed for the golfer, not which files moved.

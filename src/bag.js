@@ -4,10 +4,9 @@
 import { getSettings, saveSettings, listShots } from './store.js';
 import { saveShotSheet, renderClubPage, trueDistance } from './shots.js';
 import { dist as D, toYards, du, duLong } from './units.js';
-import { isNative } from './native.js';
 import { getConditions, windComponents, carryFactor, playsLike, condText } from './weather.js';
 import { isMetric } from './units.js';
-import { connectLaser, disconnectLaser, onLaser, laserConnected, laserName, laserLog, laserSupported, isIOS, scanLasers, teachLaser, laserNeedsTeaching, forgetLaser } from './laser.js';
+import { onLaser, laserConnected, laserName } from './laser.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 // New golfers start with a standard bag and no numbers. Personal numbers come from
@@ -50,7 +49,6 @@ export function pickClub(bag, yards, partials = true) {
 }
 
 let unsub = null;
-let connectingNow = false;
 
 const SW = { full: '', '¾': ' ¾', '½': ' ½' };
 const short = (club) => club.replace(/^(\d) iron$/i, '$1i').replace(/^(\d) wood$/i, '$1w').replace(/^(\d) hybrid$/i, '$1h').replace(/^Driver$/i, 'Dr');
@@ -107,12 +105,10 @@ export function resolveClub(c, shots) {
 const effectiveBag = (bag, shots) => bag.map((c) => resolveClub(c, shots));
 
 export async function renderBag(root) {
-  const S = getSettings();
   let bag = getBag().map((c) => ({ total: null, three: null, threeTotal: null, half: null, halfTotal: null, ...c }));
   let mode = 'carry';
   let shots = await listShots().catch(() => []);
-  let dist = '', shot = null, status = laserConnected() ? `Connected to ${laserName()}` : '';
-  let found = null, scanning = false, teachMsg = '', showAll = false, editing = false;
+  let dist = '', shot = null, showAll = false, editing = false;
   let cond = null, wxErr = '', rel = null;
   const loadWx = (force) => getConditions({ force }).then((c) => { cond = c; wxErr = ''; }).catch((e) => { wxErr = e.message; }).finally(() => root.isConnected && draw());
   const comp = () => getSettings().competition === true;

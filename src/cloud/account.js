@@ -1,7 +1,7 @@
 // Account card (Settings): email code sign-in, profile name + handicap, sync status.
 import { currentUser, signInPassword, signUpPassword, signOut, getProfile, saveProfile, resetPassword, updatePassword, onPasswordRecovery } from './supabase.js';
 import { syncNow, onSyncStatus, claimDevice } from './sync.js';
-import { getSettings, saveSettings } from '../store.js';
+import { getSettings } from '../store.js';
 import { openProfileEditor, avatarHtml, localProfile } from '../onboarding.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));

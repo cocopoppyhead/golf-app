@@ -7,9 +7,8 @@
 // Sessions can be planned for later, repeated weekly and sent to a calendar. Finishing a session asks
 // for a 1–10 rating and a note. Everything feeds Progress and the AI coach.
 import { getSettings, saveSettings, listSessions, putSession, deleteSession } from './store.js';
-import { activeWork, editWorkSheet, markWorkDone } from './workingon.js';
-import { openLibrary, loadDrills, fmtScore } from './drills.js';
-import { isNative, nativeSend, blobToBase64, openExternal } from './native.js';
+import { activeWork, editWorkSheet } from './workingon.js';
+import { openLibrary } from './drills.js';
 import { calendarSheet as calSheet } from './calendar.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));

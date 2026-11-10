@@ -1,7 +1,7 @@
 // Course page: a satellite hero of the course, Start / Schedule / Preview / Scorecard / Mark holes,
 // and your record here — rounds, best/avg/worst overall and hole by hole. Also the course cards on the
 // Play tab and the "Upcoming" scheduled rounds.
-import { listRounds, listCourses, getCourse, putCourse, getSettings, saveSettings } from '../store.js';
+import { listRounds, listCourses, putCourse, getSettings, saveSettings } from '../store.js';
 import { loadLibrary, importCourse, toggleStar, starred, isHome } from './library.js';
 import { loadGeo, geoHole, drawCourseMap, mountHoleMap, markedHole, markHoleSheet } from './holemap.js';
 import { dist as D, du } from '../units.js';

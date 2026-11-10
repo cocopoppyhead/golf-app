@@ -9,13 +9,10 @@ import { getBag, resolveClub, pickClub } from '../bag.js';
 import { listShots, listRounds, getCourse, putRound } from '../store.js';
 import { getConditions, windComponents, carryFactor } from '../weather.js';
 import { dist as D, du } from '../units.js';
-import { loadGeo, geoHole, markedHole, currentFix, requestFix } from './holemap.js';
+import { loadGeo, geoHole, markedHole, requestFix } from './holemap.js';
+import { metres, lineDist } from '../geo.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-const R = 6371000, rad = Math.PI / 180;
-const metres = (a, b) => Math.hypot((b[1] - a[1]) * R * rad * Math.cos(((a[0] + b[0]) / 2) * rad), (b[0] - a[0]) * R * rad);
-const segDist = (p, a, b) => { const kx = R * rad * Math.cos(a[0] * rad), ky = R * rad; const bx = (b[1] - a[1]) * kx, by = (b[0] - a[0]) * ky, px = (p[1] - a[1]) * kx, py = (p[0] - a[0]) * ky; const l2 = bx * bx + by * by; const t = l2 ? Math.max(0, Math.min(1, (px * bx + py * by) / l2)) : 0; return Math.hypot(px - t * bx, py - t * by); };
-const lineDist = (p, line) => { let m = Infinity; for (let i = 1; i < line.length; i++) m = Math.min(m, segDist(p, line[i - 1], line[i])); return m; };
 const AUTO_ACCEPT_S = 12;
 
 let api = null; // { getCur, setCur, renderHole, toast, ensureShots }
@@ -66,7 +63,7 @@ export function initLaserLoop(a) {
   onLaser(async (r, meta = {}) => {
     if (!r?.raw) return;
     const cur = api.getCur();
-    let round = cur?.round && !cur.round.finished ? cur.round : (await listRounds().catch(() => [])).find((x) => !x.finished);
+    const round = cur?.round && !cur.round.finished ? cur.round : (await listRounds().catch(() => [])).find((x) => !x.finished);
     if (!round) return;
     const course = cur?.round === round ? cur.course : await getCourse(round.courseId).catch(() => null);
     if (!course) return;

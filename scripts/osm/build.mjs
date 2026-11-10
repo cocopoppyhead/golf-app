@@ -11,6 +11,7 @@
 // fairways are polygons that get attached to the nearest hole line.
 import fs from 'node:fs';
 import path from 'node:path';
+import { mPerLat, mPerLon, metres as dist, centroid, inRing, inAny, lineDist, lineLen, round6 as r6 } from '../../src/geo.js';
 
 const RAW = process.argv[2];
 const ONLY = process.argv.slice(3);
@@ -41,30 +42,7 @@ const COURSES = {
   'saadiyat-beach-golf-club': { poly: [{ rel: 11177553 }], radius: 3000 },
 };
 
-// ---------- geometry helpers (lat/lon in degrees, distances in metres) ----------
-const R = 6371000, rad = Math.PI / 180;
-const mPerLon = (lat) => R * rad * Math.cos(lat * rad), mPerLat = R * rad;
-const dist = (a, b) => { const dx = (b[1] - a[1]) * mPerLon((a[0] + b[0]) / 2), dy = (b[0] - a[0]) * mPerLat; return Math.hypot(dx, dy); };
 const pts = (e) => (e.geometry || []).map((p) => [p.lat, p.lon]);
-const centroid = (ring) => { const n = ring.length || 1; return [ring.reduce((s, p) => s + p[0], 0) / n, ring.reduce((s, p) => s + p[1], 0) / n]; };
-const inRing = (p, ring) => { // ray casting
-  let inside = false;
-  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
-    const [yi, xi] = ring[i], [yj, xj] = ring[j];
-    if ((yi > p[0]) !== (yj > p[0]) && p[1] < ((xj - xi) * (p[0] - yi)) / (yj - yi) + xi) inside = !inside;
-  }
-  return inside;
-};
-const inAny = (p, rings) => rings.some((r) => inRing(p, r));
-function segDist(p, a, b) { // metres from p to segment ab
-  const lat = (a[0] + b[0]) / 2, kx = mPerLon(lat), ky = mPerLat;
-  const ax = 0, ay = 0, bx = (b[1] - a[1]) * kx, by = (b[0] - a[0]) * ky, px = (p[1] - a[1]) * kx, py = (p[0] - a[0]) * ky;
-  const l2 = bx * bx + by * by; const t = l2 ? Math.max(0, Math.min(1, (px * bx + py * by) / l2)) : 0;
-  return Math.hypot(px - (ax + t * bx), py - (ay + t * by));
-}
-const lineDist = (p, line) => { let m = Infinity; for (let i = 1; i < line.length; i++) m = Math.min(m, segDist(p, line[i - 1], line[i])); return m; };
-const lineLen = (line) => { let s = 0; for (let i = 1; i < line.length; i++) s += dist(line[i - 1], line[i]); return s; };
-const r6 = (p) => [Math.round(p[0] * 1e6) / 1e6, Math.round(p[1] * 1e6) / 1e6];
 const ring6 = (ring) => ring.map(r6);
 
 // rings of a relation: each outer member's geometry (members may be split ways; we join by endpoints)
