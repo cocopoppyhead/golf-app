@@ -159,7 +159,7 @@ grant execute on function public.join_league(text, text, numeric) to authenticat
 
 -- ---------- Practice sessions sync (added 10 Nov 2026) ----------
 alter table public.user_docs drop constraint if exists user_docs_kind_check;
-alter table public.user_docs add constraint user_docs_kind_check check (kind in ('settings','plan','swing','round','course','shot','session'));
+alter table public.user_docs add constraint user_docs_kind_check check (kind in ('settings','plan','swing','round','course','shot','session','launch'));
 
 -- ---------- Friends: codes, visibility, round summaries ----------
 alter table public.profiles add column if not exists friend_code text unique;

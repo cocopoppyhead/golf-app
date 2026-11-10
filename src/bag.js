@@ -3,6 +3,7 @@
 // shots are saved (tagged full / ¾ / mishit, so mishits never drag your numbers down).
 import { getSettings, saveSettings, listShots } from './store.js';
 import { saveShotSheet, renderClubPage, trueDistance } from './shots.js';
+import { renderLaunchCard } from './launch.js';
 import { dist as D, toYards, du, duLong } from './units.js';
 import { getConditions, windComponents, carryFactor, playsLike, condText } from './weather.js';
 import { isMetric } from './units.js';
@@ -160,7 +161,9 @@ export async function renderBag(root) {
           <label class="check mini"><input type="checkbox" id="compBox" ${comp() ? 'checked' : ''}/> Competition</label></div>
         <p class="mute small" style="margin:8px 0 0">${mode === 'carry' ? `Each bar is your number with its range. ${learnedN ? 'Numbers blend what you typed with your saved shots; ✓ = 5+ good shots, so it\'s your real distance.' : 'Save shots after you hit them and the ranges tighten to what you really carry.'} Tap a club for its page.` : `Total distance in ${duLong()}, as typed. Saved shots refine carry, not total.`}</p>
         ${gaps.length ? `<p class="small" style="color:var(--ok);margin-top:8px">Gap${gaps.length > 1 ? 's' : ''}: ${gaps.map((g) => `${esc(g.a.club)} → ${esc(g.b.club)} (${D(g.gap)} ${du()})`).join(', ')}</p>` : ''}`}
-      </div>`;
+      </div>
+      <div id="launchCard"></div>`;
+    renderLaunchCard(root.querySelector('#launchCard'), { toast: (m) => window.__toast?.(m), onOpenClub: (club) => { const c = bag.find((x) => x.club === club); if (c) renderClubPage(root, c.club, { carry: c.carry, onBack: () => renderBag(root), onUseCarry: (y) => { c.carry = y; saveBag(bag); renderBag(root); } }); } });
 
     const sync = () => {
       root.querySelectorAll('[data-cl]').forEach((el) => (bag[+el.dataset.cl].club = el.value.trim()));

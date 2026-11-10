@@ -123,6 +123,22 @@ Return ONLY JSON: {"player": "<name/initials on the row>", "scores": [<${holes} 
   return JSON.parse(m[0]);
 }
 
+/**
+ * A photo of a launch monitor / simulator table (TrackMan, Toptracer, GC, a Korean sim bay…).
+ * Returns { columns: [{ key, label, unit }], rows: [[cell…]], notes } with one row per shot and
+ * no average row. key is one of the canonical names below or 'other'.
+ */
+export async function readLaunchTable({ provider, apiKey, model, images }) {
+  const ask = `This is a photo of a golf launch monitor or simulator results table. Extract it.
+Return ONLY JSON: {"columns": [{"key": "<canonical>", "label": "<header as printed>", "unit": "<yd|m|mph|kmh|ms|deg|rpm|null>"}], "rows": [[<one value per column, numbers as numbers; a left/right value as a signed number: left negative, right positive; unreadable = null>]], "club": "<club name if shown anywhere, else null>", "notes": "<anything unclear>"}
+Canonical keys (use exactly these when the column means it, else "other"): shot (row number), total (total distance), carry, launch (launch angle), ballSpeed, clubSpeed (head/club speed), smash (smash factor), backSpin, sideSpin, spinAxis, spin (total spin), apex (peak height), descent (land angle), toTarget (distance from target), side (lateral offline), azimuth (launch direction), face (face angle), path (club path), attack (attack angle), club (club name), other.
+Rules: one row per shot in table order; skip any average/total/summary row; keep the printed units; do not invent values.`;
+  const text = await callLLM({ provider, apiKey, model, system: 'You read golf launch-monitor tables precisely. Output only valid JSON, no prose.', content: [...images.map(img), { type: 'text', text: ask }], maxTokens: 3000 });
+  const m = text.match(/\{[\s\S]*\}/);
+  if (!m) throw new Error('Could not read that table. Try a straighter, brighter photo.');
+  return JSON.parse(m[0]);
+}
+
 const ROUND_SYSTEM = `You are the golfer's ongoing coach. You see their round stats, their tagged mistakes (their own codes), their recent rounds and their swing profile from video analysis.
 Be blunt and short. No praise padding. Markdown:
 **Verdict:** one sentence on the round.

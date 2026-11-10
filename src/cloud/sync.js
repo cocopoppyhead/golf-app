@@ -6,7 +6,7 @@ import { publishSummaries } from './social.js';
 import {
   getSettings, saveSettings, onLocalChange, clearLocal,
   listSwings, putSwing, deleteSwing, listRounds, putRound, deleteRound,
-  listCourses, putCourse, deleteCourse, listShots, putShot, deleteShot, putSession, deleteSession, listSessions } from '../store.js';
+  listCourses, putCourse, deleteCourse, listShots, putShot, deleteShot, putSession, deleteSession, listSessions, listLaunch, putLaunch, deleteLaunch } from '../store.js';
 import { getPlan, savePlan } from '../coach/profile.js';
 
 const SETTINGS_KEYS = ['name', 'bag', 'keys', 'roundRules', 'golfer', 'heightIn', 'system', 'handedness', 'club', 'view', 'nickname', 'avatar', 'homeCourse', 'hand', 'handicap', 'onboarded', 'partials', 'laserProfiles', 'aiProvider', 'starredCourses', 'workingOn', 'handicapMode', 'partners', 'practicePlan', 'favDrills', 'mapLeave', 'metronome', 'events', 'checklistHidden', 'laserPaired', 'mapDist', 'mapFirm'];
@@ -16,6 +16,7 @@ const KINDS = {
   course: { list: listCourses, put: putCourse, del: deleteCourse },
   shot: { list: listShots, put: putShot, del: deleteShot },
   session: { list: listSessions, put: putSession, del: deleteSession },
+  launch: { list: listLaunch, put: putLaunch, del: deleteLaunch },
 };
 const clean = (x) => { const { _stats, ...rest } = x; return rest; };
 

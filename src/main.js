@@ -23,6 +23,7 @@ import { pendingInviteFromUrl } from './cloud/social.js';
 import { renderScoring, practiceFromRounds } from './progress.js';
 import { workContext } from './workingon.js';
 import { renderPracticeLog, practiceContext } from './practice.js';
+import { launchContext } from './launch.js';
 import { renderDrillsCard, drillContext, loadDrills, faultDrills, drillCardsHtml, bindDrillCards, drillMenuForAi, drillsLoaded } from './drills.js';
 import { renderRangefinder } from './rangefinder.js';
 import { maybeOnboard, avatarHtml, localProfile, openProfileEditor } from './onboarding.js';
@@ -737,7 +738,7 @@ async function doAi() {
     const history = state.learning && !state.golfer ? coachContext(swings, await recentRoundAggregate()) : '';
     const golfer = state.golfer
       ? `This is ${state.golfer}'s swing (a friend of the app owner). Coach ${state.golfer} directly; no history on file.`
-      : [settings.golfer, workContext(), await practiceContext().catch(() => ''), await drillContext().catch(() => ''), settings.keys ? `Their own swing keys/notes (use their language): ${settings.keys.replace(/\n+/g, ' | ')}` : '', drillMenuForAi([getPlan().focus?.key, state.A?.summary.priority?.key, ...state.A.checkpoints.flatMap((c) => c.items.filter((i) => i.status === 'bad').map((i) => `${c.key}:${i.name}`))].filter(Boolean))].filter(Boolean).join('. ');
+      : [settings.golfer, workContext(), await practiceContext().catch(() => ''), await drillContext().catch(() => ''), await launchContext().catch(() => ''), settings.keys ? `Their own swing keys/notes (use their language): ${settings.keys.replace(/\n+/g, ' | ')}` : '', drillMenuForAi([getPlan().focus?.key, state.A?.summary.priority?.key, ...state.A.checkpoints.flatMap((c) => c.items.filter((i) => i.status === 'bad').map((i) => `${c.key}:${i.name}`))].filter(Boolean))].filter(Boolean).join('. ');
     const { text, meta } = await getCoaching({ ...aiFrom(settings), A: state.A, images, golfer, history });
     state.ai = text;
     let extra = '';
@@ -979,6 +980,7 @@ $('#importFile').addEventListener('change', async (e) => {
 
 $('#buildTag').textContent = `App version ${__BUILD__} UTC`;
 
+window.__toast = toast;
 startSync();
 loadDrills(); // the drill library backs the swing screens' drill cards
 // an invite link (?join= / ?friend=): remembered, acted on from the Play tab once signed in

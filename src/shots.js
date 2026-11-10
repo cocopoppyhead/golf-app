@@ -103,5 +103,7 @@ export async function renderClubPage(root, club, { carry, onBack, onUseCarry }) 
     <div class="card"><h2>Shots</h2>${all.length ? all.slice(0, 25).map((s) => `<div class="tagrow"><span>${new Date(s.date).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })} · ${D(s.result)} ${du()} <span class="mute">(aimed ${D(s.target)})</span> · ${s.swing}${s.dir ? ` · ${s.dir}` : ''}${s.contact ? ` · ${s.contact}` : ''}</span></div>`).join('') : '<p class="mute small">None yet.</p>'}</div>`;
   root.querySelector('[data-back]').onclick = onBack;
   root.querySelector('[data-use]')?.addEventListener('click', () => onUseCarry(td.full.avg));
+  // launch-monitor speeds for this club, if any sessions were saved
+  import('./launch.js').then(async (L) => { const html = await L.launchClubHtml(club); if (html && root.isConnected) { const d = document.createElement('div'); d.innerHTML = html; root.querySelector('.card').after(d.firstElementChild); } });
   window.scrollTo(0, 0);
 }

@@ -368,17 +368,6 @@ export function markHoleSheet({ course, start = 0, geo = null, onSave, onClose }
   const toPx = (p) => { const s = W / view.span; return [W / 2 + (p[1] - view.c[1]) * kx() * s, H / 2 - (p[0] - view.c[0]) * ky * s]; };
   const toLL = (x, y) => { const s = W / view.span; return [view.c[0] + (H / 2 - y) / s / ky, view.c[1] + (x - W / 2) / s / kx()]; };
   const schedule = () => { if (!raf) raf = requestAnimationFrame(draw); };
-  // Carry / Total under the map (and how firm the fairways are when a total has to be estimated)
-  function basisRow() {
-    let row = el.querySelector('.hm-basis');
-    if (!row) { row = document.createElement('div'); row.className = 'hm-basis'; el.querySelector('.hm-attr').before(row); }
-    if (mode === 'off') { row.innerHTML = ''; return; }
-    const b = distBasis(), f = firmness();
-    row.innerHTML = `<span class="mute small">Arcs:</span><div class="hm-mode sm">${[['carry', 'Carry'], ['total', 'Total']].map(([v, l]) => `<button data-basis="${v}" class="${b === v ? 'on' : ''}">${l}</button>`).join('')}</div>
-      ${b === 'total' ? `<span class="mute small">ground:</span><div class="hm-mode sm">${[['soft', 'Soft'], ['normal', 'Normal'], ['firm', 'Firm']].map(([v, l]) => `<button data-firm="${v}" class="${f === v ? 'on' : ''}">${l}</button>`).join('')}</div>` : ''}`;
-    row.querySelectorAll('[data-basis]').forEach((x) => x.onclick = () => { const s = getSettings(); s.mapDist = x.dataset.basis; saveSettings(s); schedule(); });
-    row.querySelectorAll('[data-firm]').forEach((x) => x.onclick = () => { const s = getSettings(); s.mapFirm = x.dataset.firm; saveSettings(s); schedule(); });
-  }
   function size() { W = el.querySelector('.mk-wrap').clientWidth; H = el.querySelector('.mk-wrap').clientHeight; dpr = Math.min(2, devicePixelRatio || 1); cv.width = W * dpr; cv.height = H * dpr; }
   function draw() {
     raf = 0; if (!W) size();

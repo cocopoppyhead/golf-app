@@ -32,7 +32,7 @@ export function saveSettings(s, { fromSync = false } = {}) {
 let dbp = null;
 function db() {
   if (!dbp) dbp = new Promise((res, rej) => {
-    const r = indexedDB.open('golf-app', 5);
+    const r = indexedDB.open('golf-app', 6);
     r.onupgradeneeded = () => {
       const d = r.result;
       if (!d.objectStoreNames.contains('swings')) d.createObjectStore('swings', { keyPath: 'id' });
@@ -44,6 +44,7 @@ function db() {
       if (!d.objectStoreNames.contains('shots')) d.createObjectStore('shots', { keyPath: 'id' });
       // practice sessions (range, short game, putting)
       if (!d.objectStoreNames.contains('sessions')) d.createObjectStore('sessions', { keyPath: 'id' });
+      if (!d.objectStoreNames.contains('launch')) d.createObjectStore('launch', { keyPath: 'id' }); // launch-monitor sessions (photo of the bay's table)
     };
     r.onsuccess = () => res(r.result);
     r.onerror = () => rej(r.error);
@@ -95,6 +96,9 @@ export async function listShots() {
 
 export const putSession = (x, o = {}) => tx('sessions', 'readwrite', (st) => st.put(stamp(x, o.fromSync))).then((r) => (o.fromSync || changed('session'), r));
 export const deleteSession = (id, o = {}) => { if (!o.fromSync) { tombstone('session', id); changed('session'); } return tx('sessions', 'readwrite', (st) => st.delete(id)); };
+export const putLaunch = (x, o = {}) => tx('launch', 'readwrite', (st) => st.put(stamp(x, o.fromSync))).then((r) => (o.fromSync || changed('launch'), r));
+export const deleteLaunch = (id, o = {}) => { if (!o.fromSync) { tombstone('launch', id); changed('launch'); } return tx('launch', 'readwrite', (st) => st.delete(id)); };
+export async function listLaunch() { const all = await tx('launch', 'readonly', (st) => st.getAll()); return all.sort((a, b) => b.date - a.date); }
 export async function listSessions() {
   const all = await tx('sessions', 'readonly', (st) => st.getAll());
   return (all || []).sort((a, b) => b.date - a.date);
@@ -103,7 +107,7 @@ export async function listSessions() {
 /** Wipe all local data (used when a different person signs in on this phone). Videos too. */
 export async function clearLocal() {
   const d = await db();
-  for (const name of ['swings', 'media', 'rounds', 'courses', 'shots', 'sessions']) await new Promise((res) => { const t = d.transaction(name, 'readwrite'); t.objectStore(name).clear(); t.oncomplete = res; t.onerror = res; });
+  for (const name of ['swings', 'media', 'rounds', 'courses', 'shots', 'sessions', 'launch']) await new Promise((res) => { const t = d.transaction(name, 'readwrite'); t.objectStore(name).clear(); t.oncomplete = res; t.onerror = res; });
   for (const k of ['golf.plan', 'golf.deleted']) localStorage.removeItem(k);
   const keep = getSettings(); const fresh = { theme: keep.theme, system: keep.system, apiKey: keep.apiKey, model: keep.model, openaiKey: keep.openaiKey, openaiModel: keep.openaiModel, geminiKey: keep.geminiKey, geminiModel: keep.geminiModel, aiProvider: keep.aiProvider, keepVideos: keep.keepVideos };
   localStorage.setItem('golf.settings', JSON.stringify(fresh));
