@@ -17,7 +17,7 @@ import { listShots } from '../store.js';
 import { workContext } from '../workingon.js';
 import { practiceContext } from '../practice.js';
 import { drillContext } from '../drills.js';
-import { loadGeo, geoHole, mountHoleMap } from './holemap.js';
+import { loadGeo, geoHole, mountHoleMap, markedHole, markHoleSheet } from './holemap.js';
 
 const DEBRIEF_TAGS = ['Driver into trouble', 'Risky shot choice', 'Approach misses', 'Short game', '3-putts', 'Lost focus', 'Back problem', 'Tired', 'Wind / conditions', 'Bad luck'];
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -372,9 +372,9 @@ function renderHole() {
     holeMap?.destroy(); holeMap = null;
     Promise.all([loadGeo(course.libId), effectiveClubs()]).then(([geo, clubs]) => {
       if (!mapEl.isConnected) return;
-      const gh = geoHole(geo, i + 1);
-      if (!gh && !ch.yds) { mapEl.remove(); return; }
-      holeMap = mountHoleMap(mapEl, { gh, geo, par, yds: ch.yds, teeName: course.tees, clubs });
+      const gh = geoHole(geo, i + 1) || markedHole(ch.mark, i + 1);
+      if (!gh && !ch.yds && !course.lat) { mapEl.remove(); return; }
+      holeMap = mountHoleMap(mapEl, { gh, geo, par, yds: ch.yds, teeName: course.tees, clubs, canMark: !!course.lat, onMark: () => markHoleSheet({ course, start: i, geo, onSave: (k, mark) => { course.holes[k].mark = mark; putCourse(course); }, onClose: renderHole }) });
     });
   }
   const redo = () => { derive(h, par); save(); renderHole(); };

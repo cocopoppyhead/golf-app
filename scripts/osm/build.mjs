@@ -168,16 +168,22 @@ function build(course) {
     let best = 110, hn = 0;
     for (const h of holes) { const d = lineDist(x.c, h.line); if (d < best) { best = d; hn = h.n; } }
     return { h: hn, c: r6(x.c), poly: ring6(x.ring) };
-  }).filter((x) => x.h || !holes.length);
+  }).filter((x) => x.h || (!holes.length && dist(x.c, centre) <= radius));
+  // greens no hole claimed (unnumbered in OSM): shown on the marking map so the golfer just taps them
+  const used = new Set(holes.map((h) => h.green?.c?.join()));
+  const extraGreens = greens.filter((g) => !used.has(r6(g.c).join()) && dist(g.c, centre) <= radius).map((g) => ({ c: r6(g.c), poly: ring6(g.ring) }));
+  // course outline: the named golf_course polygon nearest the centre, if any
+  const outlines = els.filter((e) => e.type === 'way' && tag(e).leisure === 'golf_course' && (e.geometry || []).length >= 4).map((e) => pts(e)).filter((r) => inRing(centre, r) || dist(centroid(r), centre) < 900);
+  const outline = outlines.sort((a, b) => b.length - a.length)[0] || null;
   const out = {
     id: course.id, name: course.name, src: 'osm', built: new Date().toISOString().slice(0, 10),
     attribution: '© OpenStreetMap contributors (ODbL)',
-    holes, bunkers: attach(bunkers), water: attach(water), fairways: attach(fairways),
+    holes, bunkers: attach(bunkers), water: attach(water), fairways: attach(fairways), extraGreens, outline: outline ? ring6(outline) : null,
   };
-  if (holes.length) {
+  if (holes.length || extraGreens.length || outline) {
     fs.writeFileSync(path.join(OUT, course.id + '.json'), JSON.stringify(out));
-    if (course.latlonNote) { // hand-placed centre: replace it with the centre of the mapped holes
-      const c = centroid(holes.flatMap((h) => [h.line[0], h.line[h.line.length - 1]]));
+    if (course.latlonNote) { // hand-placed centre: replace it with the centre of the mapped holes (or the outline)
+      const c = holes.length ? centroid(holes.flatMap((h) => [h.line[0], h.line[h.line.length - 1]])) : centroid(outline || extraGreens.map((g) => g.c));
       course.lat = Math.round(c[0] * 1e5) / 1e5; course.lon = Math.round(c[1] * 1e5) / 1e5; delete course.latlonNote; libChanged = true;
     }
   }
@@ -185,7 +191,7 @@ function build(course) {
   const missing = []; for (let i = 1; i <= course.holes; i++) if (!byRef.has(i)) missing.push(i);
   const gaps = []; // walk check: green of n to tee of n+1 should be a short walk
   for (let i = 1; i < holes.length; i++) { const a = holes[i - 1], b = holes[i]; if (b.n === a.n + 1) { const d = Math.round(dist(a.line[a.line.length - 1], b.line[0])); if (d > 350) gaps.push(`${a.n}→${b.n} ${d} m`); } }
-  return { id: course.id, status: holes.length ? 'ok' : 'no holes', holes: holes.length, missing, gaps, greens: holes.filter((h) => h.green).length, tees: holes.reduce((s, h) => s + h.tees.length, 0), bunkers: out.bunkers.length, water: out.water.length, fairways: out.fairways.length, dropped };
+  return { id: course.id, status: holes.length ? 'ok' : extraGreens.length || outline ? `no holes (${extraGreens.length} loose greens${outline ? ', outline' : ''})` : 'no holes', holes: holes.length, missing, gaps, greens: holes.filter((h) => h.green).length, tees: holes.reduce((s, h) => s + h.tees.length, 0), bunkers: out.bunkers.length, water: out.water.length, fairways: out.fairways.length, dropped };
 }
 
 let libChanged = false;
