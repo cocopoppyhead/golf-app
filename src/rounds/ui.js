@@ -40,7 +40,7 @@ export { sgCard } from './summary.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const uid = (p) => `${p}_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
-const fmtD = (d) => new Date(d).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
+const fmtD = (d) => new Date(d).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short', year: new Date(d).getFullYear() === new Date().getFullYear() ? undefined : 'numeric' });
 const toParStr = (n) => (n === 0 ? 'E' : n > 0 ? `+${n}` : `${n}`);
 
 let ctx = { settings: () => ({}), toast: () => {} };
@@ -88,7 +88,7 @@ export async function roundsHome() {
     ${done.length ? `<button class="card gotoprog" data-act="progress"><span>${ART.putting}</span><span><b>Your game</b><small>Driving to putting, against a golfer at your level — in Progress</small></span><span class="mute">›</span></button>` : ''}
     ${done.length ? `<h2 style="margin:26px 0 10px">Rounds</h2>` + done.map((r) => {
       const s = r._stats;
-      return `<div class="hist" data-act="open" data-id="${r.id}"><div class="sc">${s ? s.score : '–'}</div><div><div class="t">${esc(r.courseName)} ${s ? `<span class="mute">${toParStr(s.toPar)}</span>` : ''}</div><div class="s">${fmtD(r.date)}${r.quick ? `${r.tees ? ` · ${esc(r.tees)}` : ''}${r.diff != null ? ` · diff ${r.diff.toFixed(1)}` : ''} · score only` : s ? ` · ${s.putts} putts · FIR ${pct(s.fir, s.firOpp) ?? '–'}% · GIR ${pct(s.gir, s.girOpp) ?? '–'}%` : ''}${r.learning === false ? ' · not counted' : ''}</div></div><div class="mute">›</div></div>`;
+      return `<div class="hist" data-act="open" data-id="${r.id}"><div class="sc">${s ? s.score : '–'}</div><div><div class="t">${esc(r.courseName)} ${s ? `<span class="mute">${toParStr(s.toPar)}</span>` : ''}</div><div class="s">${fmtD(r.date)}${r.quick ? `${r.tees ? ` · ${esc(r.tees)}` : ''}${r.diff != null ? ` · diff ${r.diff.toFixed(1)}` : ''} · score only` : s ? `${s.puttsHoles ? ` · ${s.putts} putts` : ''}${s.firOpp ? ` · FIR ${pct(s.fir, s.firOpp)}%` : ''}${s.girOpp && s.puttsHoles ? ` · GIR ${pct(s.gir, s.girOpp)}%` : ''}${r.source === 'garmin' ? ' · Garmin' : ''}` : ''}${r.learning === false ? ' · not counted' : ''}</div></div><div class="mute">›</div></div>`;
     }).join('') : ''}`;
   root.querySelectorAll('[data-act]').forEach((b) => b.addEventListener('click', () => homeAction(b.dataset.act, b.dataset.id)));
   bindCourseCards(root, groups, courseApi());

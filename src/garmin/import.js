@@ -97,6 +97,7 @@ export function matchCourse(snapshot, { courses = [], library = [] } = {}) {
   if (own) return { kind: 'course', course: own };
   const lib = library.find((c) => norm(c.name) === n) || library.find((c) => n && (norm(c.name).includes(n) || n.includes(norm(c.name))));
   if (lib) return { kind: 'library', lib };
+  if (snapshot?.holes?.length) return { kind: 'new', spec: { name, tees: snapshot.tee || '', holes: snapshot.holes.map((h) => ({ par: h.par || 4, si: h.si ?? null, yds: h.yds ?? null, green: h.green || null })) } };
   const pars = String(snapshot?.holePars || '').split('').map((d) => +d).filter((d) => d >= 3 && d <= 6);
   return { kind: 'new', spec: { name, holes: (pars.length ? pars : Array(18).fill(4)).map((p) => ({ par: p, si: null, yds: null })) } };
 }

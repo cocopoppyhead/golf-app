@@ -18,7 +18,7 @@ import { autoShotType } from './hole.js';
 import { removeSummary } from '../cloud/social.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-const fmtD = (d) => new Date(d).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
+const fmtD = (d) => new Date(d).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short', year: new Date(d).getFullYear() === new Date().getFullYear() ? undefined : 'numeric' });
 const toParStr = (n) => (n === 0 ? 'E' : n > 0 ? `+${n}` : `${n}`);
 const DEBRIEF_TAGS = ['Driver into trouble', 'Risky shot choice', 'Approach misses', 'Short game', '3-putts', 'Lost focus', 'Back problem', 'Tired', 'Wind / conditions', 'Bad luck'];
 
