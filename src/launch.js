@@ -7,8 +7,8 @@ import { readLaunchTable, aiFrom, aiReady } from './coach/ai.js';
 import { dist as D, du, isMetric } from './units.js';
 import { icon } from './icons.js';
 import { drillsLoaded, drillCardsHtml, bindDrillCards } from './drills.js';
-import { launchTakes, takesHtml, takesText } from './launchtakes.js';
-import { predictedCarry } from './flight.js';
+import { launchTakes, takesHtml, takesText, benchmarks } from './launchtakes.js';
+import { simulate } from './flight.js';
 import { parseLaunchFile } from './launchfile.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -204,14 +204,49 @@ export async function renderLaunchCard(el, { toast = () => {}, onOpenClub = null
 export async function launchClubHtml(club) {
   const S = await listLaunch().catch(() => []);
   const q = clubSummary(S, club); if (!q) return '';
-  const cell = (k) => (q[k] ? `<div><b>${k === 'launch' || k === 'attack' ? `${q[k].avg}°` : k === 'backSpin' ? Math.round(q[k].avg) : k === 'carry' || k === 'total' || k === 'apex' ? D(q[k].avg) : q[k].avg}</b><span>${COLS[k].label}${q[k].sd ? ` ±${k === 'backSpin' ? Math.round(q[k].sd) : k === 'carry' || k === 'total' || k === 'apex' ? D(q[k].sd) : q[k].sd}` : ''}</span></div>` : '');
-  const pred = predictedCarry(q);
   return `<div class="card"><h2>Launch monitor <span class="mute small">${q.n} shots · last ${fmtD(q.last)}</span></h2>
-    <div class="kpis">${['clubSpeed', 'ballSpeed', 'smash', 'launch'].map(cell).join('')}</div>
-    ${q.backSpin || q.carry || q.attack || pred ? `<div class="kpis">${['backSpin', 'attack', 'carry'].map(cell).join('')}${pred ? `<div><b>${D(pred)}</b><span>Should carry <span class="mute">(model)</span></span></div>` : ''}${['total', 'apex'].map(cell).join('')}</div>` : ''}
+    ${tilesHtml(q, club)}
     ${takesBlock(q, club)}
     ${sessionTrendHtml(S, club)}
     <p class="mute small">Carries here are what the bay measured; only premium-ball sessions feed your Bag number.</p></div>`;
+}
+
+/**
+ * The eight tiles, two rows of four, ranked by what decides distance and consistency: ball speed,
+ * smash, club speed, carry (model, with the bay's number beneath), launch, spin, attack angle (else
+ * apex), spin axis (else descent). Each carries its spread and a benchmark bar for the golfer's speed.
+ * Tiles with nothing measured and nothing the model can give are left out.
+ */
+export function tilesHtml(q, club) {
+  const B = benchmarks(club, q.clubSpeed?.avg);
+  const metric = isMetric();
+  const speed = (v) => (metric ? `${Math.round(v * 1.609)}` : `${Math.round(v * 10) / 10}`);
+  const speedU = metric ? 'km/h' : 'mph';
+  const model = q.ballSpeed && q.launch && q.backSpin ? simulate({ ballSpeed: q.ballSpeed.avg, launch: q.launch.avg, spin: q.backSpin.avg }) : null;
+  // a bar: the window shaded, the value as a dot; status by where the value sits
+  const bar = (v, lo, hi, { pad = 0.6 } = {}) => {
+    if (v == null || lo == null) return '';
+    const span = hi - lo, min = lo - span * pad, max = hi + span * pad;
+    const x = Math.max(0, Math.min(100, ((v - min) / (max - min)) * 100));
+    const st = v < lo ? 'low' : v > hi ? 'high' : 'ok';
+    return `<i class="bar ${st}"><b style="left:${(( lo - min) / (max - min)) * 100}%;width:${(span / (max - min)) * 100}%"></b><u style="left:${x}%"></u></i>`;
+  };
+  const smashBar = (v) => { if (v == null) return ''; const lo = B.smash.low, hi = B.smash.flush + 0.02; return bar(v, lo, hi, { pad: 1 }); };
+  const T = [];
+  const tile = (label, value, unit, sub, barHtml, status = '') => T.push(`<div class="lmtile ${status}"><b>${value}<small>${unit}</small></b><span>${label}</span>${sub ? `<em>${sub}</em>` : ''}${barHtml}</div>`);
+  if (q.ballSpeed) tile('Ball speed', speed(q.ballSpeed.avg), speedU, `±${speed(q.ballSpeed.sd)}`, '');
+  if (q.smash) tile('Smash', q.smash.avg.toFixed(2), '', `±${q.smash.sd.toFixed(2)} · flush ${B.smash.flush.toFixed(2)}`, smashBar(q.smash.avg));
+  if (q.clubSpeed) tile('Club speed', speed(q.clubSpeed.avg), speedU, `±${speed(q.clubSpeed.sd)}`, '');
+  if (model || q.carry) tile(model ? 'Carry · model' : 'Carry', D(model ? model.carry : q.carry.avg), du() === 'y' ? 'yd' : 'm', model && q.carry ? `bay said ${D(q.carry.avg)}` : model ? 'premium ball, still air' : `±${D(q.carry.sd)} measured`, '', model && q.carry && q.carry.avg / model.carry < 0.9 ? 'low' : '');
+  if (q.launch) tile('Launch', q.launch.avg.toFixed(1), '°', `±${q.launch.sd.toFixed(1)} · ${B.launch[0]}–${B.launch[1]}°`, bar(q.launch.avg, B.launch[0], B.launch[1]));
+  if (q.backSpin) tile('Spin', Math.round(q.backSpin.avg).toLocaleString(), 'rpm', `±${Math.round(q.backSpin.sd)} · ${B.spin[0].toLocaleString()}–${B.spin[1].toLocaleString()}`, bar(q.backSpin.avg, B.spin[0], B.spin[1]));
+  if (q.attack) tile('Attack', `${q.attack.avg > 0 ? '+' : ''}${q.attack.avg.toFixed(1)}`, '°', `±${q.attack.sd.toFixed(1)} · ${B.attack[0] > 0 ? '+' : ''}${B.attack[0]} to ${B.attack[1] > 0 ? '+' : ''}${B.attack[1]}°`, bar(q.attack.avg, B.attack[0], B.attack[1], { pad: 1 }));
+  else if (q.apex || model) tile('Apex', D(q.apex ? q.apex.avg : model.apex), du() === 'y' ? 'yd' : 'm', q.apex ? `±${D(q.apex.sd)}` : 'model', '');
+  if (q.side && (q.side.n || 0) >= 3) { const bias = q.side.avg; tile('Dispersion', `±${D(q.side.sd)}`, du() === 'y' ? 'yd' : 'm', `${Math.abs(bias) >= 3 ? `${D(Math.abs(bias))} ${bias > 0 ? 'right' : 'left'} on average` : 'centred'}${q.carry?.sd ? ` · carry ±${D(q.carry.sd)}` : ''}`, bar(bias, -q.side.sd, q.side.sd, { pad: 1 })); }
+  else if (q.spinAxis) tile('Spin axis', `${q.spinAxis.avg > 0 ? '+' : ''}${q.spinAxis.avg.toFixed(1)}`, '°', `±${q.spinAxis.sd.toFixed(1)} · ${q.spinAxis.avg > 2 ? 'curves right' : q.spinAxis.avg < -2 ? 'curves left' : 'straight'}`, bar(q.spinAxis.avg, -4, 4, { pad: 1 }));
+  else if (q.descent || model) tile('Descent', (q.descent ? q.descent.avg : model.descent).toFixed(0), '°', q.descent ? `±${q.descent.sd.toFixed(0)}` : 'model', '');
+  if (!T.length) return '';
+  return `<div class="lmtiles">${T.join('')}</div><p class="mute small" style="margin:-2px 0 8px">Bars: the window for your speed; the dot is you. Speeds in ${speedU}.</p>`;
 }
 
 /** Session by session for one club (latest first) with a sparkline per metric, once there are two sessions. */

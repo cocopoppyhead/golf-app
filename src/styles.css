@@ -552,3 +552,13 @@ table.t5, table.dk { width: 100%; border-collapse: collapse; font-size: 13px; } 
 .trend .sparks td { padding: 2px; color: var(--acc); } .spark { display: block; margin: 0 auto; }
 .digest .dl { margin: 4px 0; font-size: 14px; line-height: 1.45; } .digest .dl.sg, .digest .dl.intention { font-weight: 600; } .digest .carry { margin: 4px 0 0; padding-left: 18px; font-size: 14px; } .digest .carry li { margin: 2px 0; }
 .steps { padding-left: 20px; margin: 0 0 8px; font-size: 14px; line-height: 1.45; } .steps li { margin: 0 0 10px; } .steps code { font-size: 12px; }
+/* launch-monitor tiles: value, label, spread + benchmark bar */
+.lmtiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin: 8px 0 8px; }
+.lmtile { position: relative; background: var(--panel2); border: 1px solid var(--line); border-radius: 12px; padding: 10px 6px 10px; text-align: center; display: flex; flex-direction: column; gap: 2px; min-height: 86px; }
+.lmtile b { font-size: 20px; line-height: 1.1; letter-spacing: -0.01em; } .lmtile b small { font-size: 10px; font-weight: 600; color: var(--mute); margin-left: 2px; }
+.lmtile span { font-size: 11px; color: var(--mute); text-transform: uppercase; letter-spacing: .04em; } .lmtile em { font-style: normal; font-size: 10px; color: var(--mute); line-height: 1.2; margin-top: auto; }
+.lmtile .bar { position: relative; display: block; height: 4px; border-radius: 2px; background: color-mix(in srgb, var(--line) 70%, transparent); margin: 6px 4px 0; }
+.lmtile .bar b { position: absolute; top: 0; height: 100%; border-radius: 2px; background: color-mix(in srgb, var(--good) 35%, transparent); font-size: 0; }
+.lmtile .bar u { position: absolute; top: -3px; width: 10px; height: 10px; margin-left: -5px; border-radius: 50%; background: var(--good); border: 2px solid var(--panel2); box-sizing: border-box; }
+.lmtile .bar.low u, .lmtile .bar.high u { background: var(--work); } .lmtile.low b:first-child { color: var(--work); }
+@media (max-width: 360px) { .lmtiles { grid-template-columns: repeat(2, 1fr); } }

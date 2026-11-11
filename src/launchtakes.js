@@ -12,6 +12,18 @@ const STRIKE = ['foot-spray-strike-check', 'tee-height-strike-test'];
 const STRIKE_IRON = ['foot-spray-strike-check', 'tee-in-front-low-point-drill'];
 const UP = ['headcover-upswing-driver', 'fix-trail-shoulder-low'];
 
+/**
+ * Benchmarks for a club's tiles: { smash: {low, flush}, launch: [lo, hi] | null, spin: [lo, hi] | null,
+ * attack: [lo, hi] | null }. Driver/wood windows move with club speed; irons use flat tour-ish ranges.
+ */
+export function benchmarks(club, cs = 100) {
+  const kind = KIND(club);
+  if (kind === 'driver' || kind === 'wood') { const w = driverWindow(cs || 100); return { kind, smash: { low: LOW[kind], flush: FLUSH[kind] }, launch: w.launch, spin: w.spin, attack: kind === 'driver' ? [0, 5] : [-3, 1] }; }
+  if (kind === 'hybrid') return { kind, smash: { low: LOW[kind], flush: FLUSH[kind] }, launch: [12, 18], spin: [4000, 5500], attack: [-4, 0] };
+  if (kind === 'iron') return { kind, smash: { low: LOW[kind], flush: FLUSH[kind] }, launch: [12, 22], spin: [4500, 8000], attack: [-6, -2] };
+  return { kind, smash: { low: LOW[kind], flush: FLUSH[kind] }, launch: [22, 34], spin: [7500, 11000], attack: [-7, -3] };
+}
+
 /** Driver launch/spin window for a club speed: slower swings want more launch and spin. */
 export function driverWindow(cs = 100) {
   if (cs < 85) return { launch: [14, 17], spin: [2800, 3400] };
