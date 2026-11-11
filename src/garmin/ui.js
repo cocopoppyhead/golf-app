@@ -35,12 +35,12 @@ export function garminSheet({ toast = () => {}, onImported = () => {} } = {}) {
     toast(`Garmin: ${r.added} rounds imported`); onImported(r);
   };
   q('[data-pickmany]').onclick = () => {
-    const inp = document.createElement('input'); inp.type = 'file'; inp.multiple = true; inp.accept = '.zip,.fit,.json,application/zip,application/json,application/octet-stream'; inp.style.cssText = 'position:absolute;width:1px;height:1px;opacity:0';
+    const inp = document.createElement('input'); inp.type = 'file'; inp.multiple = true; inp.style.cssText = 'position:absolute;width:1px;height:1px;opacity:0';
     document.body.appendChild(inp);
     inp.onchange = async () => {
       const files = [...(inp.files || [])]; inp.remove(); if (!files.length) return;
       q('[data-out]').textContent = 'Reading your Garmin files…';
-      try { report(await importGarminFiles(files)); } catch (e) { q('[data-out]').textContent = e.message || String(e); }
+      try { report(await importGarminFiles(files)); } catch (e) { q('[data-out]').textContent = `${e.message || e} (${files.length === 1 ? `${files[0].name}, ${(files[0].size / 1e6).toFixed(1)} MB` : `${files.length} files`})`; }
     };
     inp.click();
   };
@@ -69,7 +69,16 @@ export function garminSheet({ toast = () => {}, onImported = () => {} } = {}) {
 export async function importGarminFiles(files) {
   const entries = [];
   for (const f of files) {
-    if (/\.zip$/i.test(f.name) || f.type === 'application/zip') entries.push(...await readZipEntries(f, (n) => /SCORECARD_RAWDATA-\d+\.fit$/i.test(n) || /osolo-garmin.*\.json$/i.test(n)));
+    const sig = new Uint8Array(await f.slice(0, 4).arrayBuffer());
+    const isZip = sig[0] === 0x50 && sig[1] === 0x4b && (sig[2] === 3 || sig[2] === 5);
+    if (isZip) {
+      const want = (n) => /SCORECARD_RAWDATA-\d+\.fit$/i.test(n) || /osolo-garmin.*\.json$/i.test(n) || /\.zip$/i.test(n);
+      const got = await readZipEntries(f, want);
+      for (const e of got) {
+        if (!/\.zip$/i.test(e.name)) { entries.push(e); continue; }
+        if (e.bytes.byteLength < 200e6) entries.push(...(await readZipEntries(new Blob([e.bytes]), (n) => want(n) && !/\.zip$/i.test(n)).catch(() => []))); // Garmin sometimes zips inside the zip
+      }
+    }
     else entries.push({ name: f.name, bytes: await f.arrayBuffer() });
   }
   const cards = []; let failed = 0; const exps = [];
