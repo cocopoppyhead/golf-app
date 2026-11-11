@@ -1,7 +1,7 @@
 // The skills radar: six axes, each in strokes per round against golfers at your handicap, so the
 // dashed ring is "what someone at your level does" and the shape says where you are better or worse
-// than that. Axes: Driving, Long approach (140+), Wedges (30–139), Around the green (chips, pitches,
-// bunkers), Putting, Head (penalties, recovery drives, shots that went to plan).
+// than that. Axes: Driving, Long approach (140+), Wedges (30–139), Short game (chips, pitches, bunkers),
+// Putting, Mind (penalties, recovery drives, shots that went to plan).
 //
 // Strokes gained in sg.js is measured against the tour baseline, so a club golfer is negative in every
 // category; to turn that into "vs your level" we need what a golfer at handicap h loses to tour in each
@@ -17,9 +17,9 @@ export const AXES = [
   { key: 'ott', label: 'Driving', share: 0.28, goto: 'sg' },
   { key: 'appL', label: 'Long approach', sub: '140+', share: 0.40 * 0.6, goto: 'bands' },
   { key: 'appW', label: 'Wedges', sub: 'inside 140', share: 0.40 * 0.4, goto: 'bands' },
-  { key: 'arg', label: 'Around the green', sub: 'incl. bunkers', share: 0.17, goto: 'sg' },
+  { key: 'arg', label: 'Short game', sub: 'chips, pitches, bunkers', share: 0.17, goto: 'sg' },
   { key: 'putt', label: 'Putting', share: 0.15, goto: 'putting' },
-  { key: 'head', label: 'Head', sub: 'decisions', share: 0, goto: 'plan' },
+  { key: 'head', label: 'Mind', sub: 'decisions', share: 0, goto: 'plan' },
 ];
 export const LONG_FROM = 140; // yards: long approach from here, wedges inside
 const CLIP = 2;

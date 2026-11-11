@@ -159,11 +159,11 @@ function activityCard(ALL) {
 }
 
 
-/** The skills radar card: six axes against your level, last 5 / 10 / 20 rounds with the previous window as a ghost. */
+/** The skills radar card: six axes against your level, last 10 / 50 / 100 rounds with the previous window as a ghost. */
 function radarCard(ALL, hcp) {
   const L = ALL.filter((x) => !x.S.quick);
   if (!L.length) return '';
-  const windows = [5, 10, 20].map((n) => ({ n, radar: skillRadar(L.slice(0, n), { hcp }), ghost: L.length > n ? skillRadar(L.slice(n, 2 * n), { hcp }) : null }));
+  const windows = [10, 50, 100].map((n) => ({ n, radar: skillRadar(L.slice(0, n), { hcp }), ghost: L.length > n ? skillRadar(L.slice(n, 2 * n), { hcp }) : null }));
   const first = windows.find((w) => w.n === 10) || windows[0];
   const views = Object.fromEntries(windows.map((w) => {
     const read = radarRead(w.radar);
@@ -172,11 +172,11 @@ function radarCard(ALL, hcp) {
     return [w.n, `${radarSvg(w.radar, w.ghost)}${line}`];
   }));
   return `<div class="card radarcard" data-radar-views='${esc(JSON.stringify(views))}'>
-    <div class="sechead" style="margin:0 0 4px"><h2 style="margin:0">Your game</h2><div class="rwin" role="group">${windows.map((w) => `<button data-radar-n="${w.n}" class="${w.n === first.n ? 'on' : ''}" ${L.length < w.n && w.n !== 5 ? 'disabled' : ''}>Last ${w.n}</button>`).join('')}</div></div>
+    <div class="sechead" style="margin:0 0 4px"><h2 style="margin:0">Your game</h2><div class="rwin" role="group">${windows.map((w) => `<button data-radar-n="${w.n}" class="${w.n === first.n ? 'on' : ''}" ${L.length < w.n && w.n !== 10 ? 'disabled' : ''}>Last ${w.n}</button>`).join('')}</div></div>
     <p class="mute small" style="margin:0 0 6px">Strokes a round against a ${levelLabel(hcp)} golfer. Dashed ring = your level; outer edge = 2 strokes better, centre = 2 worse; dotted = scratch. Tap an axis for the detail.</p>
     <div class="radarbox">${views[first.n]}</div>
     <details class="lminfo"><summary>${icon('info', 14)} How the axes are scored</summary><div class="lminfo-in radarinfo">
-      <p class="mute small">Driving, both approach axes, around the green and putting are strokes gained per 18 holes (tour baseline) minus what a golfer at your handicap loses in that category — Broadie's split: an h-handicap gives up about h+3 strokes a round, 28% driving, 40% approach (60/40 long shots vs wedges, osolo's split at ${LONG_FROM} yd), 17% short game, 15% putting. Head is penalties and recovery drives against your level's rate (Shot Scope, Arccos), plus how often rated shots went to plan. Each axis is clipped at ±2 strokes.</p>
+      <p class="mute small">Driving, both approach axes, around the green and putting are strokes gained per 18 holes (tour baseline) minus what a golfer at your handicap loses in that category — Broadie's split: an h-handicap gives up about h+3 strokes a round, 28% driving, 40% approach (60/40 long shots vs wedges, osolo's split at ${LONG_FROM} yd), 17% short game, 15% putting. Mind is penalties and recovery drives against your level's rate (Shot Scope, Arccos), plus how often rated shots went to plan. Each axis is clipped at ±2 strokes.</p>
       ${AXES.map((a) => { const x = first.radar.axes.find((y) => y.key === a.key); return `<div><b>${esc(a.label)}${a.sub ? ` <span class="mute">(${esc(a.sub)})</span>` : ''}</b><span>${x?.detail ? esc(x.detail) : 'Not enough rounds yet.'}</span></div>`; }).join('')}
     </div></details>
   </div>`;
