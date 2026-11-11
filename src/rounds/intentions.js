@@ -9,5 +9,5 @@ export const WARMUP = [['none', 'None'], ['putt', 'Putting only'], ['range', 'Ra
 export const moodLine = (r) => {
   const m = r.mood || {}; const f = (x) => (x ? `${x}/10` : '–');
   if (!m.start && !m.turn && !m.finish) return '';
-  return `Emotional state: start ${f(m.start)}, turn ${f(m.turn)}, finish ${f(m.finish)}${r.warmup ? ` · warm-up: ${(WARMUP.find((x) => x[0] === r.warmup) || [null, r.warmup])[1].toLowerCase()}` : ''}${r.intention ? ` · intention: “${intentionLabel(r.intention)}”${r.intentionKept ? `, kept ${r.intentionKept}/5` : ''}` : ''}`;
+  return `Emotional state: start ${f(m.start)}, turn ${f(m.turn)}, finish ${f(m.finish)}${r.warmup ? ` · warm-up: ${(WARMUP.find((x) => x[0] === r.warmup) || [null, r.warmup])[1].toLowerCase()}` : ''}${r.intention ? ` · intention: “${intentionLabel(r.intention)}”${r.intentionKept ? `, kept ${r.intentionKept}/5` : ''}` : ''}${r.swingThought ? ` · swing thought: “${r.swingThought}”` : ''}${r.expect ? ` · a good round: “${r.expect}”` : ''}`;
 };

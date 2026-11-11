@@ -588,3 +588,8 @@ table.t5, table.dk { width: 100%; border-collapse: collapse; font-size: 13px; } 
 .radar .rdot { fill: var(--acc); stroke: var(--panel); stroke-width: 1.5; }
 .radar .rl { font: 700 11.5px Inter, system-ui; fill: var(--ink); } .radar .rv { font: 600 11px Inter, system-ui; fill: var(--mute); }
 .radar .rax.good .rv { fill: var(--good); } .radar .rax.work .rv { fill: var(--work); }
+
+/* the routine */
+.routine ol, .routine ul { margin: 6px 0 0; padding-left: 22px; line-height: 1.5; font-size: 14px; } .routine ol li { margin: 3px 0; } .routine ul { margin-top: 10px; color: var(--mute); list-style: none; padding-left: 0; } .routine ul li::before { content: '— '; }
+.rt-thought { margin: 0 0 8px; display: flex; flex-direction: column; } .rt-thought b { font-size: 15px; }
+.rtd { margin-top: 8px; } .small.right { text-align: right; margin: -4px 0 8px; } .small.right .link { color: var(--mute); }

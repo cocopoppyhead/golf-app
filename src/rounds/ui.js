@@ -21,6 +21,7 @@ import { renderChecklist } from '../checklist.js';
 import { icon } from '../icons.js';
 import { approachBands } from './bands.js';
 import { INTENTIONS, intentionLabel, WARMUP, MOOD_WORDS } from './intentions.js';
+import { getRoutine, routineHtml } from './routine.js';
 export { MOOD_WORDS, moodLine } from './intentions.js';
 import { weeklyDigest } from '../digest.js';
 import { listSessions } from '../store.js';
@@ -371,7 +372,7 @@ function renderHole() {
     <div class="holedots">${round.holes.map((x, k) => `<i class="${k === i ? 'on' : ''} ${x && x.score != null ? (x.score < course.holes[k].par ? 'b' : x.score === course.holes[k].par ? 'p' : 'o') : ''}" data-go="${k}"></i>`).join('')}</div>
     <p class="mute small center">${esc(round.courseName)} · ${tot.s ? `${tot.s} (${toParStr(tot.s - tot.p)}) thru ${played(round).length}` : 'not started'}${review ? ' · reviewing bogeys' : ''}</p>
     ${round.quick ? '' : '<div id="holeMap"></div><div id="holeHist"></div>'}
-    ${cue ? `<div class="cue"><span>${cue}</span><button class="link" data-cue-off title="Hide cues for this round">✕</button></div>` : ''}
+    ${cue ? `<div class="cue"><span>${cue}</span><button class="link" data-routine title="My routine">${icon('info', 14)}</button><button class="link" data-cue-off title="Hide cues for this round">✕</button></div>` : review ? '' : `<p class="small right"><button class="link" data-routine>${round.swingThought ? esc(round.swingThought) + ' · ' : ''}routine</button></p>`}
 
     <div class="scorebar"><div><span class="mute small">Score</span><b class="${diff < 0 ? 'under' : diff > 0 ? 'over' : ''}">${score ?? '–'}</b><span class="small">${word}</span></div>
       ${sg && sg.complete ? `<span class="sgpill ${sg.total >= 0 ? 'pos' : 'neg'}" style="float:none">SG ${sg.total >= 0 ? '+' : ''}${sg.total.toFixed(1)}</span>` : ''}</div>
@@ -439,6 +440,7 @@ function renderHole() {
   root.querySelector('[data-add]').onclick = () => { h.shots.push({ lie: null, dist: null }); redo(); setTimeout(() => root.querySelectorAll('.shotpanel')[h.shots.length - 1]?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 50); };
   root.querySelectorAll('[data-det]').forEach((b) => b.onclick = () => shotDetails(h, +b.dataset.det, par, i, redo));
   root.querySelector('[data-cue-off]')?.addEventListener('click', () => { round.cuesOff = true; redo(); });
+  root.querySelector('[data-routine]')?.addEventListener('click', () => routineSheet(round));
   root.querySelectorAll('[data-pt]').forEach((b) => b.onclick = () => { h.putts = +b.dataset.pt; if (!h.putts) h.firstPutt = null; redo(); });
   root.querySelectorAll('[data-fp]').forEach((b) => b.onclick = () => { h.firstPutt = h.firstPutt === +b.dataset.fp ? null : +b.dataset.fp; redo(); });
   root.querySelectorAll('[data-fpl]').forEach((b) => b.onclick = () => { const same = h.fpLong === b.dataset.fpl && h.fpSide === b.dataset.fps; h.fpLong = same ? null : b.dataset.fpl; h.fpSide = same ? null : b.dataset.fps; redo(); });
@@ -574,10 +576,20 @@ function shotDetails(h, k, par, holeIdx, done) {
 }
 
 export { INTENTIONS, intentionLabel };
+/** The routine, one tap from the hole screen: read it, breathe, close it. */
+function routineSheet(round) {
+  const sheet = document.createElement('div'); sheet.className = 'sheet';
+  sheet.innerHTML = `<div class="sheet-in"><div class="sheet-h"><b>Before the shot</b><button class="link" data-x>Close</button></div>${routineHtml(getRoutine(S0()), { swingThought: round.swingThought, expect: round.expect })}</div>`;
+  sheet.querySelector('[data-x]').onclick = () => sheet.remove();
+  sheet.addEventListener('click', (e) => { if (e.target === sheet) sheet.remove(); });
+  document.body.appendChild(sheet);
+}
 const moodColor = (n) => `hsl(${n <= 5 ? 200 - (n - 1) * 20 : 120 - (n - 5) * 24}, 75%, 50%)`;
 function moodSheet(round, key, done) {
   round.mood ||= {};
   let v = round.mood[key] ?? null, w = round.warmup ?? null, it = round.intention ?? null, kept = round.intentionKept ?? null;
+  const R = getRoutine(S0());
+  let thought = round.swingThought ?? R.swingThought ?? '', expect = round.expect ?? '';
   let lastAgain = null; // what you said you'd do differently, last time on this course
   const sheet = document.createElement('div'); sheet.className = 'sheet';
   const title = { start: 'Before you tee off', turn: 'At the turn', finish: 'Round done' }[key];
@@ -589,7 +601,9 @@ function moodSheet(round, key, done) {
       <div class="moodlbl">${[['Low', MOOD_WORDS.low, 1], ['Ideal', MOOD_WORDS.mid, 5], ['High', MOOD_WORDS.high, 10]].map(([t, w, n]) => `<span style="color:${moodColor(n)}">${t}${w.split(' · ').map((x) => `<small>${x[0].toUpperCase() + x.slice(1)}</small>`).join('')}</span>`).join('')}</div>
       ${key === 'start' ? `<div class="lbl">Any practice or warm-up before the round?</div><div class="seg4">${WARMUP.map(([k, l]) => `<button class="${w === k ? 'on' : ''}" data-w="${k}">${l}</button>`).join('')}</div>
       ${lastAgain ? `<div class="again"><b>Last time here you said you'd:</b> ${esc(lastAgain.text)} <span class="mute small">(${fmtD(lastAgain.date)}, ${lastAgain.score})</span></div>` : ''}
-      <div class="lbl">One thing for today <span class="mute">(optional — you'll rate it at the end)</span></div><div class="chips3">${INTENTIONS.map(([k, l]) => `<button class="${it === k ? 'on' : ''}" data-it="${k}">${l}</button>`).join('')}</div>` : ''}
+      <div class="lbl">One thing for today <span class="mute">(optional — you'll rate it at the end)</span></div><div class="chips3">${INTENTIONS.map(([k, l]) => `<button class="${it === k ? 'on' : ''}" data-it="${k}">${l}</button>`).join('')}</div>
+      <div class="row2"><label class="small">Swing thought<input data-thought value="${esc(thought)}" placeholder="one, and only one" /></label><label class="small">A good round today is…<input data-expect value="${esc(expect)}" placeholder="e.g. no doubles" /></label></div>
+      <details class="lminfo rtd"><summary>${icon('info', 14)} My routine</summary>${routineHtml(R)}</details>` : ''}
       ${key === 'finish' && it ? `<div class="lbl">Did you keep to it: “${esc(intentionLabel(it))}”?</div><div class="stars">${[1, 2, 3, 4, 5].map((n) => `<button class="${kept >= n ? 'on' : ''}" data-kept="${n}">★</button>`).join('')}</div>` : ''}
       <button class="btn primary big" data-ok ${v ? '' : 'disabled'}>${key === 'start' ? 'Start hole 1' : key === 'turn' ? 'On to the back nine' : 'See my round'}</button></div>`;
     sheet.querySelectorAll('[data-m]').forEach((b) => b.onclick = () => { v = +b.dataset.m; draw(); });
@@ -597,7 +611,14 @@ function moodSheet(round, key, done) {
     sheet.querySelectorAll('[data-it]').forEach((b) => b.onclick = () => { it = it === b.dataset.it ? null : b.dataset.it; draw(); });
     sheet.querySelectorAll('[data-kept]').forEach((b) => b.onclick = () => { kept = kept === +b.dataset.kept ? null : +b.dataset.kept; draw(); });
     sheet.querySelector('[data-skip]').onclick = () => { round.mood[key] = round.mood[key] ?? 0; sheet.remove(); save(); done(); };
-    sheet.querySelector('[data-ok]').onclick = () => { round.mood[key] = v; if (key === 'start') { round.warmup = w; round.intention = it; } if (key === 'finish') round.intentionKept = kept; sheet.remove(); save(); done(); };
+    sheet.querySelector('[data-thought]')?.addEventListener('input', (e) => { thought = e.target.value; });
+    sheet.querySelector('[data-expect]')?.addEventListener('input', (e) => { expect = e.target.value; });
+    sheet.querySelector('[data-ok]').onclick = () => {
+      round.mood[key] = v;
+      if (key === 'start') { round.warmup = w; round.intention = it; round.swingThought = thought.trim() || null; round.expect = expect.trim() || null; if (round.swingThought && round.swingThought !== R.swingThought) { const st = S0(); st.routine = { ...(st.routine || {}), swingThought: round.swingThought }; S1(st); } }
+      if (key === 'finish') round.intentionKept = kept;
+      sheet.remove(); save(); done();
+    };
   };
   draw();
   document.body.appendChild(sheet);

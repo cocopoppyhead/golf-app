@@ -35,6 +35,7 @@ export function initSettingsUi(a) {
       handedness: f.handedness.value, quality: f.quality.value, keepVideos: f.keepVideos.checked,
       keys: f.keys.value, roundRules: [...document.querySelectorAll('[data-rule]')].filter((x) => x.checked).map((x) => x.dataset.rule),
       apiKey: f.apiKey.value.trim(), openaiKey: f.openaiKey.value.trim(), geminiKey: f.geminiKey.value.trim(), aiProvider: f.aiProvider.value, golfer: f.golfer.value.trim(),
+      routine: { preshot: f.routinePre.value.trim(), mind: f.routineMind.value.trim(), swingThought: f.swingThought.value.trim() },
       [PROVIDERS[f.aiProvider.value].modelField]: f.aiModel.value || PROVIDERS[f.aiProvider.value].def,
     };
     saveSettings(api.settings);
@@ -59,6 +60,7 @@ export function fillSettings() {
   const on = new Set(api.settings.roundRules || DEFAULT_RULES);
   $('#rulesBoxes').innerHTML = Object.entries(RULES).map(([id, r]) => `<label class="check small"><input type="checkbox" data-rule="${id}" ${on.has(id) ? 'checked' : ''}/> ${esc(r.label)}</label>`).join('');
   f.apiKey.value = api.settings.apiKey || ''; f.openaiKey.value = api.settings.openaiKey || ''; f.geminiKey.value = api.settings.geminiKey || ''; f.golfer.value = api.settings.golfer;
+  const rt = api.settings.routine || {}; f.routinePre.value = rt.preshot || ''; f.routineMind.value = rt.mind || ''; f.swingThought.value = rt.swingThought || '';
   f.aiProvider.value = aiFrom(api.settings).provider; showProvider();
   aiSummary(false);
   $('#savedMsg').hidden = true;
