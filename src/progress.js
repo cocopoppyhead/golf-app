@@ -186,13 +186,13 @@ export async function renderScoring(el) {
     ];
     return `<div class="card"><h2>The scoring plan</h2>
       <p class="mute small" style="margin:0 0 8px">Scores drop by avoiding bogeys and doubles, not by chasing birdies: a 10-handicap makes one fewer birdie than scratch but 2½ more doubles. The five numbers that decide it, from your hole-by-hole rounds.</p>
-      <table class="bands"><tr><th>Number</th><th>You</th><th>Breaking 80</th></tr>
+      <table class="ltable"><tr><th>Number</th><th>You</th><th>Breaking 80</th></tr>
         ${rows.map(([l, v, t, ok]) => `<tr class="${ok === true ? 'best' : ok === false ? 'worst' : 'thin'}"><td>${l}</td><td>${v}</td><td class="mute">${t}</td></tr>`).join('')}</table>
       <p class="mute small" style="margin:8px 0 0">Par 3s ${parAvg(3) != null ? (parAvg(3) - 3).toFixed(2) : '–'} · par 4s ${parAvg(4) != null ? (parAvg(4) - 4).toFixed(2) : '–'} · par 5s ${parAvg(5) != null ? (parAvg(5) - 5).toFixed(2) : '–'} over par per hole. For 80-shooters the 3s and 5s are the par chances.</p></div>`;
   })() : '';
   const bandsCard = AB.total >= 10 ? `<div class="card"><h2>Where you score from</h2>
     <p class="mute small" style="margin:0 0 8px">Approach shots by the distance you hit them from, all your rounds. Strokes to finish = the approach plus what it left you (tour baseline in grey). ${AB.best ? `You score best from <b>${bandLabel(AB.best.band, D)}</b>${AB.worst && AB.worst !== AB.best ? `, worst from <b>${bandLabel(AB.worst.band, D)}</b>` : ''}: when you can't reach, lay up to ${bandLabel(AB.best.band, D)}.` : 'Needs 5+ shots in a band.'}</p>
-    <table class="bands"><tr><th>From (${du()})</th><th>Shots</th><th>Green</th><th>1st putt</th><th>To finish</th></tr>
+    <table class="ltable"><tr><th>From (${du()})</th><th>Shots</th><th>Green</th><th>1st putt</th><th>To finish</th></tr>
       ${AB.bands.filter((b) => b.n).map((b) => `<tr class="${AB.best === b ? 'best' : AB.worst === b ? 'worst' : ''} ${b.enough ? '' : 'thin'}"><td>${bandLabel(b.band, D)}</td><td>${b.n}</td><td>${b.gir != null ? Math.round(b.gir * 100) + '%' : '–'}</td><td>${proxTxt(b.prox)}</td><td>${b.finish != null ? b.finish.toFixed(2) : '–'} <span class="mute small">${b.tour.toFixed(2)}</span></td></tr>`).join('')}</table>
     ${EX.n >= 10 ? `<p class="mute small" style="margin:8px 0 0">Shots that came off as planned: <b>${EX.planned != null ? Math.round(EX.planned * 100) + '%' : '–'}</b>${EX.sat != null ? ` · average satisfaction <b>${EX.sat.toFixed(1)}★</b>` : ''} (from shot Details).</p>` : ''}
   </div>` : '';

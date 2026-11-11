@@ -105,5 +105,7 @@ export async function renderClubPage(root, club, { carry, onBack, onUseCarry }) 
   root.querySelector('[data-use]')?.addEventListener('click', () => onUseCarry(td.full.avg));
   // launch-monitor speeds for this club, if any sessions were saved
   import('./launch.js').then(async (L) => { const html = await L.launchClubHtml(club); if (html && root.isConnected) { const d = document.createElement('div'); d.innerHTML = html; const card = d.firstElementChild; root.querySelector('.card').after(card); (await import('./drills.js')).bindDrillCards(card, { toast: (m) => window.__toast?.(m) }); } });
+  // on the course with this club: record, strengths and weaknesses, against your level and scratch
+  import('./clubpage.js').then(async (C) => { const html = await C.clubCourseHtml(club); if (html && root.isConnected) { const d = document.createElement('div'); d.innerHTML = html; const cards = [...d.children]; let after = root.querySelectorAll('.card')[1] || root.querySelector('.card'); for (const el of cards) { after.after(el); after = el; } } });
   window.scrollTo(0, 0);
 }

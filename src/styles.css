@@ -545,8 +545,9 @@ table.t5, table.dk { width: 100%; border-collapse: collapse; font-size: 13px; } 
 .stars { display: flex; gap: 2px; } .stars button { flex: 1; background: var(--panel2); border: 1px solid var(--line); border-radius: 10px; padding: 8px 0; font-size: 18px; color: var(--mute); } .stars button.on { color: var(--you); border-color: var(--you); background: color-mix(in srgb, var(--you) 14%, var(--panel2)); }
 .fpgrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; } .fpgrid button { background: var(--panel2); color: var(--ink); border: 1px solid var(--line); border-radius: 10px; padding: 7px 2px 6px; font: 700 15px Inter, system-ui; line-height: 1.1; display: flex; flex-direction: column; align-items: center; gap: 1px; min-height: 46px; justify-content: center; }
 .fpgrid button small { font: 500 10px Inter, system-ui; color: var(--mute); } .fpgrid button.flag { border-style: dashed; } .fpgrid button.on { background: var(--acc); color: var(--acc-ink); border-color: var(--acc); } .fpgrid button.on small { color: inherit; }
-.bands { width: 100%; border-collapse: collapse; font-size: 13px; } .bands th { font-weight: 600; color: var(--mute); font-size: 11px; text-transform: uppercase; letter-spacing: .03em; padding: 4px 2px; text-align: right; } .bands th:first-child, .bands td:first-child { text-align: left; }
-.bands td { padding: 5px 2px; text-align: right; border-top: 1px solid var(--line); } .bands tr.best td { color: var(--good); font-weight: 700; } .bands tr.worst td { color: var(--work); } .bands tr.thin td { color: var(--mute); }
+.ltable { width: 100%; border-collapse: collapse; font-size: 13px; } .ltable th { font-weight: 600; color: var(--mute); font-size: 11px; text-transform: uppercase; letter-spacing: .03em; padding: 4px 2px; text-align: right; } .ltable th:first-child, .ltable td:first-child { text-align: left; }
+.ltable td { padding: 5px 2px; text-align: right; border-top: 1px solid var(--line); vertical-align: middle; } .ltable tr.best td { color: var(--good); font-weight: 700; } .ltable tr.worst td { color: var(--work); } .ltable tr.thin td { color: var(--mute); }
+.ltable span, .ltable b { background: none; padding: 0; display: inline; }
 .cue { display: flex; gap: 8px; align-items: flex-start; margin: 0 0 10px; padding: 8px 10px 8px 12px; border-radius: 10px; background: var(--panel2); border-left: 3px solid var(--you); font-size: 13px; line-height: 1.4; } .cue span { flex: 1; } .cue .link { color: var(--mute); padding: 0 2px; }
 .again { margin: 10px 0 2px; padding: 8px 10px 8px 12px; border-radius: 10px; background: var(--panel2); border-left: 3px solid var(--acc); font-size: 13px; line-height: 1.4; }
 .trend .sparks td { padding: 2px; color: var(--acc); } .spark { display: block; margin: 0 auto; }
@@ -562,3 +563,7 @@ table.t5, table.dk { width: 100%; border-collapse: collapse; font-size: 13px; } 
 .lmtile .bar u { position: absolute; top: -3px; width: 10px; height: 10px; margin-left: -5px; border-radius: 50%; background: var(--good); border: 2px solid var(--panel2); box-sizing: border-box; }
 .lmtile .bar.low u, .lmtile .bar.high u { background: var(--work); } .lmtile.low b:first-child { color: var(--work); }
 @media (max-width: 360px) { .lmtiles { grid-template-columns: repeat(2, 1fr); } }
+.verdict { display: grid; grid-template-columns: 22px 1fr; gap: 8px; align-items: start; padding: 7px 0; border-top: 1px solid var(--line); font-size: 14px; line-height: 1.4; } .verdict:first-of-type { border-top: 0; }
+.verdict i { font-style: normal; font-weight: 800; text-align: center; border-radius: 6px; line-height: 20px; height: 20px; font-size: 14px; background: var(--panel2); color: var(--mute); }
+.verdict.strength i { background: color-mix(in srgb, var(--good) 20%, var(--panel2)); color: var(--good); } .verdict.weakness i { background: color-mix(in srgb, var(--work) 20%, var(--panel2)); color: var(--work); }
+.ltable.lvl td:first-child { font-size: 13px; }
