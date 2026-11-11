@@ -11,8 +11,10 @@
 // depends on how the pod was twisted on, so the stroke axis is learnt from the first 100 ms of each
 // stroke rather than assumed.
 //
-// Serial (USB) when plugged in: prints one JSON line per event; send 'r' to stream raw samples
-// (for tuning the thresholds against video), 's' to stop.
+// Practice mode: the advertisement is connectable. When the app (or a coach's tablet) connects, every
+// putt is also sent as a JSON line over the Nordic UART service, live, and 'r' / 's' over the same link
+// start and stop a 52 Hz raw stream (ms, gx, gy, gz, ax, ay, az, hp). Nothing to switch on the pod: a
+// connection is practice, no connection is play. The USB serial port does the same when plugged in.
 //
 // Build: arduino-cli compile --fqbn Seeeduino:nrf52:xiaonRF52840Sense (library: Seeed Arduino LSM6DS3).
 // Flash: double-tap the reset button, drag the .uf2 onto the XIAO-SENSE drive.
@@ -34,20 +36,22 @@ static const uint16_t ADV_FAST_MS = 20, ADV_SLOW_MS = 1000, ADV_FAST_SEC = 3;
 
 // ---- state ----
 LSM6DS3 imu(I2C_MODE, 0x6A);
+BLEUart bleuart;                   // practice link
+bool linked = false;
 enum Phase { IDLE, BACK, DOWN };
 Phase phase = IDLE;
 float ux = 1, uy = 0;              // learnt stroke axis (unit vector in the X–Y plane)
 float axisAccX = 0, axisAccY = 0; int axisN = 0;
 uint32_t tStart = 0, tRev = 0, lastEvent = 0, lastMotion = 0;
 float peakBack = 0, faceRot = 0, peakImpact = 0, lpMag = 1.0f;
-bool rawStream = false, sleepy = false;
+bool rawStream = false, sleepy = false; uint8_t rawDiv = 0;
 uint8_t seq = 0;
 
 struct __attribute__((packed)) Event {
   uint8_t magic0, magic1;  // 'o','p'
   uint8_t ver;             // 0
   uint8_t seq;             // wraps
-  uint8_t flags;           // bit0 fresh (set during the fast burst), bit1 charging
+  uint8_t flags;           // bit0 fresh (set during the fast burst), bit2 a practice link is open
   uint8_t backTenths;      // backswing ms / 10 (0–255 → 0–2.55 s)
   uint8_t downTenths;      // downswing ms / 10
   int16_t faceDeciDeg;     // face rotation top→impact, ×10, + = closing (clockwise about shaft, right-hander opens/closes sign to be calibrated)
@@ -69,7 +73,8 @@ uint8_t batteryPct() {
 
 // ---- advertising ----
 void advertise(bool fresh) {
-  ev.flags = (fresh ? 1 : 0) | (digitalRead(PIN_CHARGING_CURRENT) == LOW ? 0 : 0);
+  ev.flags = (fresh ? 1 : 0) | (linked ? 4 : 0);
+  if (linked) return;              // in practice mode the event has gone over the link
   Bluefruit.Advertising.stop();
   Bluefruit.Advertising.clearData();
   Bluefruit.Advertising.addFlags(BLE_GAP_ADV_FLAG_LE_GENERAL_DISC_MODE | BLE_GAP_ADV_FLAG_BR_EDR_NOT_SUPPORTED);
@@ -77,8 +82,7 @@ void advertise(bool fresh) {
   mfr[0] = 0xFF; mfr[1] = 0xFF; // company id 0xFFFF = development / unregistered
   memcpy(mfr + 2, &ev, sizeof(Event));
   Bluefruit.Advertising.addManufacturerData(mfr, sizeof(mfr));
-  Bluefruit.Advertising.addName();
-  Bluefruit.Advertising.setType(BLE_GAP_ADV_TYPE_NONCONNECTABLE_SCANNABLE_UNDIRECTED);
+  Bluefruit.Advertising.setType(BLE_GAP_ADV_TYPE_CONNECTABLE_SCANNABLE_UNDIRECTED);
   Bluefruit.Advertising.setIntervalMS(fresh ? ADV_FAST_MS : ADV_SLOW_MS, ADV_SLOW_MS);
   Bluefruit.Advertising.setFastTimeout(fresh ? ADV_FAST_SEC : 0);
   Bluefruit.Advertising.start(0);
@@ -109,10 +113,17 @@ void setup() {
   delay(50);
   Serial.begin(115200);
   imuAwake();
-  Bluefruit.begin(0, 0);           // no connections at all
+  Bluefruit.begin(1, 0);           // one central may connect (practice mode)
   Bluefruit.setTxPower(0);
   Bluefruit.setName("osolo");
   Bluefruit.autoConnLed(false);
+  Bluefruit.Periph.setConnectCallback([](uint16_t) { linked = true; digitalWrite(LED_BLUE, LED_STATE_ON); });
+  Bluefruit.Periph.setDisconnectCallback([](uint16_t, uint8_t) { linked = false; rawStream = false; digitalWrite(LED_BLUE, !LED_STATE_ON); advertise(false); });
+  bleuart.begin();
+  bleuart.setRxCallback([](uint16_t) { while (bleuart.available()) { char c = bleuart.read(); if (c == 'r') rawStream = true; if (c == 's') rawStream = false; } });
+  Bluefruit.ScanResponse.addName();
+  Bluefruit.ScanResponse.addService(bleuart);
+  Bluefruit.Advertising.restartOnDisconnect(false);
   ev.battPct = batteryPct();
   advertise(false);
   lastMotion = millis();
@@ -129,20 +140,16 @@ static inline void emit(uint32_t now) {
   advertise(true);
   lastEvent = now;
   digitalWrite(LED_GREEN, LED_STATE_ON);
-  if (Serial) {
-    Serial.print("{\"putt\":"); Serial.print(seq);
-    Serial.print(",\"back_ms\":"); Serial.print(back);
-    Serial.print(",\"down_ms\":"); Serial.print(down);
-    Serial.print(",\"face_deg\":"); Serial.print(faceRot, 1);
-    Serial.print(",\"impact_g\":"); Serial.print(peakImpact, 2);
-    Serial.print(",\"batt\":"); Serial.print(ev.battPct);
-    Serial.println("}");
-  }
+  char line[112];
+  snprintf(line, sizeof line, "{\"putt\":%u,\"back_ms\":%lu,\"down_ms\":%lu,\"face_deg\":%.1f,\"impact_g\":%.2f,\"batt\":%u}\n", seq, (unsigned long)back, (unsigned long)down, (double)faceRot, (double)peakImpact, ev.battPct);
+  if (Serial) Serial.print(line);
+  if (linked) bleuart.print(line);
 }
 
 void loop() {
   if (Serial && Serial.available()) { char c = Serial.read(); if (c == 'r') rawStream = true; if (c == 's') rawStream = false; }
   uint32_t now = millis();
+  if (linked) lastMotion = now; // never doze while a practice session is connected
   if (sleepy) {
     // drowsy: poll the accelerometer at ~10 Hz and wake on any real movement
     float ax = imu.readFloatAccelX(), ay = imu.readFloatAccelY(), az = imu.readFloatAccelZ();
@@ -157,7 +164,12 @@ void loop() {
   float hp = fabsf(mag - lpMag);                 // the impact shows up here as a short spike
   float inplane = sqrtf(gx * gx + gy * gy);
   if (inplane > STROKE_START_DPS || hp > 0.3f) lastMotion = now;
-  if (rawStream && Serial) { Serial.print(now); Serial.print(','); Serial.print(gx, 1); Serial.print(','); Serial.print(gy, 1); Serial.print(','); Serial.print(gz, 1); Serial.print(','); Serial.print(ax, 3); Serial.print(','); Serial.print(ay, 3); Serial.print(','); Serial.print(az, 3); Serial.print(','); Serial.println(hp, 3); }
+  if (rawStream && (++rawDiv & 3) == 0) {
+    char raw[96];
+    snprintf(raw, sizeof raw, "%lu,%.1f,%.1f,%.1f,%.3f,%.3f,%.3f,%.3f\n", (unsigned long)now, (double)gx, (double)gy, (double)gz, (double)ax, (double)ay, (double)az, (double)hp);
+    if (Serial) Serial.print(raw);
+    if (linked) bleuart.print(raw);
+  }
 
   switch (phase) {
     case IDLE:

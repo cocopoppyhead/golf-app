@@ -6,6 +6,10 @@ company id 0xFFFF, payload `op` + version, sequence, flags, backswing and downsw
 rotation ×10 °, impact ×10 g, battery %). No connection or pairing; the phone scans. A heartbeat every
 second repeats the last event with the battery so a missed packet is picked up late.
 
+Practice mode: the advertisement is connectable; connect (the app, or any BLE terminal such as nRF Connect) and
+every putt arrives as a JSON line over the Nordic UART service, live; send `r` / `s` over the same link for a 52 Hz
+raw stream. No switch on the pod: connected = practice, not connected = play (advertisements only).
+
 Flash: double-tap the reset button next to the USB-C (the board shows up as a drive called XIAO-SENSE),
 drag `osolo-putt/osolo-putt-v0.uf2` onto it. It reboots into the firmware; the green LED blinks on a putt.
 
