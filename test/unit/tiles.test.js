@@ -6,7 +6,7 @@ describe('tiles', () => {
     const q = clubSummary([{ id: 'a', date: 1, club: 'Driver', ball: 'range', rows }], 'Driver');
     const html = tilesHtml(q, 'Driver');
     expect((html.match(/class="lmtile /g) || []).length).toBe(8);
-    expect(html).toMatch(/Spread/); expect(html).toMatch(/What these numbers mean/);
+    expect(html).toMatch(/Dispersion/); expect(html).toMatch(/What these numbers mean/);
     expect((html.match(/class="bar/g) || []).length).toBeGreaterThanOrEqual(4);
   });
 });
