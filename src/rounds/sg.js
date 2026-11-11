@@ -77,4 +77,4 @@ export function roundSG(round, course) {
   return S.holes ? S : null;
 }
 
-export const SG_LABELS = { ott: 'Off the tee', app: 'Approach', arg: 'Around the green', putt: 'Putting' };
+export const SG_LABELS = { ott: 'Off the tee', app: 'Approach', arg: 'Short game', putt: 'Putting' };

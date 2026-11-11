@@ -47,7 +47,7 @@ export function initSettingsUi(a) {
 
 export function fillSettings() {
   const f = $('#settingsForm');
-  f.theme.value = api.settings.theme || 'dark';
+  f.theme.value = api.settings.theme || 'hybrid';
   f.system.value = api.settings.system || 'imperial';
   f.height.value = f.system.value === 'metric' ? Math.round(api.settings.heightIn * 2.54) : Math.round(api.settings.heightIn * 10) / 10;
   $('#hUnit').textContent = f.system.value === 'metric' ? 'cm' : 'in';
@@ -97,11 +97,11 @@ async function loadModels() {
 }
 
 // ---------------- Theme ----------------
-export function applyTheme(t = api.settings.theme || 'dark') {
+export function applyTheme(t = api.settings.theme || 'hybrid') {
   const mq = matchMedia('(prefers-color-scheme: light)');
   const real = t === 'system' ? (mq.matches ? 'light' : 'dark') : t;
   document.documentElement.dataset.theme = real;
-  document.querySelector('meta[name=theme-color]')?.setAttribute('content', real === 'light' ? '#f3f5f9' : '#0b1120');
+  document.querySelector('meta[name=theme-color]')?.setAttribute('content', { light: '#F8F9F5', hybrid: '#123A2C' }[real] || '#0D1813');
   mq.onchange = () => (api.settings.theme === 'system' ? applyTheme('system') : null);
 }
 

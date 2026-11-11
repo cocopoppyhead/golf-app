@@ -25,13 +25,13 @@ test('the skills radar draws six axes from rounds, switches windows and jumps to
   await expect(card.locator('.radar .rax')).toHaveCount(6);
   await expect(card.locator('.radar .ryou')).toHaveCount(1);
   await expect(card).toContainText('against a 12-handicap golfer');
-  await expect(card).toContainText('Strongest:');
+  await expect(page.locator('.area .ah p').filter({ hasText: /Your (strength|biggest gap)/ }).first()).toBeVisible();
   await expect(card.locator('[data-radar-n="10"]')).toHaveClass(/on/);
   await expect(card.locator('[data-radar-n="50"]')).toBeDisabled(); // only 12 rounds
   await expect(card.locator('[data-radar-n="100"]')).toBeDisabled();
   await expect(card).toContainText('Mind');
   await expect(card).toContainText('Short game');
-  await card.locator('.lminfo summary').click();
+  await card.locator('.hexplain summary').click();
   await expect(card.locator('.radarinfo')).toContainText('Wedges');
   await card.locator('.radar [data-goto="putting"] .rl').click();
   await page.waitForTimeout(600);

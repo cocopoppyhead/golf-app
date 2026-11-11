@@ -100,7 +100,7 @@ export async function renderClubPage(root, club, { carry, onBack, onUseCarry }) 
       <span class="f-fat">Fat<b>${pct(count('contact', 'FAT'), conN)}%</b></span><span class="f-toe">Toe<b>${pct(count('contact', 'TOE'), conN)}%</b></span>
       <span class="f-c">Centre<b>${pct(count('contact', 'C'), conN)}%</b></span><span class="f-hel">Heel<b>${pct(count('contact', 'HEL'), conN)}%</b></span>
       <span class="f-thn">Thin<b>${pct(count('contact', 'THN'), conN)}%</b></span></div></div>` : ''}
-    <div class="card"><h2>Shots</h2>${all.length ? all.slice(0, 25).map((s) => `<div class="tagrow"><span>${new Date(s.date).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })} · ${D(s.result)} ${du()} <span class="mute">(aimed ${D(s.target)})</span> · ${s.swing}${s.dir ? ` · ${s.dir}` : ''}${s.contact ? ` · ${s.contact}` : ''}</span></div>`).join('') : '<p class="mute small">None yet.</p>'}</div>`;
+    <div class="card"><h2>Range shots</h2><p class="mute small" style="margin:-4px 0 8px">Distances you saved with this club, for its true carry.</p>${all.length ? all.slice(0, 25).map((s) => `<div class="tagrow"><span>${new Date(s.date).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })} · ${D(s.result)} ${du()} <span class="mute">(aimed ${D(s.target)})</span> · ${s.swing}${s.dir ? ` · ${s.dir}` : ''}${s.contact ? ` · ${s.contact}` : ''}</span></div>`).join('') : '<p class="mute small">None yet.</p>'}</div>`;
   root.querySelector('[data-back]').onclick = onBack;
   root.querySelector('[data-use]')?.addEventListener('click', () => onUseCarry(td.full.avg));
   // launch-monitor speeds for this club, if any sessions were saved

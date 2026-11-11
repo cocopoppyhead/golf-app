@@ -25,7 +25,7 @@ describe('club stats', () => {
     expect(S.planned).toBeCloseTo(0.7, 1); expect(S.satisfaction).toBeCloseTo(3.4, 1);
     const V = clubVerdicts(S, { hcp: 10 });
     expect(V.find((v) => v.kind === 'strength' && /fairways/.test(v.text))).toBeTruthy();
-    expect(V.find((v) => /Misses go right/.test(v.text))).toBeTruthy();
+    expect(V.find((v) => /Every miss went right/.test(v.text))).toBeTruthy();
     const rows = levelRows(S, 10);
     expect(rows.map((r) => r.label)).toEqual(['Fairways', 'Tee shots in trouble', 'Typical drive']);
     expect(rows[0].better).toBe(1); expect(rows[2].better).toBe(-1); // 240 vs 259 for a 10

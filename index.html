@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#0b1120" />
+  <meta name="theme-color" content="#123A2C" />
   <script>try{var t=(JSON.parse(localStorage.getItem("golf.settings")||"{}").theme)||"dark";if(t==="system")t=matchMedia("(prefers-color-scheme: light)").matches?"light":"dark";document.documentElement.dataset.theme=t;}catch(e){}</script>
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -14,11 +14,11 @@
   <link rel="icon" href="icon.svg" type="image/svg+xml" />
   <link rel="apple-touch-icon" href="icon-192.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Inter:wght@400;500;700;800&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@500;600;700&display=swap" rel="stylesheet" />
 </head>
 <body>
   <header class="top">
-    <div class="brand"><span class="dot"></span>osolo<span class="mute">·</span><span id="tabTitle">Practice</span></div>
+    <div class="brand"><svg class="logo" viewBox="0 0 20 20" aria-hidden="true"><path d="M6 17V3l9 3.5L6 10"/></svg>osolo<span id="tabTitle">Practice</span></div>
     <button class="hdr-av" id="hdrAvatar" aria-label="Profile" hidden></button>
   </header>
 
@@ -27,10 +27,13 @@
     <section id="tab-coach" class="tab active">
       <div id="coach-start" class="screen">
         <div id="installBanner"></div>
-        <div class="hero">
-          <div class="eyebrow">PRACTICE</div>
-          <h1 class="display">Check a swing</h1>
-          <p>Film or pick a video. The app finds each swing from address to finish, so there's nothing to trim.</p>
+
+        <div id="practiceRounds"></div>
+        <div id="practiceLog"></div>
+        <div id="drillsCard"></div>
+        <div class="swinghead">
+          <h2>Check a swing</h2>
+          <p class="mute">Film or pick a video. The app finds each swing from address to finish, so there's nothing to trim.</p>
         </div>
         <div id="focusStrip" class="strip-note" hidden></div>
         <div class="tiles">
@@ -47,9 +50,6 @@
         <input id="videoInput" type="file" accept="video/*" style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none" />
         <div class="sechead"><h2>Recent swings</h2><button class="link acc" id="seeAll">See all</button></div>
         <div id="recentSwings"></div>
-        <div id="practiceLog"></div>
-        <div id="drillsCard"></div>
-        <div id="practiceRounds"></div>
         <div id="coachPanel" class="card coachcheck"></div>
 
         <details class="tips rowcard" id="keysCard" hidden>
@@ -193,7 +193,7 @@
         <div id="installRow"></div>
         <div id="laserRow"></div>
         <label>Theme
-          <select name="theme"><option value="dark">Dark</option><option value="light">Light</option><option value="system">Match my phone</option></select>
+          <select name="theme"><option value="hybrid">Hybrid (green and paper)</option><option value="light">Light</option><option value="dark">Dark</option><option value="system">Match my phone (light or dark)</option></select>
         </label>
         <label>Units
           <select name="system"><option value="imperial">Yards · inches</option><option value="metric">Metres · cm</option></select>

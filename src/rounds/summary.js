@@ -41,7 +41,7 @@ export function playersSheet(round, done) {
   const sheet = document.createElement('div'); sheet.className = 'sheet';
   const draw = () => {
     const on = new Set(round.players.map((p) => p.name));
-    sheet.innerHTML = `<div class="sheet-in"><div class="sheet-h"><b>Who's playing?</b><button class="link" data-close>${round.players.length ? 'Done' : 'Just me'}</button></div>
+    sheet.innerHTML = `<div class="sheet-in"><div class="sheet-h"><b>Who's playing?</b><button class="link" data-close>Close</button></div>
       <p class="mute small">Their scores go on your card, score and putts only. Your own shot detail stays separate.</p>
       <div class="clubchips">${[...new Set([...known, ...round.players.map((p) => p.name)])].map((k) => `<button class="${on.has(k) ? 'on' : ''}" data-pk="${esc(k)}">${esc(k)}</button>`).join('')}</div>
       <div class="row" style="margin-top:8px"><input id="pNew" placeholder="Add a name" style="flex:1" /><button class="btn" data-padd>Add</button></div>
@@ -91,7 +91,8 @@ export function statsCard(S, title) {
   const k = isAgg ? S.per18 : 1;
   const f = (x, d = 1) => (isAgg ? (x * k).toFixed(d) : x);
   const missTot = Object.values(S.miss).reduce((a, b) => a + b, 0);
-  const costs = (m) => top(m).slice(0, 4).map(([c, v]) => `<span class="pill">${esc(c)} ${isAgg ? (v * k).toFixed(1) : v}</span>`).join('') || '<span class="mute small">none tagged</span>';
+  const costs = (m) => top(m).slice(0, 4).map(([c, v]) => `<span class="pill">${esc(c)} ${isAgg ? (v * k).toFixed(1) : v}</span>`).join('');
+  const costRow = (label, m) => (Object.keys(m).length ? `<div class="lbl">${label}</div><div>${costs(m)}</div>` : '');
   return `<div class="card"><h2>${esc(title)}</h2>
     <div class="kpis">
       <div><b>${isAgg ? `${S.avgToPar >= 0 ? '+' : ''}${S.avgToPar.toFixed(1)}` : `${S.score} <small>${toParStr(S.toPar)}</small>`}</b><span>${isAgg ? 'avg to par' : 'score'}</span></div>
@@ -106,9 +107,7 @@ export function statsCard(S, title) {
       <div><span>3-putts</span><span>${f(S.threePutts)}${isAgg ? ' per round' : ''}</span></div>
       <div><span>Birdies · pars · bogeys · doubles+</span><span>${[S.birdies, S.pars, S.bogeys, S.doubles].map((x) => f(x, isAgg ? 1 : 0)).join(' · ')}</span></div>
     </div>
-    <div class="lbl" style="margin-top:12px">Strokes lost${isAgg ? ' per round' : ''} by cause</div><div>${costs(S.byCause)}</div>
-    <div class="lbl">by shot</div><div>${costs(S.byShot)}</div>
-    <div class="lbl">by flight / strike</div><div>${costs(S.byStrike)}</div>
+    ${costRow(`Strokes lost${isAgg ? ' per round' : ''} by cause`, S.byCause)}${costRow('By shot', S.byShot)}${costRow('By flight or strike', S.byStrike)}
     ${S.untagged ? `<p class="mute small">${f(S.untagged)} dropped stroke${S.untagged === 1 ? '' : 's'} not tagged.</p>` : ''}
   </div>`;
 }

@@ -14,12 +14,12 @@ import { holeSG } from './sg.js';
 import { benchFor } from '../benchmarks.js';
 
 export const AXES = [
-  { key: 'ott', label: 'Driving', share: 0.28, goto: 'sg' },
-  { key: 'appL', label: 'Long approach', sub: '140+', share: 0.40 * 0.6, goto: 'bands' },
-  { key: 'appW', label: 'Wedges', sub: 'inside 140', share: 0.40 * 0.4, goto: 'bands' },
-  { key: 'arg', label: 'Short game', sub: 'chips, pitches, bunkers', share: 0.17, goto: 'sg' },
+  { key: 'ott', label: 'Driving', share: 0.28, goto: 'driving' },
+  { key: 'appL', label: 'Long approach', sub: '140+', share: 0.40 * 0.6, goto: 'approach' },
+  { key: 'appW', label: 'Wedges', sub: 'inside 140', share: 0.40 * 0.4, goto: 'approach' },
+  { key: 'arg', label: 'Short game', sub: 'chips, pitches, bunkers', share: 0.17, goto: 'short' },
   { key: 'putt', label: 'Putting', share: 0.15, goto: 'putting' },
-  { key: 'head', label: 'Mind', sub: 'decisions', share: 0, goto: 'plan' },
+  { key: 'head', label: 'Mind', sub: 'decisions', share: 0, goto: 'mind' },
 ];
 export const LONG_FROM = 140; // yards: long approach from here, wedges inside
 const CLIP = 2;
@@ -112,7 +112,7 @@ export function radarRead(radar) {
 }
 
 // --- drawing ---
-const fmt = (v) => (v == null ? '–' : `${v >= 0 ? '+' : '−'}${Math.abs(v).toFixed(1)}`);
+const fmt = (v) => (v == null ? '–' : +Math.abs(v).toFixed(1) === 0 ? '0.0' : `${v >= 0 ? '+' : '−'}${Math.abs(v).toFixed(1)}`);
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
 /**
@@ -120,7 +120,7 @@ const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<
  * `ghost` is an earlier radar (same axes) drawn faded behind the current shape.
  */
 export function radarSvg(radar, ghost = null, { size = 300 } = {}) {
-  const N = radar.axes.length, W = size * 1.3, C = size / 2, CX = W / 2, R = size * 0.31;
+  const N = radar.axes.length, W = size * 1.22, C = size / 2, CX = W / 2, R = size * 0.34;
   const ang = (i) => -Math.PI / 2 + (i * 2 * Math.PI) / N;
   const rOf = (v) => R * (0.5 + (v == null ? -CLIP : v) / (2 * CLIP)); // −2 → 0, 0 → R/2, +2 → R
   const pt = (i, v) => [CX + Math.cos(ang(i)) * rOf(v), C + Math.sin(ang(i)) * rOf(v)];

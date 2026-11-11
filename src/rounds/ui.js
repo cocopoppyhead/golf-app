@@ -1,5 +1,5 @@
 // Rounds module UI: courses, hole-by-hole logging (Conor's shot codes), scorecard photo import, summaries.
-import { CODES, TEE_ZONES, roundStats, aggregate, roundTendencies, pct, played } from './stats.js';
+import { CODES, TEE_ZONES, roundStats, aggregate, pct, played } from './stats.js';
 import { openLibrary, loadLibrary } from './library.js';
 import { getConditions } from '../weather.js';
 import { getSettings as S0, saveSettings as S1 } from '../store.js';
@@ -9,7 +9,7 @@ import { readCard, aiFrom, aiReady } from '../coach/ai.js';
 
 import { dist, toYards, du, duLong, PUTT_FT, puttLabel, puttUnit } from '../units.js';
 
-import { LIES, roundSG, holeSG } from './sg.js';
+import { LIES, holeSG } from './sg.js';
 import { initLaserLoop, syncLoopConfig } from './laserloop.js';
 import { getBag, resolveClub } from '../bag.js';
 import { listShots } from '../store.js';
@@ -24,6 +24,7 @@ import { INTENTIONS, intentionLabel, WARMUP, MOOD_WORDS } from './intentions.js'
 import { getRoutine, routineHtml } from './routine.js';
 export { MOOD_WORDS, moodLine } from './intentions.js';
 import { weeklyDigest } from '../digest.js';
+import { ART } from '../art.js';
 import { listSessions } from '../store.js';
 import { drillsLoaded } from '../drills.js';
 import { ENDED, TEE_EXTRA, DIRS, SWING_TYPES, INTENT, LIE_DETAIL, FP_LONG, FP_SIDE, asPlanned, autoSwing, autoShotType, blankHole, ensureShots, defaultLie, derive, nextBogeyFrom } from './hole.js';
@@ -33,7 +34,7 @@ import { inviteLink, remoteEvents, removeSummary, takePendingInvite, joinEvent, 
 import { currentUser } from '../cloud/supabase.js';
 import { groupCourses, courseCardsHtml, bindCourseCards, coursePage, events, fmtWhen, scheduleSheet, eventCalendar } from './course.js';
 import { initScoreImport, postScore, importCard, quickSummary, shrink } from './scoreimport.js';
-import { initSummary, renderSummary, sgCard, statsCard, playersSheet } from './summary.js';
+import { initSummary, renderSummary, playersSheet } from './summary.js';
 export { sgCard } from './summary.js';
 
 
@@ -74,8 +75,6 @@ export async function roundsHome() {
   const open = rounds.find((r) => !r.finished);
   const done = rounds.filter((r) => r.finished);
   await aggStats(done); // attaches per-round stats for the list
-  const A = await aggStats(done.filter((r) => r.learning !== false).slice(0, 10));
-  const tend = roundTendencies(A);
   const groups = groupCourses(allCourses), upcoming = events().slice(0, 3);
   root.innerHTML = `
     ${open ? `<div class="card event-card"><b>Round in progress</b><p class="mute small">${esc(open.courseName)} · ${fmtD(open.date)} · ${played(open).length} holes logged</p><div class="row"><button class="btn primary" data-act="resume" data-id="${open.id}">Resume round</button><button class="btn" data-act="endopen" data-id="${open.id}">End / discard</button></div></div>` : ''}
@@ -86,17 +85,8 @@ export async function roundsHome() {
     <div class="row" style="margin-top:8px"><button class="btn" data-act="post">${icon('plus')} Post a score</button><button class="btn" data-act="import">${icon('camera')} Import a scorecard</button><button class="btn" data-act="newcourse">${icon('edit')} By hand</button></div>
     <div id="friendsCard"></div>
     ${await digestCard(done)}
-    ${A ? statsCard(A, `Last ${A.rounds} round${A.rounds > 1 ? 's' : ''}`) : ''}
-    ${await (async () => {
-      const gs = [];
-      for (const r of done.filter((x) => x.learning !== false).slice(0, 10)) { const c = await getCourse(r.courseId).catch(() => null); const G = c && roundSG(r, c); if (G && G.complete >= Math.min(9, G.holes)) gs.push(G); }
-      if (!gs.length) return '';
-      const avg = { ott: 0, app: 0, arg: 0, putt: 0, total: 0 };
-      gs.forEach((G) => { for (const k in avg) avg[k] += G[k] / gs.length; });
-      return sgCard(avg, `Average of your last ${gs.length} round${gs.length > 1 ? 's' : ''} with shot data`);
-    })()}
-    ${tend.length ? `<div class="card"><h2>On the course</h2>${tend.slice(0, 5).map((t) => `<div class="tend"><div><b>${esc(t.text)}</b><div class="mute small">${esc(t.detail)}</div></div></div>`).join('')}<p class="mute small">These feed your coach alongside your swing tendencies.</p></div>` : ''}
-    ${done.length ? `<h2 style="margin:18px 0 8px">Rounds</h2>` + done.map((r) => {
+    ${done.length ? `<button class="card gotoprog" data-act="progress"><span>${ART.putting}</span><span><b>Your game</b><small>Driving to putting, against a golfer at your level — in Progress</small></span><span class="mute">›</span></button>` : ''}
+    ${done.length ? `<h2 style="margin:26px 0 10px">Rounds</h2>` + done.map((r) => {
       const s = r._stats;
       return `<div class="hist" data-act="open" data-id="${r.id}"><div class="sc">${s ? s.score : '–'}</div><div><div class="t">${esc(r.courseName)} ${s ? `<span class="mute">${toParStr(s.toPar)}</span>` : ''}</div><div class="s">${fmtD(r.date)}${r.quick ? `${r.tees ? ` · ${esc(r.tees)}` : ''}${r.diff != null ? ` · diff ${r.diff.toFixed(1)}` : ''} · score only` : s ? ` · ${s.putts} putts · FIR ${pct(s.fir, s.firOpp) ?? '–'}% · GIR ${pct(s.gir, s.girOpp) ?? '–'}%` : ''}${r.learning === false ? ' · not counted' : ''}</div></div><div class="mute">›</div></div>`;
     }).join('') : ''}`;
@@ -167,6 +157,7 @@ async function aggStats(rounds) {
 }
 
 async function homeAction(act, id) {
+  if (act === 'progress') return ctx.showTab?.('history');
   const sel = root.querySelector('#courseSel')?.value;
   if (act === 'endopen') { const r = await getRound(id); const c = await getCourse(r.courseId).catch(() => null); cur = { round: r, course: c, hole: 0, review: false }; return played(r).length && c ? endRoundSheet(r, c) : discardSheet(r); }
   if (act === 'resume' || act === 'open') return openRound(id);
@@ -402,8 +393,8 @@ function renderHole() {
     <div class="row">
       ${i === course.holes.length - 1 || (review && nextBogey(i) < 0) ? '<button class="btn primary big" data-h="finish">Finish round</button>' : `<button class="btn primary big" data-h="next">${review ? 'Next bogey ›' : `Hole ${i + 2} ›`}</button>`}
     </div>
-    <label class="check small" style="margin-top:12px"><input type="checkbox" data-learn ${round.learning !== false ? 'checked' : ''}/> Count this round toward my coach profile</label>
-    <div class="exitrow"><button class="link" data-h="home">Save & exit</button><button class="link" data-h="endearly">End round here</button><button class="link" data-h="discard" style="color:var(--work)">Discard round</button></div>`;
+    ${i === course.holes.length - 1 ? `<label class="check small" style="margin-top:12px"><input type="checkbox" data-learn ${round.learning !== false ? 'checked' : ''}/> Count this round toward my stats and coach</label>` : ''}
+    <div class="exitrow"><button class="link" data-h="home">Save & exit</button><button class="link" data-h="endearly">End round here</button><button class="link mute" data-h="discard">Discard…</button></div>`;
 
   // hole map: satellite + OSM shapes (when the course is mapped) + your club arcs
   const mapEl = root.querySelector('#holeMap');
@@ -444,7 +435,7 @@ function renderHole() {
   root.querySelectorAll('[data-pt]').forEach((b) => b.onclick = () => { h.putts = +b.dataset.pt; if (!h.putts) h.firstPutt = null; redo(); });
   root.querySelectorAll('[data-fp]').forEach((b) => b.onclick = () => { h.firstPutt = h.firstPutt === +b.dataset.fp ? null : +b.dataset.fp; redo(); });
   root.querySelectorAll('[data-fpl]').forEach((b) => b.onclick = () => { const same = h.fpLong === b.dataset.fpl && h.fpSide === b.dataset.fps; h.fpLong = same ? null : b.dataset.fpl; h.fpSide = same ? null : b.dataset.fps; redo(); });
-  root.querySelector('[data-learn]').onchange = (e) => { round.learning = e.target.checked; save(); };
+  root.querySelector('[data-learn]')?.addEventListener('change', (e) => { round.learning = e.target.checked; save(); });
   root.querySelectorAll('[data-pp]').forEach((b) => b.onclick = () => { const p = round.players[+b.dataset.pp]; const v = p.scores[i]; p.scores[i] = v == null ? par : Math.max(1, v + +b.dataset.d); save(); renderHole(); });
   root.querySelectorAll('[data-pq]').forEach((b) => b.onclick = () => { const p = round.players[+b.dataset.pq]; const v = p.putts[i]; p.putts[i] = v == null ? 2 : Math.max(0, v + +b.dataset.d); save(); renderHole(); });
   root.querySelector('[data-paddp]')?.addEventListener('click', () => playersSheet(round, () => { save(); renderHole(); }));
@@ -605,7 +596,7 @@ function moodSheet(round, key, done) {
       <div class="row2"><label class="small">Swing thought<input data-thought value="${esc(thought)}" placeholder="one, and only one" /></label><label class="small">A good round today is…<input data-expect value="${esc(expect)}" placeholder="e.g. no doubles" /></label></div>
       <details class="lminfo rtd"><summary>${icon('info', 14)} My routine</summary>${routineHtml(R)}</details>` : ''}
       ${key === 'finish' && it ? `<div class="lbl">Did you keep to it: “${esc(intentionLabel(it))}”?</div><div class="stars">${[1, 2, 3, 4, 5].map((n) => `<button class="${kept >= n ? 'on' : ''}" data-kept="${n}">★</button>`).join('')}</div>` : ''}
-      <button class="btn primary big" data-ok ${v ? '' : 'disabled'}>${key === 'start' ? 'Start hole 1' : key === 'turn' ? 'On to the back nine' : 'See my round'}</button></div>`;
+      <button class="btn primary big" data-ok>${key === 'start' ? 'Start hole 1' : key === 'turn' ? 'On to the back nine' : 'See my round'}</button></div>`;
     sheet.querySelectorAll('[data-m]').forEach((b) => b.onclick = () => { v = +b.dataset.m; draw(); });
     sheet.querySelectorAll('[data-w]').forEach((b) => b.onclick = () => { w = b.dataset.w; draw(); });
     sheet.querySelectorAll('[data-it]').forEach((b) => b.onclick = () => { it = it === b.dataset.it ? null : b.dataset.it; draw(); });

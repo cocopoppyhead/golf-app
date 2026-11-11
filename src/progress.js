@@ -3,18 +3,17 @@
 // Progress → Practice (main.js) uses the shot details from rounds plus the swing coach.
 import { listRounds, getCourse } from './store.js';
 import { roundStats } from './rounds/stats.js';
-import { roundSG, SG_LABELS } from './rounds/sg.js';
-import { approachBands, executionSummary, bandLabel } from './rounds/bands.js';
+import { roundSG } from './rounds/sg.js';
+import { approachBands, bandLabel } from './rounds/bands.js';
 import { puttLabel, puttUnit, du, dist as D } from './units.js';
-import { tiger5, TIGER5, TIGER5_LABEL, TIGER5_TOUR } from './rounds/tiger.js';
-import { sgCard } from './rounds/ui.js';
+import { tiger5, TIGER5, TIGER5_LABEL } from './rounds/tiger.js';
 import { autoShotType } from './rounds/hole.js';
 import { CODES } from './rounds/stats.js';
 import { differential, adjustedGross, indexFrom, indexHistory } from './rounds/handicap.js';
 import { getSettings } from './store.js';
-import { skillRadar, radarSvg, radarRead, AXES, LONG_FROM } from './rounds/radar.js';
+import { skillRadar, radarSvg, radarRead, LONG_FROM } from './rounds/radar.js';
 import { levelLabel } from './benchmarks.js';
-import { icon } from './icons.js';
+import { ART, CONTOUR } from './art.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const f1 = (v) => (v == null || !Number.isFinite(v) ? '–' : v.toFixed(1));
@@ -102,193 +101,159 @@ function handicapCard(Hc) {
   </div>`;
 }
 
-function scoringHistoryCard(R, Hc) {
-  const full = [...R].filter((x) => x.S.holes >= 18).sort((a, b) => a.r.date - b.r.date).slice(-20);
-  if (!full.length) return '';
-  const sc = full.map((x) => x.S.score);
-  const avg = sc.reduce((a, b) => a + b, 0) / sc.length;
-  const last5 = sc.slice(-5), prior5 = sc.slice(-10, -5);
-  const a5 = last5.reduce((a, b) => a + b, 0) / last5.length, p5 = prior5.length ? prior5.reduce((a, b) => a + b, 0) / prior5.length : null;
-  return `<div class="card">
-    <div class="scorehead"><div><span class="mute small">Average score · last ${sc.length} round${sc.length > 1 ? 's' : ''}</span><div class="big">${f1(avg)}</div>
-      ${p5 != null ? `<span class="small ${a5 <= p5 ? 'goodc' : 'workc'}">last 5: ${f1(a5)} · ${a5 <= p5 ? '↓' : '↑'} ${Math.abs(a5 - p5).toFixed(1)} vs the 5 before</span>` : ''}</div>
-      <div class="hilo"><span><b>${Math.min(...sc)}</b>low</span><span><b>${Math.max(...sc)}</b>high</span></div></div>
-    ${bars(full.map((x) => ({ v: x.S.score, t: `${x.r.courseName} ${x.S.score}`, counted: Hc?.counted.has(x.r.id) })), { lo: Math.min(...sc) - 8, cls: (x) => (x.counted ? 'on' : '') })}
-    <p class="mute small" style="margin:6px 0 0">Oldest to newest. ${Hc?.current ? 'Green bars are the differentials counting toward your index.' : ''}</p>
-  </div>`;
+
+
+
+
+
+// ---- the page: a hero band (radar + three numbers), then one section per part of the game ----
+const sgn = (v, d = 1) => (v == null || !Number.isFinite(v) ? '–' : +Math.abs(v).toFixed(d) === 0 ? (0).toFixed(d) : `${v >= 0 ? '+' : '−'}${Math.abs(v).toFixed(d)}`);
+const mark = (ok) => (ok == null ? '' : `<span class="mk ${ok ? 'c' : 's'}" aria-label="${ok ? 'on target' : 'not yet'}"></span>`);
+const pctN = (a, b) => (b ? Math.round((100 * a) / b) : null);
+const tile = (v, label, ok) => `<div><b>${v ?? '–'}${ok != null ? mark(ok) : ''}</b><small>${label}</small></div>`;
+
+/** Section header: drawing, title, one sentence. */
+function area(id, art, title, line, body) {
+  if (!body) return '';
+  return `<section class="area" id="pg-${id}"><div class="ah">${ART[art]}<div><h2>${title}</h2>${line ? `<p>${line}</p>` : ''}</div></div>${body}</section>`;
 }
 
-function distributionCard(R) {
-  const H = R.filter((x) => !x.S.quick && x.S.holes);
-  if (!H.length) return '';
-  const tot = H.reduce((a, x) => a + x.S.holes, 0);
-  const rows = [['Birdies or better', H.reduce((a, x) => a + x.S.birdies, 0)], ['Pars', H.reduce((a, x) => a + x.S.pars, 0)], ['Bogeys', H.reduce((a, x) => a + x.S.bogeys, 0)], ['Double bogeys', H.reduce((a, x) => a + x.S.doubles - x.S.triples, 0)], ['Triples or worse', H.reduce((a, x) => a + x.S.triples, 0)]];
-  const max = Math.max(...rows.map((r) => r[1]), 1);
-  return `<div class="card"><h2>Scoring distribution</h2>
-    <div class="bars">${rows.map(([l, n]) => `<div><span>${l}</span><div class="meter"><div style="width:${(100 * n) / max}%;background:var(--acc)"></div></div><span>${Math.round((100 * n) / tot)}%</span></div>`).join('')}</div>
-    <p class="mute small" style="margin:6px 0 0">${tot} holes from ${H.length} hole-by-hole round${H.length > 1 ? 's' : ''}.</p></div>`;
+/** The verdict line for a radar axis. */
+function verdict(radar, key, read, hcp) {
+  const a = radar.axes.find((x) => x.key === key);
+  if (!a || !a.enough || a.value == null) return a && a.n ? `Needs a few more rounds with shot detail (${a.n} so far).` : '';
+  const who = `a ${levelLabel(hcp)} golfer`;
+  const pre = read?.worst?.key === key ? 'Your biggest gap: ' : read?.best?.key === key ? 'Your strength: ' : '';
+  if (Math.abs(a.value) < 0.3) return `${pre}about level with ${who}.`;
+  return `${pre}${mark(a.value > 0).replace('mk ', 'mk inline ')} ${Math.abs(a.value).toFixed(1)} strokes a round ${a.value > 0 ? 'better' : 'worse'} than ${who}.`;
 }
 
-/** Putting: putts a round, 1-putts and 3-putts, make % and 3-putt % by first-putt length. */
-function puttingCard(R) {
-  const H = R.filter((x) => !x.S.quick && x.S.puttsHoles);
-  if (!H.length) return '';
-  const holes = H.flatMap((x) => (x.r.holes || []).filter((h) => h && h.putts != null));
-  const n = holes.length;
-  const per18 = (f) => (n ? (holes.reduce((a, h) => a + f(h), 0) / n) * 18 : null);
-  const B = [[3, '≤3 ft'], [6, '4–6'], [10, '7–10'], [20, '11–20'], [30, '21–30'], [50, '30+']];
-  const withFp = holes.filter((h) => h.firstPutt != null);
-  const rows = B.map(([ft, l]) => { const hs = withFp.filter((h) => h.firstPutt === ft); return { l, n: hs.length, made: hs.filter((h) => h.putts === 1).length, three: hs.filter((h) => h.putts >= 3).length }; }).filter((r) => r.n);
-  const pc = (a, b) => (b ? `${Math.round((100 * a) / b)}%` : '–');
-  return `<div class="card"><h2>Putting</h2>
-    <div class="kpis"><div><b>${f1(per18((h) => h.putts))}</b><span>putts / round</span></div><div><b>${f1(per18((h) => (h.putts === 1 ? 1 : 0)))}</b><span>1-putts</span></div><div><b>${f1(per18((h) => (h.putts >= 3 ? 1 : 0)))}</b><span>3-putts</span></div><div><b>${pc(holes.filter((h) => h.putts === 0).length, n)}</b><span>holed out</span></div></div>
-    ${rows.length ? `<table class="dk"><tr><th>First putt</th><th>Made</th><th>3-putt</th><th>Holes</th></tr>${rows.map((r) => `<tr><td>${r.l}</td><td><b>${pc(r.made, r.n)}</b></td><td class="${r.three ? 'workc' : ''}">${pc(r.three, r.n)}</td><td class="mute">${r.n}</td></tr>`).join('')}</table>
-    <p class="mute small" style="margin:6px 0 0">Tour makes about 99% from 3 ft, 70% from 6, 40% from 10, 15% from 20. 3-putts from 30+ are speed, not line.</p>` : '<p class="mute small">Tap the first-putt length on each hole and make % by distance shows here.</p>'}
-  </div>`;
+function hero0Detail(ALL, hcp) {
+  const r = skillRadar(ALL.filter((x) => !x.S.quick).slice(0, 10), { hcp });
+  return r.axes.map((a) => `<div><b>${esc(a.label)}</b><span>${a.detail ? esc(a.detail) : 'Not enough rounds yet.'}</span></div>`).join('');
 }
 
-function activityCard(ALL) {
-  const y = new Date().getFullYear();
-  const Y = ALL.filter((x) => ym(x.r.date) === y);
-  if (!Y.length) return '';
-  const by = {}; Y.forEach((x) => { by[x.r.courseName] = (by[x.r.courseName] || 0) + 1; });
-  const list = Object.entries(by).sort((a, b) => b[1] - a[1]);
-  return `<div class="card"><h2>${y}</h2>
-    <div class="kpis k2"><div><b>${Y.length}</b><span>rounds</span></div><div><b>${list.length}</b><span>courses</span></div></div>
-    <details><summary class="mute small">Courses played</summary>${list.map(([n, k]) => `<div class="tagrow"><span>${esc(n)}</span><b>${k}</b></div>`).join('')}</details></div>`;
-}
-
-
-/** The skills radar card: six axes against your level, last 10 / 50 / 100 rounds with the previous window as a ghost. */
-function radarCard(ALL, hcp) {
+function heroBand(ALL, Hc, hcp) {
   const L = ALL.filter((x) => !x.S.quick);
-  if (!L.length) return '';
   const windows = [10, 50, 100].map((n) => ({ n, radar: skillRadar(L.slice(0, n), { hcp }), ghost: L.length > n ? skillRadar(L.slice(n, 2 * n), { hcp }) : null }));
-  const first = windows.find((w) => w.n === 10) || windows[0];
-  const views = Object.fromEntries(windows.map((w) => {
-    const read = radarRead(w.radar);
-    const line = !w.radar.ready ? `<p class="mute small">Needs 3 hole-by-hole rounds with shot distances and first putts; ${w.radar.nSg} so far.</p>`
-      : read ? `<p class="small" style="margin:6px 0 0">Strongest: <b>${esc(read.best.label)}</b> (${read.best.value >= 0 ? '+' : '−'}${Math.abs(read.best.value).toFixed(1)}). Biggest gap: <b>${esc(read.worst.label)}</b> (${read.worst.value >= 0 ? '+' : '−'}${Math.abs(read.worst.value).toFixed(1)} a round vs ${levelLabel(hcp)})${w.ghost?.axes.some((a) => a.enough) ? ' · faded shape = the ' + w.n + ' rounds before' : ''}.</p>` : '';
-    return [w.n, `${radarSvg(w.radar, w.ghost)}${line}`];
-  }));
-  return `<div class="card radarcard" data-radar-views='${esc(JSON.stringify(views))}'>
-    <div class="sechead" style="margin:0 0 4px"><h2 style="margin:0">Your game</h2><div class="rwin" role="group">${windows.map((w) => `<button data-radar-n="${w.n}" class="${w.n === first.n ? 'on' : ''}" ${L.length < w.n && w.n !== 10 ? 'disabled' : ''}>Last ${w.n}</button>`).join('')}</div></div>
-    <p class="mute small" style="margin:0 0 6px">Strokes a round against a ${levelLabel(hcp)} golfer. Dashed ring = your level; outer edge = 2 strokes better, centre = 2 worse; dotted = scratch. Tap an axis for the detail.</p>
-    <div class="radarbox">${views[first.n]}</div>
-    <details class="lminfo"><summary>${icon('info', 14)} How the axes are scored</summary><div class="lminfo-in radarinfo">
-      <p class="mute small">Driving, both approach axes, around the green and putting are strokes gained per 18 holes (tour baseline) minus what a golfer at your handicap loses in that category — Broadie's split: an h-handicap gives up about h+3 strokes a round, 28% driving, 40% approach (60/40 long shots vs wedges, osolo's split at ${LONG_FROM} yd), 17% short game, 15% putting. Mind is penalties and recovery drives against your level's rate (Shot Scope, Arccos), plus how often rated shots went to plan. Each axis is clipped at ±2 strokes.</p>
-      ${AXES.map((a) => { const x = first.radar.axes.find((y) => y.key === a.key); return `<div><b>${esc(a.label)}${a.sub ? ` <span class="mute">(${esc(a.sub)})</span>` : ''}</b><span>${x?.detail ? esc(x.detail) : 'Not enough rounds yet.'}</span></div>`; }).join('')}
-    </div></details>
-  </div>`;
+  const views = Object.fromEntries(windows.map((w) => [w.n, `${radarSvg(w.radar, w.ghost)}${w.radar.ready ? '' : `<p class="hnote">The shape fills in after 3 hole-by-hole rounds with shot distances and first putts (${w.radar.nSg} so far).</p>`}`]));
+  const full = ALL.filter((x) => x.S.holes >= 18).sort((a, b) => a.r.date - b.r.date).slice(-20);
+  const sc = full.map((x) => x.S.score);
+  const avg = sc.length ? sc.reduce((a, b) => a + b, 0) / sc.length : null;
+  const l5 = sc.slice(-5), p5 = sc.slice(-10, -5);
+  const trend = p5.length ? l5.reduce((a, b) => a + b, 0) / l5.length - p5.reduce((a, b) => a + b, 0) / p5.length : null;
+  const idx = Hc?.current ? Hc.current.index : getSettings().handicap;
+  return { windows, html: `<section class="hero radarcard" data-radar-views='${esc(JSON.stringify(views))}'><div class="contour" style="--mask:${CONTOUR}"></div>
+    <h1>Your game</h1><p class="hsub">Strokes a round against a ${levelLabel(hcp)} golfer. Tap an area to jump to it.</p>
+    <div class="rwin" role="group" aria-label="Rounds">${windows.map((w) => `<button data-radar-n="${w.n}" class="${w.n === 10 ? 'on' : ''}" ${L.length < w.n && w.n !== 10 ? 'disabled' : ''}>Last ${w.n}</button>`).join('')}</div>
+    <div class="radarbox">${views[10]}</div>
+    <div class="legend"><span><i class="lg-you"></i>You</span><span><i class="lg-gh"></i>Rounds before</span><span><i class="lg-scr"></i>Scratch</span></div>
+    <div class="hstats">${tile(idx != null ? f1(idx) : '–', Hc?.current ? 'Handicap index' : 'Handicap (yours)')}${tile(avg != null ? f1(avg) : '–', `Average, last ${sc.length || 0}`)}${tile(trend != null ? sgn(trend) : '–', 'Last 5 vs the 5 before')}</div>
+    <details class="hexplain"><summary>How the shape is scored</summary><div class="radarinfo"><p>Each area is strokes gained per 18 holes (tour baseline) minus what a golfer at your handicap loses there. Broadie's split: an h-handicap gives up about h+3 strokes a round, 28% driving, 40% approach (60/40 long vs wedges at ${LONG_FROM} yd), 17% short game, 15% putting. Mind is penalties and recovery drives against your level's rate, plus how often rated shots went to plan. Each axis stops at ±2 strokes.</p>
+      ${hero0Detail(ALL, hcp)}</div></details>
+  </section>` };
 }
 
 export async function renderScoring(el) {
   const ALL = await loadRounds(200);
   const R = ALL.slice(0, 20);
-  if (!R.length) { el.innerHTML = '<div class="card"><h2>No rounds yet</h2><p class="mute">Log a round in Play. Your scoring, Tiger 5 and strokes gained build up here.</p></div>'; return; }
-  const full = R.filter((x) => x.S.holes >= 18);
-  const sum = (f) => R.reduce((a, x) => a + (f(x) || 0), 0);
-  const L = R.filter((x) => !x.S.quick); // hole-by-hole rounds, for stats that need holes
-  const per = (f) => (L.length ? L.reduce((a, x) => a + (f(x) || 0), 0) / L.length : null);
-  // scoring by par (all holes)
-  const byPar = { 3: [0, 0], 4: [0, 0], 5: [0, 0] };
-  R.forEach(({ S }) => { for (const p of [3, 4, 5]) { byPar[p][0] += S.byPar[p][0]; byPar[p][1] += S.byPar[p][1]; } });
-  const parAvg = (p) => (byPar[p][1] ? byPar[p][0] / byPar[p][1] : null);
-  const avg = full.length ? full.reduce((a, x) => a + x.S.score, 0) / full.length : null;
-  const G = R.filter((x) => x.G && x.G.complete >= Math.min(9, x.G.holes));
-  const sgAvg = G.length ? Object.fromEntries(['ott', 'app', 'arg', 'putt', 'total'].map((k) => [k, G.reduce((a, x) => a + x.G[k] * (18 / x.G.holes), 0) / G.length])) : null;
-  const AB = approachBands(ALL); const EX = executionSummary(ALL);
-  const proxTxt = (ft) => (ft == null ? '–' : ft === 0 ? 'in' : `${puttLabel([3, 6, 10, 20, 30, 50].reduce((a, b) => (Math.abs(b - ft) < Math.abs(a - ft) ? b : a)))} ${puttUnit() === 'feet' ? 'ft' : 'm'}`);
-  // the break-80 plan numbers (Golf Digest "The Game Plan": 7 bogeys + 11 pars, no doubles; GIR+1 16–17 of 18; recovery drives; the 150–200 zone; lag speed)
+  if (!R.length) { el.innerHTML = '<section class="hero empty"><h1>Your game</h1><p class="hsub">Play or post a round and your game takes shape here: driving, approach, short game, putting and the mental side, against golfers at your level.</p></section>'; return; }
+  const L = R.filter((x) => !x.S.quick);
   const T = (k) => L.reduce((a, x) => a + (x.S[k] || 0), 0);
-  const holesL = T('holes');
-  const planCard = holesL >= 18 ? (() => {
-    const p18 = 18 / holesL;
-    const rows = [
-      ['Doubles or worse', `${(T('doubles') * p18).toFixed(1)} / round`, 'under 1', T('doubles') * p18 <= 1],
-      ['GIR+1 (on in par−1)', T('gir1Opp') ? `${Math.round((100 * T('gir1')) / T('gir1Opp'))}%` : '–', '85%+ (16 of 18)', T('gir1Opp') ? T('gir1') / T('gir1Opp') >= 0.85 : null],
-      ['Recovery drives', `${(T('dirt') * p18).toFixed(1)} / round`, 'under 1.5', T('dirt') * p18 < 1.5],
-      ['Doubles from 150–200', T('zone') ? `${Math.round((100 * T('zoneDbl')) / T('zone'))}% of ${T('zone')}` : '–', 'under 10%', T('zone') ? T('zoneDbl') / T('zone') < 0.1 : null],
-      ['3-putts from 20 ft+', T('lagOpp') ? `${Math.round((100 * T('lag3')) / T('lagOpp'))}% of ${T('lagOpp')}` : '–', 'under 15%', T('lagOpp') ? T('lag3') / T('lagOpp') < 0.15 : null],
-    ];
-    return `<div class="card"><h2>The scoring plan</h2>
-      <p class="mute small" style="margin:0 0 8px">Scores drop by avoiding bogeys and doubles, not by chasing birdies: a 10-handicap makes one fewer birdie than scratch but 2½ more doubles. The five numbers that decide it, from your hole-by-hole rounds.</p>
-      <table class="ltable"><tr><th>Number</th><th>You</th><th>Breaking 80</th></tr>
-        ${rows.map(([l, v, t, ok]) => `<tr class="${ok === true ? 'best' : ok === false ? 'worst' : 'thin'}"><td>${l}</td><td>${v}</td><td class="mute">${t}</td></tr>`).join('')}</table>
-      <p class="mute small" style="margin:8px 0 0">Par 3s ${parAvg(3) != null ? (parAvg(3) - 3).toFixed(2) : '–'} · par 4s ${parAvg(4) != null ? (parAvg(4) - 4).toFixed(2) : '–'} · par 5s ${parAvg(5) != null ? (parAvg(5) - 5).toFixed(2) : '–'} over par per hole. For 80-shooters the 3s and 5s are the par chances.</p></div>`;
-  })() : '';
-  const bandsCard = AB.total >= 10 ? `<div class="card"><h2>Where you score from</h2>
-    <p class="mute small" style="margin:0 0 8px">Approach shots by the distance you hit them from, all your rounds. Strokes to finish = the approach plus what it left you (tour baseline in grey). ${AB.best ? `You score best from <b>${bandLabel(AB.best.band, D)}</b>${AB.worst && AB.worst !== AB.best ? `, worst from <b>${bandLabel(AB.worst.band, D)}</b>` : ''}: when you can't reach, lay up to ${bandLabel(AB.best.band, D)}.` : 'Needs 5+ shots in a band.'}</p>
-    <table class="ltable"><tr><th>From (${du()})</th><th>Shots</th><th>Green</th><th>1st putt</th><th>To finish</th></tr>
-      ${AB.bands.filter((b) => b.n).map((b) => `<tr class="${AB.best === b ? 'best' : AB.worst === b ? 'worst' : ''} ${b.enough ? '' : 'thin'}"><td>${bandLabel(b.band, D)}</td><td>${b.n}</td><td>${b.gir != null ? Math.round(b.gir * 100) + '%' : '–'}</td><td>${proxTxt(b.prox)}</td><td>${b.finish != null ? b.finish.toFixed(2) : '–'} <span class="mute small">${b.tour.toFixed(2)}</span></td></tr>`).join('')}</table>
-    ${EX.n >= 10 ? `<p class="mute small" style="margin:8px 0 0">Shots that came off as planned: <b>${EX.planned != null ? Math.round(EX.planned * 100) + '%' : '–'}</b>${EX.sat != null ? ` · average satisfaction <b>${EX.sat.toFixed(1)}★</b>` : ''} (from shot Details).</p>` : ''}
-  </div>` : '';
-  // per-18 scaling for counts from 9-hole rounds
-  const p18 = (x, v) => v * (18 / Math.max(9, x.S.holes));
-  const t5 = Object.fromEntries(TIGER5.map((id) => [id, L.length ? L.reduce((a, x) => a + p18(x, x.T.by[id] || 0), 0) / L.length : 0]));
-  const t5tot = Object.values(t5).reduce((a, b) => a + b, 0);
-  const recent = [...R].reverse(); // oldest → newest for charts
-
-  const myBand = band('avg', avg);
-  const mark = (metric, v) => {
-    const b = band(metric, v); if (b == null || myBand == null) return '';
-    return b < myBand ? '<span class="mk good">✓</span>' : b > myBand ? '<span class="mk bad">✕</span>' : '<span class="mk">○</span>';
-  };
-  const row = (label, metric, v, fmt = f2) => `<tr><td>${label}</td><td><b>${fmt(v)}</b></td><td>${v == null ? '' : BANDS[band(metric, v)]}</td><td>${mark(metric, v)}</td></tr>`;
-
+  const holesL = T('holes'); const p18 = holesL ? 18 / holesL : 0;
   const auto = getSettings().handicapMode !== 'manual' && !(!getSettings().handicapMode && getSettings().handicap != null);
   const Hc = auto ? handicap(ALL) : null;
-  const hcp = auto ? Hc?.current?.index ?? null : getSettings().handicap ?? null;
-  el.innerHTML = `
-    ${handicapCard(Hc)}
-    ${radarCard(ALL, hcp ?? 15)}
-    ${scoringHistoryCard(ALL, Hc)}
-    ${distributionCard(R)}
-    <div id="pg-putting">${puttingCard(R)}</div>
+  const hcp = (auto ? Hc?.current?.index : getSettings().handicap) ?? 15;
+  const hero = heroBand(ALL, Hc, hcp);
+  const radar = hero.windows[0].radar, read = radarRead(radar);
+  const G = R.filter((x) => x.G && x.G.complete >= Math.min(9, x.G.holes));
+  const sg = G.length ? Object.fromEntries(['ott', 'app', 'arg', 'putt', 'total'].map((k) => [k, G.reduce((a, x) => a + x.G[k] * (18 / x.G.holes), 0) / G.length])) : null;
+  const sgLine = (k) => (sg ? `<p class="note">Strokes gained against a tour player: <b>${sgn(sg[k])}</b> a round, over ${G.length} round${G.length > 1 ? 's' : ''} with shot data.</p>` : '');
 
-    ${L.length ? `    <div class="card">
-      <div class="sechead" style="margin:0 0 4px"><h2 style="margin:0">Tiger 5</h2><span class="sgpill ${t5tot <= 6 ? 'pos' : 'neg'}" style="float:none">${f1(t5tot)} / round</span></div>
-      <p class="mute small" style="margin:0 0 10px">Scott Fawcett's rule: six or fewer of these a round and you're playing to win. Tour top-5 finishers average about 1.6, missed cuts 3.7 (not counting blown saves).</p>
-      <table class="t5"><tr><th></th><th>You</th><th>Top 5</th><th>Missed cut</th></tr>
-        ${TIGER5.map((id) => `<tr><td>${TIGER5_LABEL[id]}</td><td><b>${f2(t5[id])}</b></td><td>${TIGER5_TOUR[id] ? TIGER5_TOUR[id][0] : '–'}</td><td>${TIGER5_TOUR[id] ? TIGER5_TOUR[id][1] : '–'}</td></tr>`).join('')}
-      </table>
-      <div class="t5bars">${recent.filter((x) => !x.S.quick).map((x) => `<i title="${esc(x.r.courseName)}: ${x.T.total}" style="height:${Math.min(100, x.T.total * 8)}%;background:var(--${x.T.total <= 6 ? 'good' : 'work'})"></i>`).join('')}<span class="goal" style="bottom:48%">6</span></div>
-      <p class="mute small" style="margin:6px 0 0">Bars: each round, oldest to newest. Bogeys inside 150 and blown saves need shot distances in the hole log.</p>
-    </div>` : '<div class="card"><h2>Tiger 5</h2><p class="mute small">Needs hole-by-hole rounds. Posted totals only feed the handicap and scoring average.</p></div>'}
+  // --- scoring ---
+  const dist = (() => {
+    if (!holesL) return '';
+    const rows = [['Birdies', T('birdies'), 'var(--birdie)'], ['Pars', T('pars'), 'var(--par)'], ['Bogeys', T('bogeys'), 'var(--bogey)'], ['Doubles+', T('doubles'), 'var(--double)']];
+    return `<div class="card"><h3>Every hole, last ${L.length} round${L.length > 1 ? 's' : ''}</h3><div class="dstrip">${rows.filter((r) => r[1]).map(([, n, c]) => `<i style="flex:${n};background:${c}"></i>`).join('')}</div>
+      <div class="dstrip-l">${rows.map(([l, n, c]) => `<span><i style="background:${c}"></i>${l} <b>${Math.round((100 * n) / holesL)}%</b></span>`).join('')}</div></div>`;
+  })();
+  const full = [...R].filter((x) => x.S.holes >= 18).sort((a, b) => a.r.date - b.r.date).slice(-20);
+  const sc = full.map((x) => x.S.score);
+  const hist = sc.length > 1 ? `<div class="card"><h3>Scores, oldest to newest</h3>${bars(full.map((x) => ({ v: x.S.score, t: `${x.r.courseName} ${x.S.score}`, counted: Hc?.counted.has(x.r.id) })), { lo: Math.min(...sc) - 8, cls: (x) => (x.counted ? 'on' : '') })}
+    <div class="hilo2"><span>Best <b>${Math.min(...sc)}</b></span><span>Worst <b>${Math.max(...sc)}</b></span>${Hc?.current ? '<span class="mute">Highlighted rounds count toward your index</span>' : ''}</div></div>` : '';
+  const plan = holesL >= 18 ? (() => {
+    const rows = [
+      ['Doubles or worse', `${(T('doubles') * p18).toFixed(1)} a round`, 'under 1', T('doubles') * p18 <= 1],
+      ['On the green in par − 1', T('gir1Opp') ? `${pctN(T('gir1'), T('gir1Opp'))}%` : '–', '85%', T('gir1Opp') ? T('gir1') / T('gir1Opp') >= 0.85 : null],
+      ['Drives needing a recovery', `${(T('dirt') * p18).toFixed(1)} a round`, 'under 1.5', T('dirt') * p18 < 1.5],
+      ['Doubles from 150–200', T('zone') ? `${pctN(T('zoneDbl'), T('zone'))}%` : '–', 'under 10%', T('zone') ? T('zoneDbl') / T('zone') < 0.1 : null],
+      ['Three-putts from 20 ft+', T('lagOpp') ? `${pctN(T('lag3'), T('lagOpp'))}%` : '–', 'under 15%', T('lagOpp') ? T('lag3') / T('lagOpp') < 0.15 : null],
+    ];
+    return `<div class="card" id="pg-plan"><h3>The plan for breaking 80</h3>${rows.map(([l, v, t, ok]) => `<div class="plrow">${ok == null ? '<span class="mk n"></span>' : mark(ok)}<div><b>${l}</b><small>target ${t}</small></div><span class="pv">${v}</span></div>`).join('')}
+      <p class="note">${mark(true).replace('mk ', 'mk inline ')} on target &nbsp; ${mark(false).replace('mk ', 'mk inline ')} not yet. Scores drop by cutting doubles, not by chasing birdies.</p></div>`;
+  })() : '';
+  const t5 = Object.fromEntries(TIGER5.map((id) => [id, L.length ? L.reduce((a, x) => a + x.T.by[id] * (18 / Math.max(9, x.S.holes)), 0) / L.length || 0 : 0]));
+  const t5tot = Object.values(t5).reduce((a, b) => a + b, 0);
+  const t5has = L.some((x) => x.T.total > 0) || holesL >= 18 && T('doubles') + T('bogeys') > 0;
+  const pips = (v) => Array.from({ length: 6 }, (_, k) => `<i class="${k < Math.round(v * 2) ? 'on' : ''}"></i>`).join('');
+  const tiger = L.length ? `<div class="card"><div class="t5h"><h3>Tiger 5</h3>${t5has ? `<span class="badge ${t5tot <= 6 ? 'ok' : ''}">${f1(t5tot)} a round</span>` : ''}</div>
+    ${t5has ? TIGER5.map((id) => `<div class="t5r"><span>${TIGER5_LABEL[id]}</span><span class="pips" aria-hidden="true">${pips(t5[id])}</span><b>${f1(t5[id])}</b></div>`).join('') + '<p class="note">Each dot is half a stroke a round. Six or fewer a round and you\'re playing to win; tour top-5 finishers average about 1.6.</p>'
+      : '<p class="note">Nothing to count yet: these rounds have no hole-by-hole scores. Enter scores per hole (or import a scorecard) and Tiger 5 fills in.</p>'}</div>` : '';
+  const parAvg = (p) => { let s = 0, n = 0; R.forEach(({ S }) => { s += S.byPar[p][0]; n += S.byPar[p][1]; }); return n ? s / n : null; };
+  const avg = full.length ? full.reduce((a, x) => a + x.S.score, 0) / full.length : null;
+  const myBand = band('avg', avg);
+  const dk = avg != null ? (() => {
+    const rows = [['Strokes gained putting', 'sgPutt', sg ? sg.putt : null], ['Par 3s', 'par3', parAvg(3)], ['Par 4s', 'par4', parAvg(4)], ['Par 5s', 'par5', parAvg(5)]].filter((r) => r[2] != null);
+    return `<div class="card"><h3>Which golfer each part plays like</h3><p class="note" style="margin:-4px 0 10px">You average ${f1(avg)}. Each stat placed among golfers who average it (DECADE key).</p>
+      ${rows.map(([l, k, v]) => { const b = band(k, v); return `<div class="plrow">${b == null || myBand == null || b === myBand ? '<span class="mk n"></span>' : mark(b < myBand)}<div><b>${l}</b><small>${k === 'sgPutt' ? f2(v) : f2(v)}</small></div><span class="pv">${BANDS[b]}</span></div>`; }).join('')}</div>`;
+  })() : '';
+  const doublesTxt = holesL >= 18 ? `${(T('doubles') * p18).toFixed(1)} doubles or worse a round. Bogeys are fine; doubles are what cost you.` : 'Hole-by-hole rounds fill this in.';
+  const scoring = area('scoring', 'scoring', 'Scoring', doublesTxt, [hist, dist, plan, tiger, dk, auto && Hc?.current ? handicapCard(Hc) : ''].join(''));
 
-    <div id="pg-sg">${sgAvg ? sgCard(sgAvg, `Per 18 holes, average of ${G.length} round${G.length > 1 ? 's' : ''} with shot data`) : '<div class="card"><h2>Strokes gained</h2><p class="mute small">Shows once rounds have shot distances (from the rangefinder) and first-putt distances.</p></div>'}</div>
-    <div id="pg-plan">${planCard}</div>
-    <div id="pg-bands">${bandsCard}</div>
+  // --- driving ---
+  const teeMiss = T('teeLeft') + T('teeRight');
+  const driving = T('firOpp') ? `<div class="card"><div class="fwy"><div><b>${teeMiss ? pctN(T('teeLeft'), teeMiss) : 0}%</b><small>of misses left</small></div><div class="mid"><b>${pctN(T('fir'), T('firOpp'))}%</b><small>fairways</small></div><div><b>${teeMiss ? pctN(T('teeRight'), teeMiss) : 0}%</b><small>of misses right</small></div></div>
+    <div class="trio">${tile((T('teeTrouble') * p18).toFixed(1), 'in trouble a round')}${tile((T('dirt') * p18).toFixed(1), 'needing a recovery')}${tile(T('firOpp'), 'tee shots')}</div>${sgLine('ott')}</div>` : '';
+  // --- approach ---
+  const AB = approachBands(ALL);
+  const bandsHtml = AB.total >= 10 ? `<h3 style="margin-top:18px">On the green, by distance</h3>${AB.bands.filter((b) => b.n).map((b) => `<div class="lrow"><span class="ld">${bandLabel(b.band, D)}</span><div class="lbar"><i style="width:${Math.round((b.gir || 0) * 100)}%"></i></div><span class="lp">${b.gir != null ? Math.round(b.gir * 100) + '%' : '–'}</span></div>`).join('')}
+    ${AB.best ? `<p class="note">You score best from <b>${bandLabel(AB.best.band, D)} ${du()}</b>${AB.worst && AB.worst !== AB.best ? `, worst from ${bandLabel(AB.worst.band, D)}` : ''}. When you can't reach, lay up to ${bandLabel(AB.best.band, D)}.</p>` : ''}` : '';
+  const approach = T('girOpp') ? `<div class="card" id="pg-bands"><div class="trio">${tile(`${pctN(T('gir'), T('girOpp'))}%`, 'greens in regulation')}${tile(T('gir1Opp') ? `${pctN(T('gir1'), T('gir1Opp'))}%` : '–', 'on in par − 1')}${tile(T('zone') ? `${pctN(T('zoneDbl'), T('zone'))}%` : '–', 'doubles from 150–200')}</div>${bandsHtml}${sgLine('app')}</div>` : '';
+  // --- short game ---
+  const short = T('scrOpp') ? `<div class="card"><div class="trio">${tile(`${pctN(T('scr'), T('scrOpp'))}%`, 'up and down')}${tile(T('sandOpp') ? `${pctN(T('sand'), T('sandOpp'))}%` : '–', 'sand saves')}${tile(T('scrOpp'), 'missed greens')}</div>${sgLine('arg')}</div>` : '';
+  // --- putting ---
+  const putting = (() => {
+    const H = L.filter((x) => x.S.puttsHoles);
+    if (!H.length) return '';
+    const holes = H.flatMap((x) => (x.r.holes || []).filter((h) => h && h.putts != null));
+    const n = holes.length; const per = (f) => ((holes.reduce((a, h) => a + f(h), 0) / n) * 18).toFixed(1);
+    const TOUR = { 3: 99, 6: 70, 10: 40, 20: 15, 30: 7, 50: 3 }, LAB = { 3: '3 ft', 6: '6 ft', 10: '10 ft', 20: '20 ft', 30: '30 ft', 50: '50 ft' };
+    const rows = [3, 6, 10, 20, 30, 50].map((ft) => { const hs = holes.filter((h) => h.firstPutt === ft); return { ft, n: hs.length, made: hs.filter((h) => h.putts === 1).length }; }).filter((r) => r.n);
+    return `<div class="card"><div class="trio">${tile(per((h) => h.putts), 'putts a round')}${tile(per((h) => (h.putts >= 3 ? 1 : 0)), 'three-putts')}${tile(per((h) => (h.putts === 1 ? 1 : 0)), 'one-putts')}</div>
+      ${rows.length ? `<h3>Holed, by first-putt length</h3>${rows.map((r) => `<div class="lrow"><span class="ld">${puttUnit() === 'feet' ? LAB[r.ft] : `${puttLabel(r.ft)} m`}</span><div class="lbar"><i style="width:${Math.round((100 * r.made) / r.n)}%"></i><b style="left:${TOUR[r.ft]}%"></b></div><span class="lp">${Math.round((100 * r.made) / r.n)}%</span></div>`).join('')}
+        <p class="note">The tick is a tour player. ${T('lagOpp') ? `From 20 ft and beyond you three-putt ${pctN(T('lag3'), T('lagOpp'))}% of the time — that's speed, not line.` : ''}</p>` : '<p class="note">Tap the first-putt length on each hole and how often you hole out by distance appears here.</p>'}${sgLine('putt')}</div>`;
+  })();
+  // --- mind ---
+  const mind = (() => {
+    const planN = T('planN'), planned = T('planned');
+    const kept = L.map((x) => x.r.intentionKept).filter(Boolean);
+    const pens = L.reduce((a, x) => a + (x.r.holes || []).reduce((b, h) => b + (h?.shots || []).filter((s) => s?.pen).length, 0), 0);
+    if (!planN && !kept.length && !holesL) return '';
+    return `<div class="card"><div class="trio">${tile(planN ? `${pctN(planned, planN)}%` : '–', 'shots to plan')}${tile(kept.length ? `${(kept.reduce((a, b) => a + b, 0) / kept.length).toFixed(1)}★` : '–', 'intention kept')}${tile((pens * p18).toFixed(1), 'penalties a round')}</div>
+      <p class="note">${planN ? `From ${planN} shots you rated in Details.` : 'Rate shots in Details (went to plan, or not) and set an intention at the first tee, and this fills in.'}</p></div>`;
+  })();
+  const y = new Date().getFullYear(); const Y = ALL.filter((x) => ym(x.r.date) === y);
+  const year = Y.length ? `<div class="card yearcard"><h3>${y}</h3><div class="trio">${tile(Y.length, 'rounds')}${tile(new Set(Y.map((x) => x.r.courseName)).size, 'courses')}${tile(Y.reduce((a, x) => a + (x.S.holes || 0), 0), 'holes')}</div></div>` : '';
 
-    <div class="card">
-      <h2>How you score, against other golfers</h2>
-      <p class="mute small" style="margin:0 0 8px">Each stat placed in the scoring band of golfers who average it (DECADE key). ✓ better than your scoring average band, ○ the same, ✕ worse: the ✕s are where shots go.</p>
-      <table class="dk"><tr><th>Stat</th><th>You</th><th>Plays like</th><th></th></tr>
-        ${row('Scoring average', 'avg', avg, f1)}
-        ${row('Strokes gained putting', 'sgPutt', sgAvg ? sgAvg.putt : null)}
-        ${row('Par 3 scoring', 'par3', parAvg(3))}
-        ${row('Par 4 scoring', 'par4', parAvg(4))}
-        ${row('Par 5 scoring', 'par5', parAvg(5))}
-      </table>
-    </div>
-
-    ${L.length ? `    <div class="card">
-      <h2>Per round</h2>
-      <div class="kpis">
-        <div><b>${f1(per((x) => p18(x, x.S.birdies)))}</b><span>birdies</span></div>
-        <div><b>${f1(per((x) => p18(x, x.S.bogeys)))}</b><span>bogeys</span></div>
-        <div><b>${f1(per((x) => p18(x, x.S.doubles)))}</b><span>doubles+</span></div>
-        <div><b>${f1(per((x) => p18(x, x.S.putts)))}</b><span>putts</span></div>
-      </div>
-      <div class="kpis" style="margin-top:8px">
-        <div><b>${pct(sum((x) => x.S.fir), sum((x) => x.S.firOpp))}</b><span>fairways</span></div>
-        <div><b>${pct(sum((x) => x.S.gir), sum((x) => x.S.girOpp))}</b><span>greens</span></div>
-        <div><b>${pct(sum((x) => x.S.scr), sum((x) => x.S.scrOpp))}</b><span>up & down</span></div>
-        <div><b>${f1(per((x) => p18(x, x.S.threePutts)))}</b><span>3-putts</span></div>
-      </div>
-      <p class="mute small" style="margin:8px 0 0">${L.length} hole-by-hole round${L.length > 1 ? 's' : ''}; 9-hole rounds scaled to 18.</p>
-    </div>` : ''}
-    ${activityCard(ALL)}`;
+  el.innerHTML = hero.html + [
+    scoring,
+    area('driving', 'driving', 'Driving', verdict(radar, 'ott', read, hcp), driving),
+    area('approach', 'approach', 'Approach', [verdict(radar, 'appL', read, hcp).replace(/^/, '<b>Long:</b> '), verdict(radar, 'appW', read, hcp).replace(/^/, '<b>Wedges:</b> ')].filter((x) => !/<\/b> $/.test(x)).join('<br>'), approach),
+    area('short', 'short', 'Short game', verdict(radar, 'arg', read, hcp), short),
+    area('putting', 'putting', 'Putting', verdict(radar, 'putt', read, hcp), putting),
+    area('mind', 'mind', 'Mind', verdict(radar, 'head', read, hcp), mind),
+    year,
+  ].join('');
   el.onclick = (e) => {
     const b = e.target.closest('[data-radar-n]');
     if (b) {
@@ -301,7 +266,7 @@ export async function renderScoring(el) {
     if (ax) document.getElementById(`pg-${ax.dataset.goto}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 }
-const pct = (a, b) => (b ? `${Math.round((a / b) * 100)}%` : '–');
+
 
 /** Practice notes from the shot details of recent rounds: faults by shot type, and planned vs actual shape. */
 export async function practiceFromRounds() {
@@ -329,11 +294,15 @@ export async function practiceFromRounds() {
   if (rows.length) html += `<div class="card"><h2>From your rounds</h2><p class="mute small" style="margin:0 0 6px">Faults logged in shot details, last ${R.length} round${R.length > 1 ? 's' : ''}.</p>${rows.map(([t, b]) => `<div class="tend"><div><b>${esc(name[t] || t)}</b><div class="mute small">${Object.entries(b.codes).sort((a, z) => z[1] - a[1]).map(([k, v]) => `${esc(lab[k] || k)} ×${v}`).join(' · ')} <span class="mute">(of ${b.n})</span></div></div></div>`).join('')}</div>`;
   const sh = Object.entries(shape);
   if (sh.length) html += `<div class="card"><h2>Planned vs actual shape</h2>${sh.map(([k, s]) => `<div class="tend"><div><b>Planned ${k}: ${Math.round((s.ok / s.n) * 100)}% came off</b><div class="mute small">${s.n} shot${s.n > 1 ? 's' : ''}${Object.keys(s.got).length ? ` · instead: ${Object.entries(s.got).sort((a, z) => z[1] - a[1]).map(([g, v]) => `${esc(lab[g] || g)} ×${v}`).join(', ')}` : ''}</div></div></div>`).join('')}</div>`;
-  const G = R.filter((x) => x.G && x.G.complete >= Math.min(9, x.G.holes));
-  if (G.length) {
-    const avg = Object.fromEntries(['ott', 'app', 'arg', 'putt'].map((k) => [k, G.reduce((a, x) => a + x.G[k] * (18 / x.G.holes), 0) / G.length]));
-    const order = Object.entries(avg).sort((a, b) => a[1] - b[1]);
-    html = `<div class="card"><h2>Practice priority</h2><p class="mute small" style="margin:0 0 8px">From strokes gained, per 18 holes. Spend practice time in this order.</p>${order.map(([k, v], i) => `<div class="prio"><span class="pn">${i + 1}</span><b>${SG_LABELS[k]}</b><span class="${v < 0 ? 'bad' : 'goodc'}">${v >= 0 ? '+' : ''}${v.toFixed(1)}</span></div>`).join('')}</div>` + html;
+  const hcp = getSettings().handicap ?? 15;
+  const radar = skillRadar(R.filter((x) => !x.S.quick), { hcp });
+  const ok = radar.axes.filter((a) => a.enough && a.value != null).sort((a, b) => a.value - b.value);
+  if (ok.length >= 2) {
+    const ART_FOR = { ott: 'driving', appL: 'approach', appW: 'approach', arg: 'short', putt: 'putting', head: 'mind' };
+    const first = ok[0];
+    html = `<div class="card prio1"><div class="ah">${ART[ART_FOR[first.key]]}<div><small class="mute">Practise first</small><h2>${first.label}</h2><p>${Math.abs(first.value).toFixed(1)} strokes a round ${first.value < 0 ? 'worse' : 'better'} than a ${levelLabel(hcp)} golfer, your biggest gap in the last ${radar.n} rounds.</p></div></div>
+      <ol class="prio-list">${ok.slice(1).map((a) => `<li><b>${a.label}</b><span class="${a.value < -0.3 ? 'workc' : a.value > 0.3 ? 'goodc' : 'mute'}">${sgn(a.value)}</span></li>`).join('')}</ol>
+      <p class="mute small" style="margin:10px 0 0">Strokes a round against your level, from Your game in Progress. Practise in this order.</p></div>` + html;
   }
   return html;
 }
