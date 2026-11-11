@@ -14,6 +14,7 @@ import { WebView } from 'react-native-webview';
 import { BleManager } from 'react-native-ble-plx';
 import { File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
+import { pickForImport } from './pickfiles';
 
 const WEB_URL = 'https://cocopoppyhead.github.io/golf-app/?app=native';
 const LASER_CHAR = '3dd92622-b3cc-458b-9093-0e842dd41bcd';
@@ -23,7 +24,7 @@ const BG = '#0b1120';
 const ble = new BleManager();
 
 // Tells the web app it's inside the native shell (see src/native.js in the web app).
-const BOOT = `window.GolfNative = { platform: '${Platform.OS}', version: 1 }; true;`;
+const BOOT = `window.GolfNative = { platform: '${Platform.OS}', version: 2, caps: ['files.pick'] }; true;`;
 
 // The WebView's file chooser (swing video, scorecard photo) only offers the camera once the app
 // holds the camera permission, and on some phones shows nothing at all without it. Ask up front.
@@ -279,6 +280,11 @@ function Shell() {
     else if (msg.type === 'loop.config') { loopCfg.current = msg; Notifications.requestPermissionsAsync().catch(() => {}); }
     else if (msg.type === 'share.file') shareFile(msg);
     else if (msg.type === 'share.text') Share.share({ message: msg.text || '' }).catch(() => {});
+    else if (msg.type === 'files.pick') {
+      // Garmin export: golf scorecards (and an osolo export, or zips nested in the export) out of whatever was picked
+      const want = (n) => /SCORECARD_RAWDATA-\d+\.fit$/i.test(n) || /osolo-garmin.*\.json$/i.test(n) || /\.zip$/i.test(n);
+      pickForImport(want).then((r) => send({ type: 'files.picked', id: msg.id, ...r })).catch((e) => send({ type: 'files.picked', id: msg.id, error: e?.message || String(e), files: [] }));
+    }
     else if (msg.type === 'open.url' && /^https?:\/\//.test(msg.url || '')) Linking.openURL(msg.url).catch(() => {});
   }, [laserConnect, laserScan, laserDisconnect, shareFile]);
 

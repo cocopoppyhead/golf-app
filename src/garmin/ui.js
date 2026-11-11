@@ -7,6 +7,7 @@ import { readZipEntries } from './zip.js';
 import { listCourses, putCourse, listRounds, putRound } from '../store.js';
 import { loadLibrary, importCourse } from '../rounds/library.js';
 import { icon } from '../icons.js';
+import { nativeSend, onNative } from '../native.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
@@ -34,7 +35,17 @@ export function garminSheet({ toast = () => {}, onImported = () => {} } = {}) {
     q('[data-out]').innerHTML = `<b>Imported ${r.added} round${r.added === 1 ? '' : 's'}</b>${r.skipped ? ` (${r.skipped} already here)` : ''}${r.newCourses.length ? ` · new courses: ${r.newCourses.map(esc).join(', ')}` : ''}${r.shots ? ` · ${r.shots} tracked shots` : ''}${r.failed ? ` · ${r.failed} file${r.failed > 1 ? 's' : ''} couldn't be read` : ''}.`;
     toast(`Garmin: ${r.added} rounds imported`); onImported(r);
   };
-  q('[data-pickmany]').onclick = () => {
+  q('[data-pickmany]').onclick = async () => {
+    if (window.GolfNative?.caps?.includes('files.pick')) { // the Android app: the system picker, zip-aware
+      q('[data-out]').textContent = 'Choose the Garmin zip (or the DI-GOLF files)…';
+      try {
+        const files = await nativePick();
+        if (!files) { q('[data-out]').textContent = ''; return; }
+        q('[data-out]').textContent = 'Reading your Garmin files…';
+        report(await importGarminFiles(files));
+      } catch (e) { q('[data-out]').textContent = e.message || String(e); }
+      return;
+    }
     const inp = document.createElement('input'); inp.type = 'file'; inp.multiple = true; inp.style.cssText = 'position:absolute;width:1px;height:1px;opacity:0';
     document.body.appendChild(inp);
     inp.onchange = async () => {
@@ -60,6 +71,22 @@ export function garminSheet({ toast = () => {}, onImported = () => {} } = {}) {
     inp.click();
   };
   document.body.appendChild(sheet);
+}
+
+/** Ask the Android shell to pick files; it returns golf entries (still deflated when they came from a zip). */
+async function nativePick() {
+  const id = Math.random().toString(36).slice(2);
+  const r = await new Promise((resolve) => { const off = onNative('files.picked', (m) => { if (m.id === id) { off(); resolve(m); } }); nativeSend({ type: 'files.pick', id }); });
+  if (r.error) throw new Error(r.error);
+  if (r.canceled) return null;
+  const out = [];
+  for (const f of r.files || []) {
+    const raw = Uint8Array.from(atob(f.b64), (c) => c.charCodeAt(0));
+    const bytes = f.method === 8 ? await new Response(new Blob([raw]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).arrayBuffer() : raw;
+    out.push(new File([bytes], f.name));
+  }
+  if (!out.length) throw new Error(r.skipped?.length ? `Too large to read: ${r.skipped.join(', ')}` : 'No golf scorecards in what you picked. Choose the Garmin export zip, or the files in DI_CONNECT/DI-GOLF.');
+  return out;
 }
 
 /**
