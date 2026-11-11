@@ -46,7 +46,7 @@ export async function postScore(courseId, pre = {}) {
     q('#psDiff').textContent = sc && c ? `${sc} on ${c.name}${c.tees ? ` (${c.tees})` : ''}${d != null ? ` · differential ${d.toFixed(1)}` : x.holesPlayed === 9 ? ' · 9-hole scores don\'t count toward the index here' : ''}` : '';
   };
   q('[data-x=back]').onclick = api.home;
-  q('[data-x=library]').onclick = () => openLibrary({ toast: api.ctx.toast, onPicked: (c) => postScore(c?.id, { ...pre, ...read(), courseId: c?.id }) });
+  q('[data-x=library]').onclick = () => openLibrary({ pickTee: true, toast: api.ctx.toast, onPicked: (c) => postScore(c?.id, { ...pre, ...read(), courseId: c?.id }) });
   const read = () => ({ courseId: q('#psCourse')?.value, date: q('#psDate').value, score: q('#psScore').value, putts: q('#psPutts').value, holesPlayed: x.holesPlayed });
   q('#psCourse')?.addEventListener('change', () => postScore(q('#psCourse').value, { ...pre, ...read() }));
   api.root.querySelectorAll('[data-h]').forEach((b) => b.onclick = () => { x.holesPlayed = +b.dataset.h; api.root.querySelectorAll('[data-h]').forEach((k) => k.classList.toggle('on', k === b)); showDiff(); });
@@ -98,7 +98,7 @@ export async function importCard(courseId, when = null) {
       ${sel ? `<button type="button" class="btn primary big" id="cardBtn" style="margin-top:10px">${icon('camera')} Take or choose photo</button><input type="file" accept="image/*" id="cardPhoto" style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none" />` : ''}
     </div>`;
   api.root.querySelector('[data-x=back]').onclick = api.home;
-  api.root.querySelector('[data-x=library]').onclick = () => openLibrary({ toast: api.ctx.toast, onPicked: (c) => importCard(c?.id, api.root.querySelector('#impDate')?.value) });
+  api.root.querySelector('[data-x=library]').onclick = () => openLibrary({ pickTee: true, toast: api.ctx.toast, onPicked: (c) => importCard(c?.id, api.root.querySelector('#impDate')?.value) });
   api.root.querySelector('#impCourse')?.addEventListener('change', (e) => importCard(e.target.value, api.root.querySelector('#impDate').value));
   api.root.querySelector('#cardBtn')?.addEventListener('click', () => api.root.querySelector('#cardPhoto').click());
   api.root.querySelector('#cardPhoto')?.addEventListener('change', async (e) => {

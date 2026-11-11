@@ -13,13 +13,12 @@ export async function boot(page, { bag = BAG } = {}) {
   await page.waitForSelector('nav button[data-tab=rounds]');
 }
 
-/** Pick a library course (first result for `query`), second tee, and land on its course page. */
+/** Pick a library course (first result for `query`) and land on its course page. */
 export async function addCourse(page, query) {
   await page.click('nav button[data-tab=rounds]');
   await page.click('[data-act=library]');
   await page.fill('#libQ', query);
   await page.click('.libitem');
-  await page.click('.tee >> nth=1');
   await page.waitForSelector('.chero');
 }
 

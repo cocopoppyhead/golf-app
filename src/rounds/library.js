@@ -45,7 +45,7 @@ export async function importCourse(lib, tee) {
 }
 
 /** Full-screen picker: search UAE courses (nearest first if location allowed), then pick tees. */
-export async function openLibrary({ onPicked = () => {}, toast = () => {} } = {}) {
+export async function openLibrary({ onPicked = () => {}, toast = () => {}, pickTee = false } = {}) {
   const lib = (await loadLibrary()).filter((c) => Array.isArray(c.par) && c.par.some(Boolean));
   if (!lib.length) return toast('Course list not available. Check your connection.');
   let q = '', here = null, chosen = null, em = '';
@@ -69,7 +69,7 @@ export async function openLibrary({ onPicked = () => {}, toast = () => {} } = {}
       lastRank = r;
       const par = c.par.reduce((a, b) => a + (b || 0), 0);
       const d = here && c.lat ? ` · ${km(here, c).toFixed(km(here, c) < 10 ? 1 : 0)} km` : '';
-      return `${head}<div class="librow"><button class="libitem" data-id="${esc(c.id)}">${badgeHtml(c.name, c.logo, { cls: 'libbadge' })}<span class="libtext"><b>${r === 0 ? `${icon('home', 14)} ` : ''}${esc(c.name)}</b><span class="mute small">${esc(c.emirate)} · ${c.holes} holes · par ${par}${d}</span></span></button><button class="star ${st.has(c.id) ? 'on' : ''}" data-star="${esc(c.id)}" aria-label="Star">${st.has(c.id) ? '★' : '☆'}</button></div>`;
+      return `${head}<div class="librow"><button class="libitem" data-id="${esc(c.id)}">${badgeHtml(c.name, c.logo, { cls: 'libbadge' })}<span class="libtext"><b>${r === 0 ? `${icon('home', 14)} ` : ''}${esc(c.name)}</b><span class="mute small">${esc(c.emirate)} · ${c.holes} holes · par ${par}${d}</span></span><span class="mute">›</span></button></div>`;
     }).join('') || '<p class="mute">No match. Use "+ Course" to add it by hand.</p>';
   };
 
@@ -110,8 +110,15 @@ export async function openLibrary({ onPicked = () => {}, toast = () => {} } = {}
     bind();
   };
   const bind = () => {
-    el.querySelectorAll('.libitem').forEach((b) => (b.onclick = () => { chosen = lib.find((c) => c.id === b.dataset.id); draw(); }));
-    el.querySelectorAll('[data-star]').forEach((b) => (b.onclick = (e) => { e.stopPropagation(); toggleStar(b.dataset.star); el.querySelector('.liblist').innerHTML = list(); bind(); }));
+    el.querySelectorAll('.libitem').forEach((b) => (b.onclick = async () => {
+      const c = lib.find((x) => x.id === b.dataset.id);
+      if (pickTee) { chosen = c; draw(); return; }
+      // Play: straight to the course page. Reuse a version you already have; otherwise add it with its first
+      // published tee (more tees can be added on the course page, and the start sheet asks which you're playing).
+      const mine = (await listCourses().catch(() => [])).find((x) => x.libId === c.id);
+      const course = mine || await importCourse(c, c.tees?.[0] || null);
+      close(); onPicked(course);
+    }));
   };
   draw();
 }
