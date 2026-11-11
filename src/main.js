@@ -29,6 +29,7 @@ import { listRounds, getCourse, listSessions } from './store.js';
 import { renderDrillsCard, drillContext, loadDrills, faultDrills, drillCardsHtml, bindDrillCards, drillMenuForAi, drillsLoaded } from './drills.js';
 
 import { initSettingsUi, fillSettings, applyTheme } from './settingsui.js';
+import { garminSheet } from './garmin/ui.js';
 export { applyTheme } from './settingsui.js';
 import { maybeOnboard, avatarHtml, localProfile, openProfileEditor } from './onboarding.js';
 import { startSync } from './cloud/sync.js';
@@ -887,6 +888,7 @@ $('#exportBtn2').onclick = async () => {
   if (isNative()) return nativeSend({ type: 'share.file', name, mime: 'application/json', b64: await blobToBase64(blob) });
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; a.click();
 };
+$('#garminBtn').onclick = () => garminSheet({ toast, onImported: () => { renderRecent(); window.dispatchEvent(new Event('golf-synced')); } });
 $('#importFile').addEventListener('change', async (e) => {
   const f = e.target.files?.[0]; e.target.value = ''; if (!f) return;
   try {
