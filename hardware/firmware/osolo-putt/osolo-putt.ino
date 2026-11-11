@@ -1,0 +1,188 @@
+// osolo putt sensor, firmware v0 — Seeed XIAO nRF52840 Sense in the grip-end pod.
+//
+// What it does: watches the LSM6DS3 IMU for a putting stroke (back, reversal, through) that ends in an
+// impact, and broadcasts one BLE advertisement per putt with the tempo, the face rotation through the
+// downswing and the impact strength. No connection, no pairing: the phone scans and reads the packet.
+// A heartbeat advertisement every second carries the last event and the battery, so a missed packet
+// can be picked up late (the phone de-duplicates by sequence number).
+//
+// Axes: the board lies flat on the grip end, so the board's Z axis is the shaft axis (face rotation =
+// gyro Z) and the stroke is a rotation about an axis in the board's X–Y plane. Which in-plane axis
+// depends on how the pod was twisted on, so the stroke axis is learnt from the first 100 ms of each
+// stroke rather than assumed.
+//
+// Serial (USB) when plugged in: prints one JSON line per event; send 'r' to stream raw samples
+// (for tuning the thresholds against video), 's' to stop.
+//
+// Build: arduino-cli compile --fqbn Seeeduino:nrf52:xiaonRF52840Sense (library: Seeed Arduino LSM6DS3).
+// Flash: double-tap the reset button, drag the .uf2 onto the XIAO-SENSE drive.
+#include <bluefruit.h>
+#include <LSM6DS3.h>
+#include <Wire.h>
+
+// ---- tuning ----
+static const uint16_t ODR_HZ = 208;            // IMU sample rate while awake
+static const float    STROKE_START_DPS = 25.f; // in-plane angular rate that begins a stroke
+static const float    STROKE_MIN_PEAK_DPS = 40.f; // backswing must reach this
+static const float    IMPACT_G = 1.8f;         // high-passed |accel| spike that counts as a hit (g)
+static const uint32_t BACK_MIN_MS = 200, BACK_MAX_MS = 2500;
+static const uint32_t DOWN_MIN_MS = 120, DOWN_MAX_MS = 1200;
+static const uint32_t IMPACT_WINDOW_MS = 700;  // impact must follow the reversal within this
+static const uint32_t DEBOUNCE_MS = 1500;      // one putt per this
+static const uint32_t IDLE_AFTER_MS = 120000;  // no motion for this long → low-rate polling
+static const uint16_t ADV_FAST_MS = 20, ADV_SLOW_MS = 1000, ADV_FAST_SEC = 3;
+
+// ---- state ----
+LSM6DS3 imu(I2C_MODE, 0x6A);
+enum Phase { IDLE, BACK, DOWN };
+Phase phase = IDLE;
+float ux = 1, uy = 0;              // learnt stroke axis (unit vector in the X–Y plane)
+float axisAccX = 0, axisAccY = 0; int axisN = 0;
+uint32_t tStart = 0, tRev = 0, lastEvent = 0, lastMotion = 0;
+float peakBack = 0, faceRot = 0, peakImpact = 0, lpMag = 1.0f;
+bool rawStream = false, sleepy = false;
+uint8_t seq = 0;
+
+struct __attribute__((packed)) Event {
+  uint8_t magic0, magic1;  // 'o','p'
+  uint8_t ver;             // 0
+  uint8_t seq;             // wraps
+  uint8_t flags;           // bit0 fresh (set during the fast burst), bit1 charging
+  uint8_t backTenths;      // backswing ms / 10 (0–255 → 0–2.55 s)
+  uint8_t downTenths;      // downswing ms / 10
+  int16_t faceDeciDeg;     // face rotation top→impact, ×10, + = closing (clockwise about shaft, right-hander opens/closes sign to be calibrated)
+  uint8_t impactDeciG;     // peak high-passed accel ×10
+  uint8_t battPct;         // 0–100
+} ev = { 'o', 'p', 0, 0, 0, 0, 0, 0, 0, 100 };
+
+// ---- battery ----
+uint8_t batteryPct() {
+  digitalWrite(VBAT_ENABLE, LOW);
+  delayMicroseconds(50);
+  analogReference(AR_INTERNAL_3_0); analogReadResolution(12);
+  uint32_t raw = 0; for (int i = 0; i < 8; i++) raw += analogRead(PIN_VBAT); raw /= 8;
+  digitalWrite(VBAT_ENABLE, HIGH);
+  float v = raw * (3.0f / 4096.0f) * (1510.0f / 510.0f); // 1 M / 510 k divider
+  float pct = (v - 3.5f) / (4.15f - 3.5f) * 100.f;
+  return (uint8_t)constrain(pct, 0.f, 100.f);
+}
+
+// ---- advertising ----
+void advertise(bool fresh) {
+  ev.flags = (fresh ? 1 : 0) | (digitalRead(PIN_CHARGING_CURRENT) == LOW ? 0 : 0);
+  Bluefruit.Advertising.stop();
+  Bluefruit.Advertising.clearData();
+  Bluefruit.Advertising.addFlags(BLE_GAP_ADV_FLAG_LE_GENERAL_DISC_MODE | BLE_GAP_ADV_FLAG_BR_EDR_NOT_SUPPORTED);
+  uint8_t mfr[2 + sizeof(Event)];
+  mfr[0] = 0xFF; mfr[1] = 0xFF; // company id 0xFFFF = development / unregistered
+  memcpy(mfr + 2, &ev, sizeof(Event));
+  Bluefruit.Advertising.addManufacturerData(mfr, sizeof(mfr));
+  Bluefruit.Advertising.addName();
+  Bluefruit.Advertising.setType(BLE_GAP_ADV_TYPE_NONCONNECTABLE_SCANNABLE_UNDIRECTED);
+  Bluefruit.Advertising.setIntervalMS(fresh ? ADV_FAST_MS : ADV_SLOW_MS, ADV_SLOW_MS);
+  Bluefruit.Advertising.setFastTimeout(fresh ? ADV_FAST_SEC : 0);
+  Bluefruit.Advertising.start(0);
+}
+
+// ---- IMU modes ----
+void imuAwake() {
+  imu.settings.accelSampleRate = ODR_HZ; imu.settings.gyroSampleRate = ODR_HZ;
+  imu.settings.accelRange = 16; imu.settings.gyroRange = 1000;
+  imu.settings.accelBandWidth = 100; imu.settings.gyroBandWidth = 100;
+  imu.settings.accelFifoEnabled = 0; imu.settings.gyroFifoEnabled = 0; imu.settings.tempEnabled = 0;
+  imu.begin();
+  sleepy = false;
+}
+void imuDrowsy() { // low rate, accel only: just enough to notice the putter being picked up
+  imu.writeRegister(LSM6DS3_ACC_GYRO_CTRL2_G, 0x00);   // gyro off
+  imu.writeRegister(LSM6DS3_ACC_GYRO_CTRL1_XL, 0x24);  // accel 26 Hz, ±16 g
+  sleepy = true;
+}
+
+void setup() {
+  pinMode(LED_GREEN, OUTPUT); digitalWrite(LED_GREEN, !LED_STATE_ON);
+  pinMode(LED_RED, OUTPUT); digitalWrite(LED_RED, !LED_STATE_ON);
+  pinMode(LED_BLUE, OUTPUT); digitalWrite(LED_BLUE, !LED_STATE_ON);
+  pinMode(VBAT_ENABLE, OUTPUT); digitalWrite(VBAT_ENABLE, HIGH);
+  pinMode(PIN_CHARGING_CURRENT, OUTPUT); digitalWrite(PIN_CHARGING_CURRENT, LOW); // 100 mA charge: fine for a 100 mAh cell at 1C
+  pinMode(PIN_LSM6DS3TR_C_POWER, OUTPUT); digitalWrite(PIN_LSM6DS3TR_C_POWER, HIGH);
+  delay(50);
+  Serial.begin(115200);
+  imuAwake();
+  Bluefruit.begin(0, 0);           // no connections at all
+  Bluefruit.setTxPower(0);
+  Bluefruit.setName("osolo");
+  Bluefruit.autoConnLed(false);
+  ev.battPct = batteryPct();
+  advertise(false);
+  lastMotion = millis();
+}
+
+static inline void emit(uint32_t now) {
+  uint32_t back = tRev - tStart, down = now - tRev;
+  ev.seq = ++seq;
+  ev.backTenths = (uint8_t)min<uint32_t>(back / 10, 255);
+  ev.downTenths = (uint8_t)min<uint32_t>(down / 10, 255);
+  ev.faceDeciDeg = (int16_t)constrain(faceRot * 10.f, -3000.f, 3000.f);
+  ev.impactDeciG = (uint8_t)min(peakImpact * 10.f, 255.f);
+  ev.battPct = batteryPct();
+  advertise(true);
+  lastEvent = now;
+  digitalWrite(LED_GREEN, LED_STATE_ON);
+  if (Serial) {
+    Serial.print("{\"putt\":"); Serial.print(seq);
+    Serial.print(",\"back_ms\":"); Serial.print(back);
+    Serial.print(",\"down_ms\":"); Serial.print(down);
+    Serial.print(",\"face_deg\":"); Serial.print(faceRot, 1);
+    Serial.print(",\"impact_g\":"); Serial.print(peakImpact, 2);
+    Serial.print(",\"batt\":"); Serial.print(ev.battPct);
+    Serial.println("}");
+  }
+}
+
+void loop() {
+  if (Serial && Serial.available()) { char c = Serial.read(); if (c == 'r') rawStream = true; if (c == 's') rawStream = false; }
+  uint32_t now = millis();
+  if (sleepy) {
+    // drowsy: poll the accelerometer at ~10 Hz and wake on any real movement
+    float ax = imu.readFloatAccelX(), ay = imu.readFloatAccelY(), az = imu.readFloatAccelZ();
+    float mag = sqrtf(ax * ax + ay * ay + az * az);
+    if (fabsf(mag - 1.0f) > 0.15f) { imuAwake(); lastMotion = now; }
+    else { delay(100); return; }
+  }
+  float gx = imu.readFloatGyroX(), gy = imu.readFloatGyroY(), gz = imu.readFloatGyroZ();
+  float ax = imu.readFloatAccelX(), ay = imu.readFloatAccelY(), az = imu.readFloatAccelZ();
+  float mag = sqrtf(ax * ax + ay * ay + az * az);
+  lpMag += 0.08f * (mag - lpMag);
+  float hp = fabsf(mag - lpMag);                 // the impact shows up here as a short spike
+  float inplane = sqrtf(gx * gx + gy * gy);
+  if (inplane > STROKE_START_DPS || hp > 0.3f) lastMotion = now;
+  if (rawStream && Serial) { Serial.print(now); Serial.print(','); Serial.print(gx, 1); Serial.print(','); Serial.print(gy, 1); Serial.print(','); Serial.print(gz, 1); Serial.print(','); Serial.print(ax, 3); Serial.print(','); Serial.print(ay, 3); Serial.print(','); Serial.print(az, 3); Serial.print(','); Serial.println(hp, 3); }
+
+  switch (phase) {
+    case IDLE:
+      if (inplane > STROKE_START_DPS && now - lastEvent > DEBOUNCE_MS) {
+        phase = BACK; tStart = now; peakBack = 0; axisAccX = axisAccY = 0; axisN = 0;
+      }
+      break;
+    case BACK: {
+      if (axisN < (int)(ODR_HZ / 10)) { axisAccX += gx; axisAccY += gy; axisN++; float n = sqrtf(axisAccX * axisAccX + axisAccY * axisAccY); if (n > 1) { ux = axisAccX / n; uy = axisAccY / n; } }
+      float w = gx * ux + gy * uy;                 // signed rate about the learnt axis: + = going back
+      if (w > peakBack) peakBack = w;
+      if (now - tStart > BACK_MAX_MS) { phase = IDLE; break; }
+      if (peakBack >= STROKE_MIN_PEAK_DPS && w < -STROKE_START_DPS * 0.5f && now - tStart >= BACK_MIN_MS) { phase = DOWN; tRev = now; faceRot = 0; peakImpact = 0; }
+      break;
+    }
+    case DOWN: {
+      faceRot += gz / (float)ODR_HZ;                 // degrees of rotation about the shaft since the top
+      if (hp > peakImpact) peakImpact = hp;
+      uint32_t dt = now - tRev;
+      if (peakImpact >= IMPACT_G && dt >= DOWN_MIN_MS) { emit(now); phase = IDLE; break; }
+      if (dt > IMPACT_WINDOW_MS || dt > DOWN_MAX_MS) { phase = IDLE; break; }   // a practice stroke: no ball
+      break;
+    }
+  }
+  if (now - lastEvent > 150) digitalWrite(LED_GREEN, !LED_STATE_ON);
+  if (!sleepy && now - lastMotion > IDLE_AFTER_MS) { imuDrowsy(); ev.battPct = batteryPct(); advertise(false); }
+  delay(1000 / ODR_HZ);
+}
