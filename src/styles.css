@@ -29,10 +29,10 @@ html.native.android { --sat: 0px; }
 }
 :root[data-theme="hybrid"] {
   /* hybrid: the dark theme's page behind everything; cards, sheets, header, tabs, inputs and the hero band in the light theme */
-  --bg: #0b1120; --ink: #eef2fb; --mute: #8b97b3; --soft: #c9d1e0; --shadow: none;
+  --bg: #3b4660; --ink: #eef2fb; --mute: #b4bdd0; --soft: #d5dbe6; --shadow: none;
   --chrome: rgba(255,255,255,.97); --hero: #ffffff; --contour: .06;
 }
-:root[data-theme="hybrid"] :is(.card, .ccard, .hist, .sheet-in, .hero, header.top, nav.tabs, .tile, .ditem, .btn, input, select, textarea, .seg button, .seg4 button, .seg5 button, .zones button, .codes button, .segx button, .chips button, .chips3 button, .tabs2 button, .install, .tips, .recent, .setcard, .cue, .again, .toast, .lmtile, .scorebar, .onb-in) {
+:root[data-theme="hybrid"] :is(.card, .ccard, .hist, .sheet-in, .hero, header.top, nav.tabs, .tile, .ditem, .btn, input, select, textarea, .seg button, .seg4 button, .seg5 button, .zones button, .codes button, .segx button, .chips button, .chips3 button, .tabs2 button, .install, .tips, .recent, .setcard, .cue, .again, .toast, .lmtile, .scorebar, .libitem, .tee, .onb-in input, .emchips button) {
   --ink: #101828; --mute: #5d6b86; --soft: #344054; color: var(--ink);
 }
 :root[data-theme="hybrid"] :is(.btn.primary, .seg button.on, .seg4 button.on, .seg5 button.on, .codes button.on, .segx button.on, .tabs2 button.on) { color: var(--acc-ink); }
@@ -505,9 +505,10 @@ table.t5, table.dk { width: 100%; border-collapse: collapse; font-size: 13px; } 
 
 /* course cards, course page (rounds/course.js) */
 .ccard { display: grid; grid-template-columns: 56px 1fr auto; gap: 12px; align-items: center; padding: 8px; background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); margin-bottom: 8px; cursor: pointer; box-shadow: var(--shadow); }
-.ccard .cthumb { width: 56px; height: 56px; border-radius: 14px; display: grid; place-items: center; overflow: hidden; }
-.ccard .clogo { background: hsl(var(--h) 45% 32%); color: #fff; font: 700 21px var(--display); letter-spacing: .5px; }
-.ccard .clogo.haslogo { background: #fff; border: 1px solid var(--line); } .ccard .clogo img { width: 78%; height: 78%; object-fit: contain; }
+.clogo { width: 56px; height: 56px; border-radius: 14px; display: grid; place-items: center; overflow: hidden; flex: none; background: hsl(var(--h) 45% 32%); color: #fff; font: 700 21px var(--display); letter-spacing: .5px; }
+.clogo.haslogo { background: #fff; border: 1px solid var(--line); } .clogo img { width: 84%; height: 84%; object-fit: contain; }
+.libitem { display: flex !important; flex-direction: row !important; align-items: center; gap: 12px; } .libbadge { width: 44px; height: 44px; border-radius: 11px; font-size: 17px; } .libtext { display: flex; flex-direction: column; min-width: 0; }
+.emchips { display: flex; gap: 6px; overflow-x: auto; margin: 10px 0 0; } .emchips button { flex: none; background: var(--panel2); color: var(--ink); border: 1px solid var(--line); border-radius: 999px; padding: 7px 13px; font: 600 13px var(--text); } .emchips button.on { background: var(--acc); color: var(--acc-ink); border-color: var(--acc); }
 .ccard { padding: 10px 12px; } .cshowall { display: block; margin: 2px auto 8px; padding: 8px 12px; font-weight: 600; color: var(--acc); }
 .ccard .cbody { display: flex; flex-direction: column; gap: 2px; min-width: 0; } .ccard .cbody b { font-size: 15px; }
 .chero { position: relative; margin: -4px -16px 0; height: 220px; background: #1d2a1f; overflow: hidden; }

@@ -1,6 +1,7 @@
 // UAE course library: published scorecards (par, stroke index, yardage per tee, rating/slope)
 // bundled with the app, so a course is two taps instead of typing or photographing a card.
 import { putCourse, listCourses, getSettings, saveSettings } from '../store.js';
+import { badgeHtml } from './badge.js';
 import { icon } from '../icons.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -47,14 +48,15 @@ export async function importCourse(lib, tee) {
 export async function openLibrary({ onPicked = () => {}, toast = () => {} } = {}) {
   const lib = (await loadLibrary()).filter((c) => Array.isArray(c.par) && c.par.some(Boolean));
   if (!lib.length) return toast('Course list not available. Check your connection.');
-  let q = '', here = null, chosen = null;
+  let q = '', here = null, chosen = null, em = '';
+  const EMIRATES = [...new Set(lib.map((c) => c.emirate).filter(Boolean))];
   const el = document.createElement('div'); el.className = 'onb';
   document.body.appendChild(el);
   const close = () => el.remove();
 
   const list = () => {
     const f = q.trim().toLowerCase();
-    let rows = lib.filter((c) => !f || `${c.name} ${c.club} ${c.emirate}`.toLowerCase().includes(f));
+    let rows = lib.filter((c) => (!em || c.emirate === em) && (!f || `${c.name} ${c.club} ${c.emirate}`.toLowerCase().includes(f)));
     if (here) rows = rows.map((c) => ({ c, d: c.lat ? km(here, c) : 9e9 })).sort((a, b) => a.d - b.d).map((x) => x.c);
     // home course first, then your starred ones, then the rest
     const st = starred();
@@ -63,11 +65,11 @@ export async function openLibrary({ onPicked = () => {}, toast = () => {} } = {}
     let lastRank = -1;
     return rows.map((c) => {
       const r = rank(c);
-      const head = !f && r !== lastRank ? `<div class="libhead">${r === 0 ? 'Home course' : r === 1 ? 'Starred' : 'All UAE courses'}</div>` : '';
+      const head = !f && r !== lastRank ? `<div class="libhead">${r === 0 ? 'Home course' : r === 1 ? 'Starred' : em ? `${em} courses` : 'All UAE courses'}</div>` : '';
       lastRank = r;
       const par = c.par.reduce((a, b) => a + (b || 0), 0);
       const d = here && c.lat ? ` · ${km(here, c).toFixed(km(here, c) < 10 ? 1 : 0)} km` : '';
-      return `${head}<div class="librow"><button class="libitem" data-id="${esc(c.id)}"><b>${r === 0 ? `${icon('home', 14)} ` : ''}${esc(c.name)}</b><span class="mute small">${esc(c.emirate)} · ${c.holes} holes · par ${par}${d}</span></button><button class="star ${st.has(c.id) ? 'on' : ''}" data-star="${esc(c.id)}" aria-label="Star">${st.has(c.id) ? '★' : '☆'}</button></div>`;
+      return `${head}<div class="librow"><button class="libitem" data-id="${esc(c.id)}">${badgeHtml(c.name, c.logo, { cls: 'libbadge' })}<span class="libtext"><b>${r === 0 ? `${icon('home', 14)} ` : ''}${esc(c.name)}</b><span class="mute small">${esc(c.emirate)} · ${c.holes} holes · par ${par}${d}</span></span></button><button class="star ${st.has(c.id) ? 'on' : ''}" data-star="${esc(c.id)}" aria-label="Star">${st.has(c.id) ? '★' : '☆'}</button></div>`;
     }).join('') || '<p class="mute">No match. Use "+ Course" to add it by hand.</p>';
   };
 
@@ -94,10 +96,12 @@ export async function openLibrary({ onPicked = () => {}, toast = () => {} } = {}
     }
     el.innerHTML = `<div class="onb-in"><div class="onb-top"><b>UAE courses</b><button class="link" data-close>Close</button></div>
       <div class="onb-body"><input id="libQ" placeholder="Search courses" value="${esc(q)}" />
+      <div class="emchips" role="group" aria-label="Emirate">${['', ...EMIRATES].map((e) => `<button class="${em === e ? 'on' : ''}" data-em="${esc(e)}">${e || 'All'}</button>`).join('')}</div>
       ${here ? '' : `<button class="link acc" id="nearBtn" style="margin:10px 0 0">${icon('pin', 14)} Nearest first</button>`}
       <div class="liblist">${list()}</div>
       <p class="mute small" style="margin-top:12px">Scorecards from each club's published card. Course outlines © OpenStreetMap contributors.</p></div></div>`;
     el.querySelector('[data-close]').onclick = close;
+    el.querySelectorAll('[data-em]').forEach((b) => (b.onclick = () => { em = b.dataset.em; draw(); }));
     const qi = el.querySelector('#libQ');
     qi.oninput = () => { q = qi.value; el.querySelector('.liblist').innerHTML = list(); bind(); };
     el.querySelector('#nearBtn')?.addEventListener('click', () => navigator.geolocation?.getCurrentPosition(
