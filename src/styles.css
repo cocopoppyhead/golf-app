@@ -1,35 +1,35 @@
 :root { --sat: env(safe-area-inset-top); }
 /* the Android shell pads the status bar natively, so the page must not pad it again */
 html.native.android { --sat: 0px; }
-/* osolo design tokens — the yardage book. Dark = a night course; light = paper; hybrid = paper pages in a
-   fairway-green cover (green header, hero bands and tab bar). --chrome* colour the header, hero band and tabs. */
+/* osolo colour tokens. Dark (default) and light are the original palettes; hybrid = the light pages with the
+   dark navy header, hero band and tab bar. --chrome* colour the header, hero band and tabs. */
 :root {
-  --bg: #0D1813; --panel: #14231C; --panel2: #1A2C23; --line: #22372D;
-  --ink: #E7EDE6; --mute: #8EA396; --acc: #58B783; --acc-ink: #06200F;
-  --you: #F0C24A; --pro: #8FB8D8; --good: #58B783; --ok: #E0A93A; --work: #E06A4E;
-  --r: 18px;
-  --bar: rgba(13,24,19,.94); --soft: #C3D1C7; --t1: #1F3A2D; --t2: #1A3127; --t3: #162A21;
-  --par3: #17302F; --par5: #2B2A1E; --face1: #1E3329; --face2: #172A21; --shadow: none;
-  --chrome: rgba(13,24,19,.94); --chrome-ink: #E7EDE6; --chrome-mute: #8EA396; --chrome-line: #22372D; --chrome-acc: #58B783;
-  --hero: #14231C; --contour: .10;
-  --birdie: #58B783; --par: #3E6B54; --bogey: #8C7A52; --double: #E06A4E; --tick: #E7EDE6;
+  --bg: #0b1120; --panel: #121a2e; --panel2: #1a2440; --line: #26314f;
+  --ink: #eef2fb; --mute: #8b97b3; --acc: #3ddc84; --acc-ink: #04220f;
+  --you: #ffd23f; --pro: #ff4fa3; --good: #3ddc84; --ok: #ffad33; --work: #ff5a4f;
+  --r: 16px;
+  --bar: rgba(11,17,32,.94); --soft: #c9d1e0; --t1: #22325a; --t2: #1b2847; --t3: #16203a;
+  --par3: #22344a; --par5: #2c2440; --face1: #2a3552; --face2: #1d2640; --shadow: none;
+  --chrome: rgba(11,17,32,.94); --chrome-ink: #eef2fb; --chrome-mute: #8b97b3; --chrome-line: #26314f; --chrome-acc: #3ddc84; --chrome-you: #ffd23f; --chrome-work: #ff5a4f;
+  --hero: #121a2e; --contour: .10;
+  --birdie: #3ddc84; --par: #2b6b55; --bogey: #a8862e; --double: #ff5a4f; --tick: #eef2fb;
   --display: 'Barlow Condensed', 'Arial Narrow', system-ui, sans-serif; --text: Barlow, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
   color-scheme: dark;
 }
 :root[data-theme="light"], :root[data-theme="hybrid"] {
-  --bg: #E6EBE3; --panel: #F8F9F5; --panel2: #EBEFE7; --line: #D5DDD1;
-  --ink: #15281F; --mute: #5E7166; --acc: #256F49; --acc-ink: #ffffff;
-  --you: #B98A0C; --pro: #2F6FA3; --good: #256F49; --ok: #B7790F; --work: #B9472F;
-  --bar: rgba(248,249,245,.94); --soft: #2F4238; --t1: #CFE2D3; --t2: #DDEADF; --t3: #EAF2EB;
-  --par3: #DCE9EC; --par5: #ECE6D2; --face1: #E8EDE5; --face2: #D9E2D6; --shadow: none;
-  --chrome: rgba(248,249,245,.94); --chrome-ink: #15281F; --chrome-mute: #5E7166; --chrome-line: #D5DDD1; --chrome-acc: #256F49;
-  --hero: #F8F9F5; --contour: .07;
-  --birdie: #2F8A5B; --par: #9DBFA8; --bogey: #D9C79E; --double: #B9472F; --tick: #15281F;
+  --bg: #f3f5f9; --panel: #ffffff; --panel2: #edf1f7; --line: #dde3ee;
+  --ink: #101828; --mute: #5d6b86; --acc: #12a150; --acc-ink: #ffffff;
+  --you: #b88600; --pro: #d6177a; --good: #12a150; --ok: #d98200; --work: #e0362c;
+  --bar: rgba(255,255,255,.94); --soft: #344054; --t1: #d7e7ff; --t2: #e6efff; --t3: #f2f6ff;
+  --par3: #e3eefc; --par5: #efe6fb; --face1: #e9eef6; --face2: #d9e1ee; --shadow: 0 1px 3px rgba(16,24,40,.06);
+  --chrome: rgba(255,255,255,.94); --chrome-ink: #101828; --chrome-mute: #5d6b86; --chrome-line: #dde3ee; --chrome-acc: #12a150; --chrome-you: #b88600; --chrome-work: #e0362c;
+  --hero: #ffffff; --contour: .06;
+  --birdie: #12a150; --par: #9fd9b8; --bogey: #f2d38a; --double: #e0362c; --tick: #101828;
   color-scheme: light;
 }
 :root[data-theme="hybrid"] {
-  --chrome: #123A2C; --chrome-ink: #EEF4EE; --chrome-mute: #A3C2B0; --chrome-line: #2C5A47; --chrome-acc: #7FD3A2;
-  --hero: #123A2C; --contour: .12;
+  --chrome: #0b1120; --chrome-ink: #eef2fb; --chrome-mute: #8b97b3; --chrome-line: #26314f; --chrome-acc: #3ddc84; --chrome-you: #ffd23f; --chrome-work: #ff5a4f;
+  --hero: #0b1120; --contour: .12;
 }
 .card, .tile, .hist, .recent, .install { box-shadow: var(--shadow); }
 * { box-sizing: border-box; }
@@ -38,7 +38,7 @@ html, body { margin: 0; background: var(--bg); color: var(--ink); }
 body { font: 15px/1.5 var(--text); font-variant-numeric: tabular-nums; min-height: 100dvh; padding-bottom: calc(70px + env(safe-area-inset-bottom)); }
 header.top { position: sticky; top: 0; z-index: 5; color: var(--chrome-ink); background: var(--chrome); backdrop-filter: blur(8px); padding: calc(10px + var(--sat)) 16px 10px; border-bottom: 1px solid var(--chrome-line); }
 .brand { font: 700 20px var(--display); letter-spacing: .2px; display: flex; gap: 7px; align-items: center; } .brand .mute { color: var(--chrome-mute); } .brand #tabTitle { font-weight: 500; color: var(--chrome-mute); }
-.brand .logo { width: 17px; height: 17px; fill: none; stroke: var(--you); stroke-width: 2.3; stroke-linejoin: round; stroke-linecap: round; }
+.brand .logo { width: 17px; height: 17px; fill: none; stroke: var(--chrome-acc); stroke-width: 2.3; stroke-linejoin: round; stroke-linecap: round; }
 main { max-width: 640px; margin: 0 auto; padding: 14px 16px 24px; }
 .tab { display: none; } .tab.active { display: block; }
 .mute { color: var(--mute); } .small { font-size: 12.5px; } .center { text-align: center; }
@@ -72,8 +72,7 @@ h1 { font: 600 30px/1.05 var(--display); margin: 6px 0 8px; } h2 { font: 600 23p
 .chips i, .item i { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex: none; }
 select, input, textarea { background: var(--panel2); color: var(--ink); border: 1px solid var(--line); border-radius: 10px; padding: 10px; font: 500 15px var(--text); width: 100%; }
 .controls select { width: auto; }
-.card { background: var(--panel); border: 1px solid transparent; border-radius: var(--r); padding: 18px; margin: 12px 0; }
-:root:not([data-theme]) .card, :root[data-theme="dark"] .card { border-color: var(--line); }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); padding: 18px; margin: 12px 0; }
 .cp h3 { margin: 0 0 8px; font-size: 18px; display: flex; align-items: baseline; gap: 8px; } .cp h3 span { font-size: 12px; color: var(--mute); font-weight: 500; }
 .cp .head { display: grid; grid-template-columns: 1fr 1fr; font-size: 11.5px; font-weight: 800; letter-spacing: .06em; margin-bottom: 4px; }
 .cp .head .y { color: var(--you); } .cp .head .p { color: var(--pro); }
@@ -608,7 +607,7 @@ table.t5, table.dk { width: 100%; border-collapse: collapse; font-size: 13px; } 
 
 /* ---- Progress: hero band, areas, yardage-book drawings ---- */
 .hero { position: relative; overflow: hidden; background: var(--hero); color: var(--chrome-ink); border-radius: 24px; padding: 18px 20px 20px; margin: 4px 0 8px; }
-:root:not([data-theme]) .hero, :root[data-theme="dark"] .hero { border: 1px solid var(--line); }
+.hero { border: 1px solid var(--chrome-line); } :root[data-theme="hybrid"] .hero { border: 0; }
 :root[data-theme="hybrid"] .hero { margin: -14px -16px 8px; border-radius: 0 0 30px 30px; padding: 20px 22px 24px; }
 .hero .contour { position: absolute; inset: -30px -80px auto -80px; height: 330px; background: currentColor; opacity: var(--contour); -webkit-mask: var(--mask) center / cover no-repeat; mask: var(--mask) center / cover no-repeat; pointer-events: none; }
 .hero > * { position: relative; }
@@ -625,15 +624,15 @@ table.t5, table.dk { width: 100%; border-collapse: collapse; font-size: 13px; } 
 .hero .radar .rs { stroke: var(--chrome-line); }
 .hero .radar .rscratch { stroke: var(--chrome-mute); stroke-dasharray: 1.5 3; opacity: 1; }
 .hero .radar .rghost { fill: none; stroke: var(--you); opacity: .9; }
-:root[data-theme="hybrid"] .hero .radar .rghost { stroke: #F3C33C; }
+.hero .radar .rghost { stroke: var(--chrome-you); }
 .hero .radar .ryou { stroke: var(--chrome-acc); fill: color-mix(in srgb, var(--chrome-acc) 20%, transparent); stroke-width: 2.4; }
 .hero .radar .rdot { fill: var(--chrome-acc); stroke: none; }
 .hero .radar .rl { font: 600 15px var(--display); fill: var(--chrome-ink); } .hero .radar .rv { font: 700 15px var(--display); fill: var(--chrome-mute); }
 .hero .radar .rax.good .rv { fill: var(--chrome-acc); } .hero .radar .rax.work .rv { fill: var(--work); }
-:root[data-theme="hybrid"] .hero .radar .rax.work .rv { fill: #F29A7E; }
+.hero .radar .rax.work .rv { fill: var(--chrome-work); }
 .hero .legend { display: flex; justify-content: center; gap: 16px; font-size: 12.5px; color: var(--chrome-mute); }
 .hero .legend i { display: inline-block; width: 15px; border-top: 2px solid; vertical-align: middle; margin-right: 6px; }
-.lg-you { border-color: var(--chrome-acc) !important; } .lg-gh { border-color: var(--you) !important; border-top-style: dashed !important; } :root[data-theme="hybrid"] .lg-gh { border-color: #F3C33C !important; } .lg-scr { border-color: var(--chrome-mute) !important; border-top-style: dotted !important; }
+.lg-you { border-color: var(--chrome-acc) !important; } .lg-gh { border-color: var(--you) !important; border-top-style: dashed !important; } .hero .lg-gh { border-color: var(--chrome-you) !important; } .lg-scr { border-color: var(--chrome-mute) !important; border-top-style: dotted !important; }
 .hero .hstats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--chrome-line); }
 .hero .hstats b { display: block; font: 600 32px/1 var(--display); } .hero .hstats small { color: var(--chrome-mute); font-size: 12.5px; }
 
