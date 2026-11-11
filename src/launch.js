@@ -217,6 +217,7 @@ export async function launchClubHtml(club) {
  * apex), spin axis (else descent). Each carries its spread and a benchmark bar for the golfer's speed.
  * Tiles with nothing measured and nothing the model can give are left out.
  */
+const YD_PER_MPH_TXT = (kind) => ({ driver: 2, wood: 1.9, hybrid: 1.8, iron: 1.7, wedge: 1.5 })[kind] || 1.8;
 export function tilesHtml(q, club) {
   const B = benchmarks(club, q.clubSpeed?.avg);
   const metric = isMetric();
@@ -232,21 +233,24 @@ export function tilesHtml(q, club) {
     return `<i class="bar ${st}"><b style="left:${(( lo - min) / (max - min)) * 100}%;width:${(span / (max - min)) * 100}%"></b><u style="left:${x}%"></u></i>`;
   };
   const smashBar = (v) => { if (v == null) return ''; const lo = B.smash.low, hi = B.smash.flush + 0.02; return bar(v, lo, hi, { pad: 1 }); };
-  const T = [];
-  const tile = (label, value, unit, sub, barHtml, status = '') => T.push(`<div class="lmtile ${status}"><b>${value}<small>${unit}</small></b><span>${label}</span>${sub ? `<em>${sub}</em>` : ''}${barHtml}</div>`);
-  if (q.ballSpeed) tile('Ball speed', speed(q.ballSpeed.avg), speedU, `±${speed(q.ballSpeed.sd)}`, '');
-  if (q.smash) tile('Smash', q.smash.avg.toFixed(2), '', `±${q.smash.sd.toFixed(2)} · flush ${B.smash.flush.toFixed(2)}`, smashBar(q.smash.avg));
-  if (q.clubSpeed) tile('Club speed', speed(q.clubSpeed.avg), speedU, `±${speed(q.clubSpeed.sd)}`, '');
-  if (model || q.carry) tile(model ? 'Carry · model' : 'Carry', D(model ? model.carry : q.carry.avg), du() === 'y' ? 'yd' : 'm', model && q.carry ? `bay said ${D(q.carry.avg)}` : model ? 'premium ball, still air' : `±${D(q.carry.sd)} measured`, '', model && q.carry && q.carry.avg / model.carry < 0.9 ? 'low' : '');
-  if (q.launch) tile('Launch', q.launch.avg.toFixed(1), '°', `±${q.launch.sd.toFixed(1)} · ${B.launch[0]}–${B.launch[1]}°`, bar(q.launch.avg, B.launch[0], B.launch[1]));
-  if (q.backSpin) tile('Spin', Math.round(q.backSpin.avg).toLocaleString(), 'rpm', `±${Math.round(q.backSpin.sd)} · ${B.spin[0].toLocaleString()}–${B.spin[1].toLocaleString()}`, bar(q.backSpin.avg, B.spin[0], B.spin[1]));
-  if (q.attack) tile('Attack', `${q.attack.avg > 0 ? '+' : ''}${q.attack.avg.toFixed(1)}`, '°', `±${q.attack.sd.toFixed(1)} · ${B.attack[0] > 0 ? '+' : ''}${B.attack[0]} to ${B.attack[1] > 0 ? '+' : ''}${B.attack[1]}°`, bar(q.attack.avg, B.attack[0], B.attack[1], { pad: 1 }));
-  else if (q.apex || model) tile('Apex', D(q.apex ? q.apex.avg : model.apex), du() === 'y' ? 'yd' : 'm', q.apex ? `±${D(q.apex.sd)}` : 'model', '');
-  if (q.side && (q.side.n || 0) >= 3) { const bias = q.side.avg; tile('Dispersion', `±${D(q.side.sd)}`, du() === 'y' ? 'yd' : 'm', `${Math.abs(bias) >= 3 ? `${D(Math.abs(bias))} ${bias > 0 ? 'right' : 'left'} on average` : 'centred'}${q.carry?.sd ? ` · carry ±${D(q.carry.sd)}` : ''}`, bar(bias, -q.side.sd, q.side.sd, { pad: 1 })); }
-  else if (q.spinAxis) tile('Spin axis', `${q.spinAxis.avg > 0 ? '+' : ''}${q.spinAxis.avg.toFixed(1)}`, '°', `±${q.spinAxis.sd.toFixed(1)} · ${q.spinAxis.avg > 2 ? 'curves right' : q.spinAxis.avg < -2 ? 'curves left' : 'straight'}`, bar(q.spinAxis.avg, -4, 4, { pad: 1 }));
-  else if (q.descent || model) tile('Descent', (q.descent ? q.descent.avg : model.descent).toFixed(0), '°', q.descent ? `±${q.descent.sd.toFixed(0)}` : 'model', '');
+  const T = [], I = [];
+  // tile: value, one-word label, spread, bar. Everything else (windows, benchmarks, caveats) goes behind the ⓘ.
+  const tile = (label, value, unit, spread, barHtml, status = '', tag = '') => T.push(`<div class="lmtile ${status}"><b>${value}<small>${unit}</small></b><span>${label}</span>${spread ? `<em>±${spread}</em>` : tag ? `<em class="tag">${tag}</em>` : ''}${barHtml}</div>`);
+  const info = (label, text) => I.push(`<div><b>${label}</b><span>${text}</span></div>`);
+  if (q.ballSpeed) { tile('Ball', speed(q.ballSpeed.avg), speedU, speed(q.ballSpeed.sd), ''); info('Ball speed', `How fast the ball leaves the face. The single biggest driver of distance: about ${YD_PER_MPH_TXT(B.kind)} yd per mph.`); }
+  if (q.smash) { tile('Smash', q.smash.avg.toFixed(2), '', q.smash.sd.toFixed(2), smashBar(q.smash.avg)); info('Smash', `Ball speed ÷ club speed, i.e. strike quality. Flush with this club is about ${B.smash.flush.toFixed(2)}; under ${B.smash.low.toFixed(2)} the strike is costing you. The bar runs from ${B.smash.low.toFixed(2)} to flush.`); }
+  if (q.clubSpeed) { tile('Club', speed(q.clubSpeed.avg), speedU, speed(q.clubSpeed.sd), ''); info('Club speed', 'Clubhead speed at impact. Adding speed helps only once the strike is consistent.'); }
+  if (model || q.carry) { tile('Carry', D(model ? model.carry : q.carry.avg), du() === 'y' ? 'yd' : 'm', !model && q.carry ? D(q.carry.sd) : '', '', '', model ? 'model' : ''); info('Carry', model ? `What those speeds, launch and spin should fly with a premium ball in still air at 15 °C, from the flight model.${q.carry ? ` The bay said ${D(q.carry.avg)}${q.range ? ' with range balls' : ''}${q.carry.avg / model.carry < 0.9 ? ' — short of what the numbers say, so trust the speeds here, not the distance' : ''}.` : ''}` : `The carry the bay measured${q.range ? ' with range balls, so treat it as low' : ''}.`); }
+  if (q.launch) { tile('Launch', q.launch.avg.toFixed(1), '°', q.launch.sd.toFixed(1), bar(q.launch.avg, B.launch[0], B.launch[1])); info('Launch', `Angle the ball leaves at. For your speed the window is ${B.launch[0]}–${B.launch[1]}°; the bar shows it, the dot is you.`); }
+  if (q.backSpin) { tile('Spin', Math.round(q.backSpin.avg).toLocaleString(), 'rpm', Math.round(q.backSpin.sd), bar(q.backSpin.avg, B.spin[0], B.spin[1])); info('Spin', `Backspin. Window for your speed: ${B.spin[0].toLocaleString()}–${B.spin[1].toLocaleString()} rpm. Too much balloons and costs carry; too little drops out of the air.${q.range ? ' Range balls spin low and erratically — confirm with a premium ball.' : ''}`); }
+  if (q.attack) { tile('Attack', `${q.attack.avg > 0 ? '+' : ''}${q.attack.avg.toFixed(1)}`, '°', q.attack.sd.toFixed(1), bar(q.attack.avg, B.attack[0], B.attack[1], { pad: 1 })); info('Attack angle', `Up (+) or down (−) through impact. Window for this club: ${B.attack[0] > 0 ? '+' : ''}${B.attack[0]} to ${B.attack[1] > 0 ? '+' : ''}${B.attack[1]}°.`); }
+  else if (q.apex || model) { tile('Apex', D(q.apex ? q.apex.avg : model.apex), du() === 'y' ? 'yd' : 'm', q.apex ? D(q.apex.sd) : '', '', '', q.apex ? '' : 'model'); info('Apex', q.apex ? 'Peak height the bay measured.' : 'Peak height from the flight model.'); }
+  if (q.side && (q.side.n || 0) >= 3) { const bias = q.side.avg; tile('Spread', `±${D(q.side.sd)}`, du() === 'y' ? 'yd' : 'm', '', bar(bias, -q.side.sd, q.side.sd, { pad: 1 })); info('Spread', `Left–right dispersion: two in three shots finish within ±${D(q.side.sd)} ${du() === 'y' ? 'yd' : 'm'} of your average line${Math.abs(bias) >= 3 ? `, which is ${D(Math.abs(bias))} ${bias > 0 ? 'right' : 'left'} of target` : ', which is on target'}${q.carry?.sd ? `. Carry spread ±${D(q.carry.sd)}` : ''}. The dot is your average miss.`); }
+  else if (q.spinAxis) { tile('Axis', `${q.spinAxis.avg > 0 ? '+' : ''}${q.spinAxis.avg.toFixed(1)}`, '°', q.spinAxis.sd.toFixed(1), bar(q.spinAxis.avg, -4, 4, { pad: 1 })); info('Spin axis', `Tilt of the spin: positive curves right, negative left. ${Math.abs(q.spinAxis.avg) > 2 ? `Yours is a consistent ${q.spinAxis.avg > 0 ? 'fade/slice' : 'draw/hook'} pattern.` : 'Yours is close to straight.'}`); }
+  else if (q.descent || model) { tile('Descent', (q.descent ? q.descent.avg : model.descent).toFixed(0), '°', q.descent ? q.descent.sd.toFixed(0) : '', '', '', q.descent ? '' : 'model'); info('Descent', `Landing angle${q.descent ? '' : ' from the flight model'}: steeper stops faster, shallower runs out.`); }
   if (!T.length) return '';
-  return `<div class="lmtiles">${T.join('')}</div><p class="mute small" style="margin:-2px 0 8px">Bars: the window for your speed; the dot is you. Speeds in ${speedU}.</p>`;
+  return `<div class="lmtiles">${T.join('')}</div>
+    <details class="lminfo"><summary>${icon('info', 14)} What these numbers mean</summary><div class="lminfo-in"><p class="mute small">Speeds in ${speedU}. Bars show the window for your club speed; the dot is you (red when outside). ± is the shot-to-shot spread.</p>${I.join('')}</div></details>`;
 }
 
 /** Session by session for one club (latest first) with a sparkline per metric, once there are two sessions. */
