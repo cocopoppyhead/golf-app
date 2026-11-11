@@ -31,7 +31,7 @@ static const uint32_t BACK_MIN_MS = 200, BACK_MAX_MS = 2500;
 static const uint32_t DOWN_MIN_MS = 120, DOWN_MAX_MS = 1200;
 static const uint32_t IMPACT_WINDOW_MS = 700;  // impact must follow the reversal within this
 static const uint32_t DEBOUNCE_MS = 1500;      // one putt per this
-static const uint32_t IDLE_AFTER_MS = 120000;  // no motion for this long → low-rate polling
+static const uint32_t IDLE_AFTER_MS = 60000;   // no motion for this long → deep sleep until the IMU wakes us
 static const uint16_t ADV_FAST_MS = 20, ADV_SLOW_MS = 1000, ADV_FAST_SEC = 3;
 
 // ---- state ----
@@ -89,7 +89,13 @@ void advertise(bool fresh) {
 }
 
 // ---- IMU modes ----
+// Deep sleep (v1): the IMU watches for motion on its own at 12.5 Hz in low-power mode (~10 µA) and
+// pulses INT1 when the putter moves; the nRF52 waits on that pin with the radio off. Nothing polls.
+SemaphoreHandle_t wakeSem;
+void onImuWake() { BaseType_t hp = pdFALSE; xSemaphoreGiveFromISR(wakeSem, &hp); portYIELD_FROM_ISR(hp); }
+
 void imuAwake() {
+  imu.writeRegister(LSM6DS3_ACC_GYRO_MD1_CFG, 0x00);   // stop routing wake-up to INT1
   imu.settings.accelSampleRate = ODR_HZ; imu.settings.gyroSampleRate = ODR_HZ;
   imu.settings.accelRange = 16; imu.settings.gyroRange = 1000;
   imu.settings.accelBandWidth = 100; imu.settings.gyroBandWidth = 100;
@@ -97,9 +103,14 @@ void imuAwake() {
   imu.begin();
   sleepy = false;
 }
-void imuDrowsy() { // low rate, accel only: just enough to notice the putter being picked up
-  imu.writeRegister(LSM6DS3_ACC_GYRO_CTRL2_G, 0x00);   // gyro off
-  imu.writeRegister(LSM6DS3_ACC_GYRO_CTRL1_XL, 0x24);  // accel 26 Hz, ±16 g
+void imuDrowsy() {
+  imu.writeRegister(LSM6DS3_ACC_GYRO_CTRL2_G, 0x00);       // gyro off
+  imu.writeRegister(LSM6DS3_ACC_GYRO_CTRL1_XL, 0x10);      // accel 12.5 Hz, ±2 g
+  imu.writeRegister(LSM6DS3_ACC_GYRO_CTRL6_C, 0x10);       // accel high-performance off → low-power mode
+  imu.writeRegister(LSM6DS3_ACC_GYRO_WAKE_UP_DUR, 0x00);
+  imu.writeRegister(LSM6DS3_ACC_GYRO_WAKE_UP_THS, 0x03);   // 3 × 2 g/64 ≈ 0.09 g of change wakes it
+  imu.writeRegister(LSM6DS3_ACC_GYRO_TAP_CFG1, 0x90);      // interrupts on, slope filter, pulsed (not latched)
+  imu.writeRegister(LSM6DS3_ACC_GYRO_MD1_CFG, 0x20);       // wake-up → INT1
   sleepy = true;
 }
 
@@ -112,6 +123,9 @@ void setup() {
   pinMode(PIN_LSM6DS3TR_C_POWER, OUTPUT); digitalWrite(PIN_LSM6DS3TR_C_POWER, HIGH);
   delay(50);
   Serial.begin(115200);
+  wakeSem = xSemaphoreCreateBinary();
+  pinMode(PIN_LSM6DS3TR_C_INT1, INPUT_PULLDOWN);
+  attachInterrupt(digitalPinToInterrupt(PIN_LSM6DS3TR_C_INT1), onImuWake, RISING);
   imuAwake();
   Bluefruit.begin(1, 0);           // one central may connect (practice mode)
   Bluefruit.setTxPower(0);
@@ -151,11 +165,13 @@ void loop() {
   uint32_t now = millis();
   if (linked) lastMotion = now; // never doze while a practice session is connected
   if (sleepy) {
-    // drowsy: poll the accelerometer at ~10 Hz and wake on any real movement
-    float ax = imu.readFloatAccelX(), ay = imu.readFloatAccelY(), az = imu.readFloatAccelZ();
-    float mag = sqrtf(ax * ax + ay * ay + az * az);
-    if (fabsf(mag - 1.0f) > 0.15f) { imuAwake(); lastMotion = now; }
-    else { delay(100); return; }
+    // asleep: radio off, CPU parked in the RTOS idle (System ON, ~µA) until the IMU's INT1 fires
+    Bluefruit.Advertising.stop();
+    xSemaphoreTake(wakeSem, 0);                      // drop any stale wake
+    xSemaphoreTake(wakeSem, portMAX_DELAY);
+    imuAwake(); lastMotion = lastEvent = millis(); lpMag = 1.0f; phase = IDLE;
+    ev.battPct = batteryPct(); advertise(false);
+    return;
   }
   float gx = imu.readFloatGyroX(), gy = imu.readFloatGyroY(), gz = imu.readFloatGyroZ();
   float ax = imu.readFloatAccelX(), ay = imu.readFloatAccelY(), az = imu.readFloatAccelZ();
@@ -195,6 +211,6 @@ void loop() {
     }
   }
   if (now - lastEvent > 150) digitalWrite(LED_GREEN, !LED_STATE_ON);
-  if (!sleepy && now - lastMotion > IDLE_AFTER_MS) { imuDrowsy(); ev.battPct = batteryPct(); advertise(false); }
+  if (!sleepy && !linked && !Serial && now - lastMotion > IDLE_AFTER_MS) imuDrowsy();
   delay(1000 / ODR_HZ);
 }
