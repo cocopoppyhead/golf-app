@@ -101,7 +101,7 @@ export function applyTheme(t = api.settings.theme || 'dark') {
   const mq = matchMedia('(prefers-color-scheme: light)');
   const real = t === 'system' ? (mq.matches ? 'light' : 'dark') : t;
   document.documentElement.dataset.theme = real;
-  document.querySelector('meta[name=theme-color]')?.setAttribute('content', { light: '#f3f5f9', hybrid: '#0b1120' }[real] || '#0b1120');
+  document.querySelector('meta[name=theme-color]')?.setAttribute('content', { light: '#f3f5f9', hybrid: '#ffffff' }[real] || '#0b1120');
   mq.onchange = () => (api.settings.theme === 'system' ? applyTheme('system') : null);
 }
 

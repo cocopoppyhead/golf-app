@@ -86,22 +86,52 @@ export const fmtWhen = (t) => new Date(t).toLocaleString(undefined, { weekday: '
 
 // ---------- course cards for the Play tab ----------
 /** HTML for the course cards; call bindCourseCards(root, api) after inserting. */
+const SHOW = 5; // courses on Play before "Show all"
+const STOP = new Set(['the', 'golf', 'club', 'country', 'and', '&', 'resort', 'dubai', 'abu', 'dhabi', 'course', 'links']);
+/** Two letters for a course badge when there's no logo: "Montgomerie" → MO, "Els Club" → EC. */
+export function monogram(name) {
+  const words = String(name || '?').split(/[\s,–-]+/).filter((w) => w && !STOP.has(w.toLowerCase()) && /^[a-z]/i.test(w));
+  const w = words.length ? words : [String(name || '?')];
+  return (w.length >= 2 ? w[0][0] + w[1][0] : w[0].slice(0, 2)).toUpperCase();
+}
+const hue = (s) => [...String(s)].reduce((a, c) => (a * 31 + c.charCodeAt(0)) % 360, 7);
+const badge = (g) => `<div class="cthumb clogo" data-thumb="${esc(g.key)}" style="--h:${hue(g.name)}"><span>${esc(monogram(g.name))}</span></div>`;
+
 export function courseCardsHtml(groups, rounds) {
   const st = starred();
   const rank = (g) => (g.variants.some((c) => isHome(c)) ? 0 : st.has(g.libId) ? 1 : 2);
   const rows = groups.map((g) => ({ g, rec: courseRecord(g, rounds), last: Math.max(0, ...g.variants.map((c) => c.lastPlayed || 0)) }))
     .sort((a, b) => rank(a.g) - rank(b.g) || b.last - a.last);
-  return rows.map(({ g, rec }) => `<div class="ccard" data-course="${esc(g.key)}">
-      <canvas class="cthumb" data-thumb="${esc(g.key)}"></canvas>
+  const card = ({ g, rec }, i) => `<div class="ccard${i >= SHOW ? ' cmore' : ''}" data-course="${esc(g.key)}"${i >= SHOW ? ' hidden' : ''}>
+      ${badge(g)}
       <div class="cbody"><b>${rank(g) === 0 ? `${icon('home', 15)} ` : ''}${esc(g.name)}</b>
         <span class="mute small">${g.variants.map((c) => c.tees).filter(Boolean).join(' · ') || 'no tees set'}${rec.played ? ` · ${rec.played} round${rec.played > 1 ? 's' : ''}` : ''}</span>
         ${rec.played ? `<span class="small">${rec.best != null ? `Best <b>${rec.best}</b> · avg <b>${rec.avg.toFixed(1)}</b> · worst <b>${rec.worst}</b>` : `Last: ${rec.last.full ? rec.last.score : `${rec.last.holes.length || rec.last.r.holesPlayed || '?'} holes`} on ${fmtD(rec.last.r.date)}`}</span>` : '<span class="small mute">Not played yet</span>'}
-      </div><span class="mute">›</span></div>`).join('');
+      </div><span class="mute">›</span></div>`;
+  return rows.map(card).join('') + (rows.length > SHOW ? `<button class="link cshowall" data-showall aria-expanded="false">Show all ${rows.length} courses</button>` : '');
 }
+/** Club logos: the club website's icon (via Google's favicon service, 128 px), kept only when it comes back sharp. */
+const logoUrl = (site) => `https://www.google.com/s2/favicons?domain=${encodeURIComponent(site)}&sz=128`;
 export function bindCourseCards(root, groups, api) {
   const byKey = new Map(groups.map((g) => [g.key, g]));
   root.querySelectorAll('[data-course]').forEach((el) => el.onclick = () => coursePage(byKey.get(el.dataset.course), api));
-  root.querySelectorAll('[data-thumb]').forEach(async (cv) => { const g = byKey.get(cv.dataset.thumb); const geo = await loadGeo(g.libId); drawCourseMap(cv, { geo, course: g.variants[0], shapes: false }); });
+  const more = root.querySelector('[data-showall]');
+  if (more) more.onclick = () => {
+    const open = more.getAttribute('aria-expanded') !== 'true';
+    root.querySelectorAll('.ccard.cmore').forEach((c) => (c.hidden = !open));
+    more.setAttribute('aria-expanded', String(open));
+    more.textContent = open ? 'Show fewer' : `Show all ${groups.length} courses`;
+  };
+  loadLibrary().then((lib) => {
+    const site = new Map(lib.filter((c) => c.site).map((c) => [c.id, c.site]));
+    root.querySelectorAll('[data-thumb]').forEach((el) => {
+      const g = byKey.get(el.dataset.thumb); const s = g && site.get(g.libId);
+      if (!s) return;
+      const img = new Image(); img.alt = ''; img.referrerPolicy = 'no-referrer';
+      img.onload = () => { if (img.naturalWidth >= 48) { el.classList.add('haslogo'); el.replaceChildren(img); } };
+      img.src = logoUrl(s);
+    });
+  }).catch(() => {});
 }
 
 // ---------- the course page ----------
