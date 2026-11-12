@@ -201,13 +201,13 @@ function heroBand(ALL, Hc, hcp, OUT = 0, KINDS = null) {
   // the radar looks at rounds with any shot it can score on its own: "Last 10" is the last 10 of those
   const L = ALL.filter((x) => radarUses(x.r, x.c));
   const basis = (list) => {
-    if (!list.length) return 'No round yet has a shot with a known start and finish, so the radar is empty. Log shot distances, or import Garmin rounds with shot tracking.';
+    if (!list.length) return 'No round yet has a shot with a known start and finish, so the radar is empty. Log your shots in osolo (watch-recorded shots don\'t count: the watch can\'t see lies or penalties).';
     const S = list.map((x) => radarShots(x.r, x.c));
     const shots = S.flatMap((s) => s.shots), putts = S.reduce((a, s) => a + s.putts.length, 0);
-    const n = (k) => shots.filter((s) => s.cat === k).length, g = shots.filter((s) => s.src === 'garmin').length;
+    const n = (k) => shots.filter((s) => s.cat === k).length;
     const full = list.map((x) => radarRound(x.r, x.c)).filter((R) => R && R.holes && R.complete === R.holes).length;
     const span = `${fmtShort(list[list.length - 1].r.date)} – ${fmtShort(list[0].r.date)}`;
-    return `${list.length} round${list.length === 1 ? '' : 's'} (${span}), ${full} with every shot logged: ${n('ott')} drives, ${n('appL') + n('appW')} approaches, ${n('arg')} short-game shots, ${putts} putting holes${g ? ` (${g} shots from Garmin)` : ''}. Each shot counts only when its start and finish are known.`;
+    return `${list.length} round${list.length === 1 ? '' : 's'} (${span}), ${full} with every shot logged: ${n('ott')} drives, ${n('appL') + n('appW')} approaches, ${n('arg')} short-game shots, ${putts} putting holes. Each shot counts only when its start and finish are known; shots a watch recorded are left out.`;
   };
   const windows = [10, 50, 100].map((n) => ({ n, radar: skillRadar(L.slice(0, n), { hcp }), ghost: L.length > n ? skillRadar(L.slice(n, 2 * n), { hcp }) : null }));
   const views = Object.fromEntries(windows.map((w) => [w.n, `${radarSvg(w.radar, w.ghost)}<p class="hbasis">${esc(basis(L.slice(0, w.n)))}</p>${w.radar.ready ? '' : `<p class="hnote">Each spoke fills in once it has 3 rounds and enough shots (10, or 18 holes for putting).</p>`}`]));

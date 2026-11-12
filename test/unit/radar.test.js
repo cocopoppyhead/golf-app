@@ -88,18 +88,6 @@ describe('skills radar', () => {
 
 describe('the radar scores shots one by one', () => {
   const c = { holes: [{ par: 4, yds: 400 }, { par: 4, yds: 380 }, { par: 3, yds: 170 }] };
-  it('takes Garmin shots from a hole that does not add up, each with its own finish', () => {
-    const r = { holes: [{ score: 4, putts: 2, looseShots: [{ tee: true, from: 400, to: 140, toFt: 0, onGreen: false }, { tee: false, from: 140, to: 6, toFt: 20, onGreen: true }] }, null, null] };
-    const S = radarShots(r, c);
-    // the approach finishing on the green is measured to the green's centre, not the pin: left out
-    expect(S.shots.map((s) => s.cat)).toEqual(['ott']);
-    expect(S.shots.every((s) => s.src === 'garmin')).toBe(true);
-    expect(S.putts).toEqual([]); // no first-putt distance: putting stays out
-  });
-  it('drops Garmin shots on a hole with a stroke the watch did not see (a penalty, usually): the drive would look clean', () => {
-    const r = { holes: [{ score: 5, putts: 2, looseShots: [{ tee: true, from: 400, to: 140, toFt: 0, onGreen: false }, { tee: false, from: 140, to: 6, toFt: 20, onGreen: true }] }, null, null] };
-    expect(radarShots(r, c).shots).toEqual([]);
-  });
   it('takes logged shots from a hole whose strokes add up even without a first-putt distance', () => {
     const r = { holes: [{ score: 4, putts: 2, shots: [{ lie: 'tee', dist: 400 }, { lie: 'fw', dist: 150 }] }, null, null] };
     const S = radarShots(r, c);
@@ -124,14 +112,13 @@ describe('the level to aim at', () => {
   it('is five shots better, in steps of five, never past scratch', () => {
     expect([0, 3, 6, 9.9, 10, 12, 15, 20, 27].map(targetHcp)).toEqual([0, 0, 0, 0, 5, 5, 10, 15, 20]);
   });
-  it('leaves out Garmin putting and glitches', () => {
+  it('leaves out everything a watch recorded: shots, putting and loose shots', () => {
     const c = { holes: [{ par: 4, yds: 400 }] };
     const r = { holes: [{ score: 4, putts: 1, firstPutt: 50, firstPuttSrc: 'garmin-green', shots: [{ lie: 'tee', dist: 400, src: 'garmin' }, { lie: 'unk', dist: 150, src: 'garmin' }, { lie: 'unk', dist: 20, src: 'garmin' }] }] };
-    const S = radarShots(r, c);
-    expect(S.putts).toEqual([]);
-    expect(S.shots.length).toBe(2); // the last shot finishes on the green (to its centre): out
-    const g = { holes: [{ score: 6, putts: 2, looseShots: [{ tee: true, from: 1099, to: 0, toFt: 0, onGreen: true }, { tee: false, from: 152, to: 0, toFt: 0, onGreen: true }] }] };
-    expect(radarShots(g, c).shots).toEqual([]);
+    expect(radarShots(r, c)).toEqual({ shots: [], putts: [] });
+    const g = { holes: [{ score: 4, putts: 2, looseShots: [{ tee: true, from: 400, to: 140, toFt: 0, onGreen: false }, { tee: false, from: 140, to: 6, toFt: 20, onGreen: true }] }] };
+    expect(radarShots(g, c)).toEqual({ shots: [], putts: [] });
+    expect(radarRound({ holes: r.holes }, c).complete).toBe(0); // not in the per-round counts either
   });
 });
 

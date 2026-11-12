@@ -36,7 +36,7 @@ export function radarRound(round, course) {
   round.holes.forEach((h, i) => {
     const ch = course.holes[i]; if (!h || h.score == null || !ch) return;
     R.holes++;
-    const sg = holeSG(h, ch.par, ch.yds);
+    const sg = fromWatch(h) ? null : holeSG(h, ch.par, ch.yds);
     if (sg?.complete) {
       R.complete++;
       R.ott += sg.ott; R.arg += sg.arg; R.putt += sg.putt;
@@ -80,11 +80,14 @@ export { MIN_SHOTS };
 // gives the radar every drive and approach it can vouch for:
 //   - every shot on a hole that adds up (as before)
 //   - on a hole that doesn't, the shots whose finish is known: the next logged shot when the off-green
-//     strokes match the score less the putts (so none is missing in between), or Garmin's own finish point
+//     strokes match the score less the putts (so none is missing in between)
 //   - putting only from a hole that adds up, with entered (not assumed) putts and a first-putt distance
 // Nothing is guessed: a shot whose finish isn't known is left out.
+// Shots a watch recorded never feed the radar: it knows how far, not where the ball finished (fairway, waste,
+// bunker, water), misses penalties, and measures the green to its centre, not the pin. Checked against real
+// cards it flattered driving. Garmin rounds still count for scores, heat and heart rate.
+const fromWatch = (h) => h.firstPuttSrc === 'garmin-green' || !!h.shots?.some((s) => s?.src === 'garmin');
 const PER18 = { ott: 14, appL: 7, appW: 7, arg: 5 }; // shots a round in each category when the golfer's own holes can't say
-const catOf = (lie, from, par) => (lie === 'tee' && par >= 4 ? 'ott' : from > 30 ? (from < LONG_FROM ? 'appW' : 'appL') : 'arg');
 
 /** Every shot in a round that can be scored on its own: [{ cat, sg, src }], plus putting holes [{ sg }]. */
 export function radarShots(round, course) {
@@ -93,37 +96,18 @@ export function radarShots(round, course) {
   round.holes.forEach((h, i) => {
     const ch = course.holes[i]; if (!h || h.score == null || !ch) return;
     const sg = holeSG(h, ch.par, ch.yds);
+    if (fromWatch(h)) return;
     // the hole adds up: every stroke before the green logged, and those plus the putts make the score
     const chain = h.shots?.length && h.putts != null && !h.puttsAuto && h.shots.length + h.shots.filter((s) => s.pen).length === h.score - h.putts;
     // putting only from a hole that adds up, with putts actually entered (not assumed) and a first-putt distance:
     // a missing putt would otherwise look like a good day on the greens
-    // Garmin's "first putt" is measured to the green's centre, not the day's pin, so a one-putt "from 50 feet"
-    // is really from close to a pin that wasn't in the middle: never score putting from it
-    const garminGreen = h.firstPuttSrc === 'garmin-green' || h.shots?.some((s) => s?.src === 'garmin');
-    if (chain && !garminGreen && h.putts > 0 && h.firstPutt != null) out.putts.push({ sg: expected('grn', h.firstPutt) - h.putts });
+    if (chain && h.putts > 0 && h.firstPutt != null) out.putts.push({ sg: expected('grn', h.firstPutt) - h.putts });
     if (sg && (sg.complete || chain)) {
       sg.shots.forEach((s, k) => {
         if (!s) return;
-        if (garminGreen && k === sg.shots.length - 1) return; // finishes on the green, measured to its centre: not known
         const d = k === 0 ? (h.shots?.[0]?.dist ?? ch.yds) : h.shots?.[k]?.dist;
         out.shots.push({ cat: s.cat === 'app' ? (d != null && d < LONG_FROM ? 'appW' : 'appL') : s.cat, sg: s.sg, src: sg.complete ? 'hole' : 'chain' });
       });
-      return;
-    }
-    // Garmin: each recorded shot carries its own finish. Leave out what can't be real: a start further than the
-    // hole is long (a stray detection), a "tee shot" that isn't from near the tee, a finish exactly on the green
-    // point (the watch's placeholder, not where the ball stopped)
-    // ...and only when the watch saw every stroke off the green (its shots plus the putts make the score). If one
-    // is missing it is usually a penalty (water, OB) the watch can't see, and the drive before it would be
-    // scored as if it found the fairway: on Conor's own cards that flattered driving by about 0.1 a drive.
-    const loose = h.looseShots || [];
-    if (h.putts == null || loose.length !== h.score - h.putts) return;
-    for (const x of loose) {
-      if (!ch.yds || x.from > ch.yds + 30 || (x.tee && Math.abs(x.from - ch.yds) > 60) || x.onGreen || x.to < 1) continue; // on the green = to its centre, not the pin
-      const a = expected(x.tee ? 'tee' : 'unk', x.tee ? (ch.yds || x.from) : x.from);
-      const b = x.onGreen ? expected('grn', x.toFt) : expected('unk', x.to);
-      if (a == null || b == null) continue;
-      out.shots.push({ cat: catOf(x.tee ? 'tee' : 'unk', x.from, ch.par), sg: a - b - 1, src: 'garmin' });
     }
   });
   return out;
@@ -178,9 +162,8 @@ export function skillRadar(list, { hcp = 15 } = {}) {
     const value = clip(sg - level);
     const scratch = clip(-TOUR_GAP(target) * a.share - level);
     const eq = Math.max(-4, Math.min(36, -sg / a.share - 3)); // the handicap whose golfers lose this much to tour here (Broadie: h + 3 a round, by share)
-    const garmin = samples.filter((x) => x.src === 'garmin').length;
     const min = a.key === 'putt' ? 18 : MIN_SHOTS;
-    return { ...a, value, raw: sg, level, scratch, eq, n, shots, garmin, enough: n >= 3 && shots >= min, detail: `${sg >= 0 ? '+' : ''}${sg.toFixed(1)} strokes a round against the tour baseline (${shots} ${a.key === 'putt' ? 'holes' : 'shots'}${garmin ? `, ${garmin} from Garmin` : ''}, ${n} rounds); a ${h <= 1 ? 'scratch' : Math.round(h) + '-handicap'} golfer is about ${level.toFixed(1)}.` };
+    return { ...a, value, raw: sg, level, scratch, eq, n, shots, enough: n >= 3 && shots >= min, detail: `${sg >= 0 ? '+' : ''}${sg.toFixed(1)} strokes a round against the tour baseline (${shots} ${a.key === 'putt' ? 'holes' : 'shots'}, ${n} rounds); a ${h <= 1 ? 'scratch' : Math.round(h) + '-handicap'} golfer is about ${level.toFixed(1)}.` };
   });
   const ready = axes.filter((a) => a.enough).length >= 4;
   return { hcp: h, target, n: pool.filter((p) => p.s.shots.length + p.s.putts.length).length, nSg: sgRows.length, axes, ready };
