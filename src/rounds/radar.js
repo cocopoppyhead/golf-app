@@ -31,13 +31,16 @@ const PLAN_BASE = 0.55; // "shots that came off as planned" that we treat as par
 /** Per-round raw material: strokes gained by axis (tour baseline, 18-hole scaled) plus the head inputs. */
 export function radarRound(round, course) {
   if (!round || round.quick || !course) return null;
-  const R = { ott: 0, appL: 0, appW: 0, arg: 0, putt: 0, holes: 0, complete: 0, pen: 0, dirt: 0, firOpp: 0, planN: 0, planned: 0, shots: { ott: 0, appL: 0, appW: 0, arg: 0, putt: 0 } };
+  // Strokes gained only counts holes where every stroke is accounted for (a hole with a missing shot
+  // would credit two shots' worth of distance to one); per-18 scaling for those axes uses that count.
+  // Garmin scorecards say nothing about penalties or tee-shot trouble, so they stay out of Mind.
+  const R = { ott: 0, appL: 0, appW: 0, arg: 0, putt: 0, holes: 0, complete: 0, mind: !(round.source === 'garmin' && (round.garmin?.scorecard || 'durationMin' in (round.garmin || {}))), pen: 0, dirt: 0, firOpp: 0, planN: 0, planned: 0, shots: { ott: 0, appL: 0, appW: 0, arg: 0, putt: 0 } };
   round.holes.forEach((h, i) => {
     const ch = course.holes[i]; if (!h || h.score == null || !ch) return;
     R.holes++;
     const sg = holeSG(h, ch.par, ch.yds);
-    if (sg) {
-      if (sg.complete) R.complete++;
+    if (sg?.complete) {
+      R.complete++;
       R.ott += sg.ott; R.arg += sg.arg; R.putt += sg.putt;
       if (h.putts != null && h.firstPutt != null) R.shots.putt++;
       sg.shots.forEach((s, k) => {
@@ -71,9 +74,13 @@ const clip = (v) => Math.max(-CLIP, Math.min(CLIP, v));
  * value = strokes per round vs your level (clipped ±2); scratch = where scratch sits on the same scale.
  */
 export function skillRadar(list, { hcp = 15 } = {}) {
-  const rows = list.map((x) => radarRound(x.r, x.c)).filter(Boolean);
-  const sgRows = rows.filter((R) => R.complete >= Math.min(9, R.holes)); // rounds with the shot data for SG
+  const all = list.map((x) => radarRound(x.r, x.c)).filter(Boolean);
+  const rows = all.filter((R) => R.mind); // rounds that know about penalties and drives in trouble
+  const sgRows = all.filter((R) => R.complete > 0); // rounds with at least one fully tracked hole
   const per18 = (R, k) => R[k] * (18 / R.holes);
+  const sgHoles = sgRows.reduce((s, R) => s + R.complete, 0);
+  // pooled over every fully tracked hole in the window, then scaled to 18 holes
+  const sg18 = (k) => (sgRows.reduce((s, R) => s + R[k], 0) / sgHoles) * 18;
   const mean = (arr, f) => (arr.length ? arr.reduce((a, R) => a + f(R), 0) / arr.length : null);
   const h = Math.max(0, Math.min(25, Number.isFinite(hcp) ? hcp : 15));
   const gap = TOUR_GAP(h), B = benchFor(h), B0 = benchFor(0);
@@ -93,14 +100,14 @@ export function skillRadar(list, { hcp = 15 } = {}) {
     }
     const n = sgRows.length, shots = sgRows.reduce((s, R) => s + R.shots[a.key], 0);
     if (!n || !shots) return { ...a, value: null, n, shots, enough: false };
-    const sg = mean(sgRows, (R) => per18(R, a.key)); // vs tour
+    const sg = sg18(a.key); // vs tour
     const level = -gap * a.share; // what your level loses to tour on this axis
     const value = clip(sg - level);
     const scratch = clip(-TOUR_GAP(0) * a.share - level);
     return { ...a, value, raw: sg, level, scratch, n, shots, enough: n >= 3 && shots >= MIN_SHOTS, detail: `${sg >= 0 ? '+' : ''}${sg.toFixed(1)} strokes a round against the tour baseline; a ${h <= 1 ? 'scratch' : Math.round(h) + '-handicap'} golfer is about ${level.toFixed(1)}.` };
   });
   const ready = axes.filter((a) => a.enough).length >= 4;
-  return { hcp: h, n: rows.length, nSg: sgRows.length, axes, ready };
+  return { hcp: h, n: all.length, nSg: sgRows.length, axes, ready };
 }
 
 /** The strongest and weakest axes, for the one-line read and the practice link. */

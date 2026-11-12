@@ -40,12 +40,20 @@ export function storedZip(files) {
 }
 
 /** A Garmin golf scorecard FIT: course name, tee, start (FIT seconds), pars and my scores per hole. */
-export function scorecardFit({ course, tee = 'White', start = 1011189463, pars, scores, putts = [] }) {
+const SEMI = 2 ** 31 / 180;
+/** A tracked shot on `hole`, `from` → `to` metres due north of `pin` ({ lat, lon }). */
+export const fitShot = (pin, hole, from, to, club, t) => {
+  const lat = (m) => Math.round((pin.lat + m / 111320) * SEMI), lon = Math.round(pin.lon * SEMI);
+  return [194, [[253, 'u32', t], [1, 'u8', hole], [2, 's32', lat(from)], [3, 's32', lon], [4, 's32', lat(to)], [5, 's32', lon], [7, 'u32', club]]];
+};
+
+export function scorecardFit({ course, tee = 'White', start = 1011189463, pars, scores, putts = [], pin = null, shots = [] }) {
   return fit([
     [0, [[0, 'u8', 38]]],
     [190, [[1, 'str', course], [3, 'u32', start], [4, 'u32', start + 4 * 3600], [11, 'str', tee]]],
     [191, [[0, 'str', 'Me'], [1, 'u8', 0], [2, 'u8', scores.reduce((a, b) => a + b, 0)]]],
     ...scores.map((s, i) => [192, [[0, 'u8', 0], [1, 'u8', i + 1], [2, 'u8', s], [5, 's8', putts[i] ?? -1]]]),
-    ...pars.map((p, i) => [193, [[0, 'u8', i + 1], [1, 'u32', 36576], [2, 'u8', p], [3, 'u8', i + 1]]]),
+    ...pars.map((p, i) => [193, [[0, 'u8', i + 1], [1, 'u32', 36576], [2, 'u8', p], [3, 'u8', i + 1], ...(pin ? [[4, 's32', Math.round(pin.lat * SEMI)], [5, 's32', Math.round(pin.lon * SEMI)]] : [])]]),
+    ...shots,
   ]);
 }

@@ -2,7 +2,7 @@
 // imported (same Garmin scorecard id) are skipped, so re-importing after new rounds is safe.
 import { BOOKMARKLET } from './bookmarklet.js';
 import { convertExport, matchCourse } from './import.js';
-import { readScorecard, scorecardId, convertScorecards } from './scorecard.js';
+import { readScorecard, scorecardId, convertScorecards, bagNames } from './scorecard.js';
 import { readZipEntries } from './zip.js';
 import { listCourses, putCourse, listRounds, putRound } from '../store.js';
 import { loadLibrary, importCourse } from '../rounds/library.js';
@@ -32,7 +32,7 @@ export function garminSheet({ toast = () => {}, onImported = () => {} } = {}) {
   q('[data-close]').onclick = () => sheet.remove();
   q('[data-copy]').onclick = async () => { try { await navigator.clipboard.writeText(BOOKMARKLET); q('[data-copy]').textContent = 'Copied'; } catch { toast('Copy failed: use the console version below.'); } };
   const report = (r) => {
-    q('[data-out]').innerHTML = `<b>Imported ${r.added} round${r.added === 1 ? '' : 's'}</b>${r.skipped ? ` (${r.skipped} already here)` : ''}${r.newCourses.length ? ` · new courses: ${r.newCourses.map(esc).join(', ')}` : ''}${r.shots ? ` · ${r.shots} tracked shots` : ''}${r.failed ? ` · ${r.failed} file${r.failed > 1 ? 's' : ''} couldn't be read` : ''}.`;
+    q('[data-out]').innerHTML = `<b>Imported ${r.added} round${r.added === 1 ? '' : 's'}</b>${r.updated ? ` · added shots to ${r.updated} you had` : ''}${r.skipped ? ` (${r.skipped} already here)` : ''}${r.newCourses.length ? ` · new courses: ${r.newCourses.map(esc).join(', ')}` : ''}${r.shots ? ` · ${r.shots} tracked shots` : ''}${r.failed ? ` · ${r.failed} file${r.failed > 1 ? 's' : ''} couldn't be read` : ''}.`;
     toast(`Garmin: ${r.added} rounds imported`); onImported(r);
   };
   q('[data-pickmany]').onclick = async () => {
@@ -64,7 +64,7 @@ export function garminSheet({ toast = () => {}, onImported = () => {} } = {}) {
       try {
         const exp = JSON.parse(await f.text());
         const r = await importGarminExport(exp);
-        q('[data-out]').innerHTML = `<b>Imported ${r.added} round${r.added === 1 ? '' : 's'}</b>${r.skipped ? ` (${r.skipped} already here)` : ''}${r.newCourses.length ? ` · new courses: ${r.newCourses.map(esc).join(', ')}` : ''}${r.shots ? ` · ${r.shots} tracked shots` : ''}.`;
+        q('[data-out]').innerHTML = `<b>Imported ${r.added} round${r.added === 1 ? '' : 's'}</b>${r.updated ? ` · added shots to ${r.updated} you had` : ''}${r.skipped ? ` (${r.skipped} already here)` : ''}${r.newCourses.length ? ` · new courses: ${r.newCourses.map(esc).join(', ')}` : ''}${r.shots ? ` · ${r.shots} tracked shots` : ''}.`;
         toast(`Garmin: ${r.added} rounds imported`); onImported(r);
       } catch (e) { q('[data-out]').textContent = e.message || String(e); }
     };
@@ -99,7 +99,7 @@ export async function importGarminFiles(files) {
     const sig = new Uint8Array(await f.slice(0, 4).arrayBuffer());
     const isZip = sig[0] === 0x50 && sig[1] === 0x4b && (sig[2] === 3 || sig[2] === 5);
     if (isZip) {
-      const want = (n) => /SCORECARD_RAWDATA-\d+\.fit$/i.test(n) || /osolo-garmin.*\.json$/i.test(n) || /\.zip$/i.test(n);
+      const want = (n) => /SCORECARD_RAWDATA-\d+\.fit$/i.test(n) || /Golf-CLUB(_TYPES)?\.json$/i.test(n) || /osolo-garmin.*\.json$/i.test(n) || /\.zip$/i.test(n);
       const got = await readZipEntries(f, want);
       for (const e of got) {
         if (!/\.zip$/i.test(e.name)) { entries.push(e); continue; }
@@ -109,14 +109,19 @@ export async function importGarminFiles(files) {
     else entries.push({ name: f.name, bytes: await f.arrayBuffer() });
   }
   // Classify by content, not name: Android's picker can hand over files without their real names.
-  const cards = []; let failed = 0; const exps = []; const seen = [];
+  const cards = []; let failed = 0; const exps = []; const seen = []; let clubs = [], clubTypes = [];
   for (const e of entries) {
     const b = new Uint8Array(e.bytes); seen.push(e.name);
     const isFit = b.length > 12 && b[8] === 0x2e && b[9] === 0x46 && b[10] === 0x49 && b[11] === 0x54; // ".FIT"
     if (isFit) {
       try { const sc = readScorecard(e.bytes, scorecardId(e.name)); cards.push(sc); } catch { /* not a golf round */ } // a FIT that isn't a golf round (an activity)
     } else if (b[0] === 0x7b) { // "{"
-      try { const j = JSON.parse(new TextDecoder().decode(b)); if (j?.app === 'osolo-garmin') exps.push(j); } catch { failed++; }
+      try {
+        const j = JSON.parse(new TextDecoder().decode(b));
+        if (j?.app === 'osolo-garmin') exps.push(j);
+        else if (Array.isArray(j?.data) && j.data.some((c) => c?.clubTypeId != null)) clubs = j.data; // Golf-CLUB.json: the bag
+        else if (Array.isArray(j?.data) && j.data.some((t) => t?.value != null && t?.name)) clubTypes = j.data; // Golf-CLUB_TYPES.json
+      } catch { failed++; }
     }
   }
   // a card without a scorecard id in its name: key it by its start time so re-imports still dedupe
@@ -125,10 +130,11 @@ export async function importGarminFiles(files) {
     const list = seen.slice(0, 6).map((n) => n.split('/').pop()).join(', ');
     throw new Error(`No golf scorecards found${seen.length ? ` in ${seen.length} file${seen.length > 1 ? 's' : ''} (${list}${seen.length > 6 ? ', …' : ''})` : ''}. Choose the Garmin export zip, or the Golf-SCORECARD_RAWDATA files from DI_CONNECT/DI-GOLF.`);
   }
-  const total = { added: 0, skipped: 0, newCourses: [], shots: 0, failed };
-  const add = (r) => { total.added += r.added; total.skipped += r.skipped; total.shots += r.shots; r.newCourses.forEach((c) => total.newCourses.includes(c) || total.newCourses.push(c)); };
+  const total = { added: 0, updated: 0, skipped: 0, newCourses: [], shots: 0, failed };
+  const add = (r) => { total.added += r.added; total.updated += r.updated; total.skipped += r.skipped; total.shots += r.shots; r.newCourses.forEach((c) => total.newCourses.includes(c) || total.newCourses.push(c)); };
   for (const exp of exps) add(await importGarminExport(exp)); // shot-level rounds first: same ids win
-  if (cards.length) add(await storeRounds((resolve) => convertScorecards(cards, resolve)));
+  const names = bagNames(clubs, clubTypes);
+  if (cards.length) add(await storeRounds((resolve) => convertScorecards(cards, resolve, { names })));
   return total;
 }
 
@@ -139,7 +145,7 @@ export async function importGarminExport(exp) {
 
 async function storeRounds(convert) {
   const [courses, library, rounds] = await Promise.all([listCourses().catch(() => []), loadLibrary().catch(() => []), listRounds().catch(() => [])]);
-  const have = new Set(rounds.map((r) => r.id));
+  const have = new Map(rounds.map((r) => [r.id, r]));
   const newCourses = []; const cache = new Map(); const snaps = new Map();
   const resolve = (snapshot) => { const key = snapshot?.name || '?'; if (!snaps.has(key) && snapshot) snaps.set(key, snapshot); if (cache.has(key)) return cache.get(key); const m = matchCourse(snapshot, { courses, library }); cache.set(key, m); return m; };
   const pending = new Map(); // placeholder course id → what to create (library course or one described by the card)
@@ -150,9 +156,18 @@ async function storeRounds(convert) {
     const id = `new:${m.spec.name}`; pending.set(id, m); return { id, name: m.spec.name, holes: m.spec.holes };
   });
   const made = new Map(); // placeholder (+ tee for library courses) → the course created for it
-  let added = 0, skipped = 0, shots = 0;
+  let added = 0, updated = 0, skipped = 0, shots = 0;
   for (const r of converted) {
-    if (have.has(r.id)) { skipped++; continue; }
+    const old = have.get(r.id);
+    if (old) {
+      // an earlier import without shots: take the shots now that osolo can read them, keep everything else
+      if (old.source === 'garmin' && (r.shotsTracked || 0) > (old.shotsTracked || 0) && old.holes?.length === r.holes.length) {
+        const holes = old.holes.map((h, i) => (h && r.holes[i] ? { ...h, shots: r.holes[i].shots, firstPutt: h.firstPutt ?? r.holes[i].firstPutt, gir: h.gir ?? r.holes[i].gir, putts: h.putts ?? r.holes[i].putts } : h));
+        await putRound({ ...old, holes, shotsTracked: r.shotsTracked, garmin: { ...(old.garmin || {}), ...r.garmin }, updatedAt: Date.now() });
+        updated++; shots += r.shotsTracked; continue;
+      }
+      skipped++; continue;
+    }
     const m = pending.get(r.courseId);
     if (m) { // materialise library / new courses on first use, once each
       const key = m.kind === 'library' ? `${r.courseId}|${(r.tees || '').toLowerCase()}` : r.courseId;
@@ -170,5 +185,5 @@ async function storeRounds(convert) {
     r.updatedAt = Date.now();
     await putRound(r); added++; shots += r.shotsTracked || 0;
   }
-  return { added, skipped, newCourses, shots };
+  return { added, updated, skipped, newCourses, shots };
 }

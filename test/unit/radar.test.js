@@ -50,6 +50,17 @@ describe('skills radar', () => {
     expect(messy).toBeLessThan(clean); expect(messy).toBeLessThan(0);
     expect(skillRadar(list(5, { pen: 9 }), { hcp: 10 }).axes.find((a) => a.key === 'head').value).toBe(-2);
   });
+  it('counts only fully tracked holes for strokes gained, and keeps Garmin scorecards out of Mind', () => {
+    const r = round(0, { pen: 4 });
+    r.holes[5] = { ...r.holes[5], shots: [r.holes[5].shots[0]] }; // a hole with a missing shot
+    const R = radarRound(r, course);
+    expect(R.holes).toBe(18); expect(R.complete).toBe(17); expect(R.mind).toBe(true);
+    const g = radarRound({ ...round(1), source: 'garmin', garmin: { durationMin: 240 } }, course);
+    expect(g.mind).toBe(false);
+    const S = skillRadar(list(5).map((x) => ({ ...x, r: { ...x.r, source: 'garmin', garmin: { scorecard: true } } })), { hcp: 15 });
+    expect(S.axes.find((a) => a.key === 'head').enough).toBe(false);
+    expect(S.axes.find((a) => a.key === 'putt').enough).toBe(true);
+  });
   it('is not ready under three rounds and says so per axis', () => {
     const S = skillRadar(list(2), { hcp: 12 });
     expect(S.ready).toBe(false); expect(S.axes.every((a) => !a.enough)).toBe(true);

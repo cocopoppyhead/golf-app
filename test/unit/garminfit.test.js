@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { parseFit, fitDate } from '../../src/garmin/fit.js';
-import { readScorecard, scorecardId, convertScorecards } from '../../src/garmin/scorecard.js';
+import { readScorecard, scorecardId, convertScorecards, bagNames } from '../../src/garmin/scorecard.js';
+import { holeSG, expected } from '../../src/rounds/sg.js';
 import { readZipEntries } from '../../src/garmin/zip.js';
 import { matchCourse } from '../../src/garmin/import.js';
 
@@ -68,5 +69,48 @@ describe('Garmin account export', () => {
     const got = await readZipEntries(zip, (n) => /SCORECARD_RAWDATA/.test(n));
     expect(got.map((e) => e.name)).toEqual(['DI_CONNECT/DI-GOLF/Golf-SCORECARD_RAWDATA-7.fit']);
     expect(readScorecard(got[0].bytes, '7').players[0].total).toBe(13);
+  });
+});
+
+describe('Garmin scorecard shots', () => {
+  const S = 2 ** 31 / 180;
+  const pin = { lat: 37.05, lon: -8.02 };
+  const north = (m) => ({ lat: +(pin.lat + m / 111320).toFixed(6), lon: pin.lon }); // m metres north of the pin
+  const shot = (from, to, club, t) => [194, [[253, 'u32', t], [1, 'u8', 1], [2, 's32', Math.round(north(from).lat * S)], [3, 's32', Math.round(pin.lon * S)], [4, 's32', Math.round(north(to).lat * S)], [5, 's32', Math.round(pin.lon * S)], [7, 'u32', club]]];
+  const build = (putts, shots) => fit([
+    [190, [[1, 'str', 'Shot Links'], [3, 'u32', t0], [4, 'u32', t0 + 3600]]],
+    [191, [[0, 'str', 'Me'], [1, 'u8', 0], [2, 'u8', 5]]],
+    [192, [[0, 'u8', 0], [1, 'u8', 1], [2, 'u8', 5], [5, 's8', putts]]],
+    [193, [[0, 'u8', 1], [1, 'u32', 36576], [2, 'u8', 4], [3, 'u8', 1], [4, 's32', Math.round(pin.lat * S)], [5, 's32', Math.round(pin.lon * S)]]],
+    ...shots,
+  ]);
+  // drive 360 → 150, 7 iron 150 → 30, chip 30 → 9, then two putts; a practice stroke with the putter
+  // from the same spot as the first putt, which the watch also logged
+  const shots = [shot(360, 150, 11, t0 + 10), shot(150, 30, 12, t0 + 200), shot(30, 9, 0, t0 + 400), shot(9.5, 9, 13, t0 + 500), shot(9, 1, 13, t0 + 520), shot(1, 0, 13, t0 + 560)];
+  const names = bagNames([{ id: 11, clubTypeId: 1, name: 'Big Stick' }, { id: 12, clubTypeId: 16 }, { id: 13, clubTypeId: 23 }], [{ value: 16, name: '7 Iron' }]);
+
+  it('names clubs by type from the bag files', () => {
+    expect(names).toEqual({ 11: 'Driver', 12: '7 iron', 13: 'Putter' });
+  });
+  it('reads shots, drops repeat strokes from the same spot and reconciles them with the score', () => {
+    const sc = readScorecard(build(2, shots), '9');
+    expect(sc.shots.get(1)).toHaveLength(6);
+    const [r] = convertScorecards([sc], (snap) => ({ id: 'c', name: snap.name, holes: [{ par: 4, yds: 400 }] }), { names });
+    const h = r.holes[0];
+    expect(h.shots.map((x) => [x.lie, x.dist, x.d?.club])).toEqual([['tee', 393, 'Driver'], ['unk', 164, '7 iron'], ['unk', 33, undefined]]);
+    expect(h.firstPutt).toBe(30); // 9 m = 29.5 ft
+    expect(h.shots[0].flew).toBeCloseTo(230, -1);
+    expect(r.shotsTracked).toBe(3);
+    expect(holeSG(h, 4, 400).complete).toBe(true);
+  });
+  it('keeps only the score when the shots do not add up', () => {
+    const sc = readScorecard(build(1, shots), '9'); // 1 putt entered but 3 strokes off the green + 1 putt ≠ 5
+    const [r] = convertScorecards([sc], (snap) => ({ id: 'c', name: snap.name, holes: [{ par: 4, yds: 400 }] }), { names });
+    expect(r.holes[0]).toMatchObject({ score: 5, putts: 1, shots: null, firstPutt: null });
+    const none = readScorecard(build(-1, shots), '9'); // putts not entered
+    expect(convertScorecards([none], () => ({ id: 'c', name: 'x', holes: [{ par: 4 }] }))[0].holes[0].shots).toBeNull();
+  });
+  it('treats an unknown lie as halfway between fairway and rough', () => {
+    expect(expected('unk', 150)).toBeCloseTo((expected('fw', 150) + expected('rgh', 150)) / 2, 5);
   });
 });

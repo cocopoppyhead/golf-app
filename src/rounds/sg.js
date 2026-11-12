@@ -15,12 +15,15 @@ const T = {
 };
 // Dubai waste areas / scruff play somewhere between rough and sand
 const WASTE = (d) => (expected('rgh', d) + expected('bnk', d)) / 2;
+// lie not known (a Garmin scorecard has positions but no lies): halfway between fairway and rough
+const UNKNOWN = (d) => (expected('fw', d) + expected('rgh', d)) / 2;
 
 export const LIES = [['fw', 'Fairway'], ['rgh', 'Rough'], ['fbk', 'Fwy bunker'], ['bnk', 'Green bunker'], ['wst', 'Waste'], ['frg', 'Fringe'], ['rec', 'Trees']];
 
 export function expected(lie, d) {
   if (d == null || !Number.isFinite(d)) return null;
   if (lie === 'wst') return WASTE(d);
+  if (lie === 'unk') return UNKNOWN(d);
   if (lie === 'frg') lie = 'fw';
   if (lie === 'fbk') lie = 'bnk'; // the sand table covers fairway and green-side bunkers by distance // fringe / green surround plays like a short fairway shot
   const t = T[lie] || T.rgh;
