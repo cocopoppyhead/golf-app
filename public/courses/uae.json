@@ -234,7 +234,8 @@
     25.050547,
     55.268256
    ]
-  ]
+  ],
+  "logo": "logos/arabian-ranches.png"
  },
  {
   "id": "dubai-creek-golf-yacht-club-championship",
@@ -497,7 +498,7 @@
     55.33351
    ]
   ],
-  "logo": "logos/dubaigolf.png"
+  "logo": "logos/creek.png"
  },
  {
   "id": "dubai-hills-golf-club",
@@ -686,7 +687,8 @@
   ],
   "notes": "The club's own golf page lists par and one yardage per hole, with no tee named and no SI or ratings. Those yardages equal the Black row below (total 7283, par 72). The other tees, SI and ratings are from GolfPass. AllSquare (metres) and Hole19 (metres) match GolfPass's lengths, SI and ratings exactly. Totals check OK: par 36+36=72; Black 3517+3766=7283, Blue 3329+3456=6785, Silver 2932+3161=6093, Red 2665+2848=5513, Green 2455+2675=5130, all matching the printed totals. Gender is from Hole19/AllSquare: Black, Blue, Silver and Green rated for men, Red for women. The Green men's rating 64.9/119 is as published. SI is the same for men and women on AllSquare. No official PDF scorecard found.",
   "lat": 25.1214,
-  "lon": 55.2675
+  "lon": 55.2675,
+  "logo": "logos/dubai-hills.png"
  },
  {
   "id": "emirates-golf-club-faldo",
@@ -1055,7 +1057,7 @@
     55.158617
    ]
   ],
-  "logo": "logos/dubaigolf.png"
+  "logo": "logos/emirates.png"
  },
  {
   "id": "emirates-golf-club-majlis",
@@ -1371,7 +1373,7 @@
     55.160891
    ]
   ],
-  "logo": "logos/dubaigolf.png"
+  "logo": "logos/emirates.png"
  },
  {
   "id": "jebel-ali-golf-resort-9-holes",
@@ -1480,7 +1482,8 @@
   ],
   "notes": "Official JA site says 9 holes, par 35; per-hole pars sum to 35, and EGF's 9-hole rating rows are also par 35. EGF's descriptive text says 'par 36' and GolfPass's tee summary says 36; both conflict and were not used. No official hole-by-hole card found. Front-loop yardages for Black, White and Red are from GolfPass (Black matches 18Birdies). The course is rated as 18 holes (two loops, 'Black/Blue' = Black first 9 + Blue second 9). The 'Blue' tee lengths are the second-loop yardages for holes 10-18 from 18Birdies, played on the same 9 holes. GolfPass's 'White/Blue' row (front 9 = White) agrees: 2686+2930 = 5616 total. Ratings are the official EGF 9-hole values (slope/CR): holes 1-9 Back 137/34.6, Middle and Front both 132/33.4, Ladies 127/34.1; holes 10-18 Back 135/34.5 (used for the Blue loop), Middle/Front 132/33.4, Ladies 127/34.1. EGF 18-hole (par 70): Back 136/69.1, Middle/Front 132/66.8, Ladies 127/68.2. Mapping Back=Black, Middle/Front=White, Ladies=Red is inferred: Middle and Front ratings are identical, as are GolfPass's White/Blue and White front nines. GolfPass and 18Birdies show different, unofficial ratings (e.g. GolfPass Black/Blue 70.9/140; 18Birdies 71.6/123), not used. SI as published by GolfPass for the 9-hole card (odd numbers, 18-hole style). 18Birdies' 18-hole SI is front 11 10 17 2 13 8 5 16 3, back 12 9 18 1 14 7 6 15 4. Both rank the holes in the same order, so a 1-9 SI would be hole4=1, 9=2, 7=3, 6=4, 2=5, 1=6, 5=7, 8=8, 3=9 (derived, not published). Totals check: par 35 OK; Black 2933, Blue 2930, White 2686, Red 2394 match the printed outs; GolfPass's 18-hole 'Tot' column is per-tee 18-hole loop totals (5863/5616/5372/4788).",
   "lat": 24.98304,
-  "lon": 55.02417
+  "lon": 55.02417,
+  "logo": "logos/jebel-ali.png"
  },
  {
   "id": "jumeirah-golf-estates-earth",
@@ -1775,7 +1778,8 @@
   ],
   "notes": "Club (Dubai Golf) site publishes no hole-by-hole scorecard; per-hole par/SI/yardages are from GolfPass (cross-checked: Golfify yardages and par identical). Course ratings/slopes are official: Dubai Golf 2024 EGF Course Handicap Tables (bogey ratings also published there). Women's ratings exist for Tournament, Composite, Signature, Forward only (separate 'women' tee entries, same lengths). No women's rating for Championship. RATING CONFLICT: EGF website portfolio page and GolfPass/Golfify/18Birdies summaries show older ratings (Champ 77.5/140, Tournament 74.6/134, Signature 71.8/131, Forward 71.8/128 'ladies'); the 2024 club PDF was used. SI CONFLICT: men's SI used here (GolfPass men's and Golfify Championship/Tournament agree). 18Birdies shows a different set (11 7 3 17 5 15 13 9 1 12 14 6 18 2 16 4 8 10), which Golfify assigns to the Forward tee; Golfify gives yet another set for Signature (9 11 5 15 7 17 13 3 1 10 12 4 14 8 18 6 16 2); GolfPass women's SI = 5 11 9 15 13 17 7 1 3 8 14 4 16 10 12 6 18 2. SI may vary by tee; verify against a physical club card. Totals check: par 36/36/72 and every tee's out/in/total match the printed totals.",
   "lat": 25.01906,
-  "lon": 55.19967
+  "lon": 55.19967,
+  "logo": "logos/jge.png"
  },
  {
   "id": "jumeirah-golf-estates-fire",
@@ -2068,7 +2072,8 @@
   ],
   "notes": "Club site publishes no hole-by-hole scorecard; per-hole data from GolfPass (Golfify identical for par/yardages). Ratings/slopes official: Dubai Golf 2024 EGF Course Handicap Tables (men: 5 tees; women: Tournament, Composite, Signature, Forward). GolfPass per-tee data attributes match the 2024 PDF exactly. RATING CONFLICT: EGF portfolio page / GolfPass tee summary show older values (Champ 75.6/136, Tournament 74.1/130, Signature 71.6/125, Forward 72.5/121 ladies). SI: men's SI from GolfPass, confirmed by Golfify for Championship/Tournament. Golfify lists different SI for Signature (13 9 5 3 7 11 15 17 1 2 8 14 6 12 10 16 4 18) and Forward (15 13 3 1 11 7 9 17 5 2 14 12 8 16 6 18 4 10); GolfPass women's SI = 13 15 9 1 7 5 11 17 3 4 12 6 2 18 14 16 8 10. Totals check: par 36/36/72 and all tee out/in/totals match printed.",
   "lat": 25.01906,
-  "lon": 55.19967
+  "lon": 55.19967,
+  "logo": "logos/jge.png"
  },
  {
   "id": "the-els-club-dubai",
@@ -2422,7 +2427,8 @@
   ],
   "notes": "Club site (montgomeriegolfclubdubai.com) has no scorecard; themontgomerie.com could not be reached. Ratings from EGF page (slope/CR): Back 135/75.5, Middle 132/71.9, Front 128/69.3, Ladies 126/70.4; mapped Back=Black, Middle=Blue, Front=Green, Ladies=Red (GolfPass per-tee data uses the same mapping). EGF 9-hole ratings: 1-9 137/37.6, 135/36, 131/34.8, 130/35.7; 10-18 132/37.9, 129/35.9, 125/34.5, 122/34.7. Per-hole par/yardages from GolfPass, identical in Golfify and 18Birdies (Black). SI CONFLICT: men's SI here from GolfPass and Golfify. 18Birdies shows 13 9 3 5 17 7 11 15 1 12 14 4 8 10 18 6 16 2, which GolfPass and Golfify label as the ladies' SI (use that for Red/women). GolfPass tee summary gives totals 7461/6711/6165/5417, which disagree with its own hole sums (7446/6686/6126/5406); hole sums used. 18Birdies gives Red men 123/71.9, not official. Totals check: par 36/36/72 OK; hole sums match scorecard out/in/totals.",
   "lat": 25.0715,
-  "lon": 55.164
+  "lon": 55.164,
+  "logo": "logos/montgomerie.png"
  },
  {
   "id": "the-track-meydan-golf",
@@ -2617,7 +2623,8 @@
   ],
   "notes": "9-hole course; ratings are 9-hole values. No scorecard on meydangolf.com. Yardages identical in GolfPass and Golfify; 18Birdies Black matches; Hole19 metres convert to the same (Black 3388 m). EGF text confirms 7,412 yd from Black for 18 (2 x 3706). SI shown is the published odd (18-hole) index from GolfPass/Golfify/18Birdies; Hole19's 9-hole SI is 1,8,6,4,7,9,5,2,3 (same order). Ratings: EGF 9-hole (1-9) Back 139/37.8, Middle 135/36.7, Front 125/34.8, Ladies 128/35.9 - match 18Birdies Black/Gold/Silver men and Jade women. Copper and Jade men's and Gold/Silver/Copper women's values are from 18Birdies only (Hole19 has Copper men 33.8/120 - conflict; Golfify has Copper 34.8/125, which is really Silver's). EGF 18-hole: Back 139/75.6, Middle 135/73.4, Front 125/69.6, Ladies 128/71.8; Composite 137/74.5. Totals check OK: par 36; Black 3706, Gold 3466, Silver 3257, Copper 3030, Jade 2754.",
   "lat": 25.16051,
-  "lon": 55.31164
+  "lon": 55.31164,
+  "logo": "logos/meydan.png"
  },
  {
   "id": "trump-international-golf-club-dubai",
@@ -2783,6 +2790,46 @@
   "logo": "logos/trump.png"
  },
  {
+  "id": "emaar-south-golf-club",
+  "name": "Emaar South Golf Club",
+  "club": "Emaar South Golf Club",
+  "emirate": "Dubai",
+  "holes": 18,
+  "par": null,
+  "si": null,
+  "unit": "yards",
+  "tees": [],
+  "logo": "logos/emaar-south-fill.png",
+  "lat": null,
+  "lon": null,
+  "noCard": true,
+  "sources": [
+   "https://www.timeoutdubai.com/news/emaar-south-golf-club",
+   "https://gulfnews.com/sport/emaars-luxury-golf-course-finally-opens-in-dubai-south-1.500720758"
+  ],
+  "notes": "Opened late 2026 in Emaar South (Dubai South), European Golf Design, 7,278 yd from the black tees. No hole-by-hole scorecard published yet: pars default to 4 until set."
+ },
+ {
+  "id": "discovery-dunes",
+  "name": "Discovery Dunes",
+  "club": "Discovery Dunes",
+  "emirate": "Dubai",
+  "holes": 18,
+  "par": null,
+  "si": null,
+  "unit": "yards",
+  "tees": [],
+  "logo": "logos/discovery-dunes-fill.png",
+  "lat": null,
+  "lon": null,
+  "noCard": true,
+  "sources": [
+   "https://www.golfdigest.com/courses/uae/discovery-dunes",
+   "https://discoverydunes.com/"
+  ],
+  "notes": "Private (Discovery Land), Tom Fazio, Dubai South, opened 2025. No public scorecard: pars default to 4 until set."
+ },
+ {
   "id": "abu-dhabi-city-golf-club",
   "name": "Abu Dhabi City Golf Club",
   "club": "Abu Dhabi City Golf Club",
@@ -2893,7 +2940,8 @@
   "notes": "From the OFFICIAL 2025 club scorecard image. This is a 9-hole floodlit course played twice for 18: holes 10-18 are the same holes from second-loop tees (Yellow for men), with their own SI. SI shown is the men's. The women's SI differs: 10,4,12,16,6,18,14,2,8 / 9,3,11,15,5,17,13,1,7. Men's front 9 is 35.1/132 and back 9 is 35.6/135; women's front 9 is 35.9/131 and back 9 is 36.2/131 (EGF agrees). Totals check out: Men 3083+3224=6307, Ladies 2655+2748=5403, par 35+35=70. Conflicts: 18Birdies and GolfPass list men's SI 4 on hole 2 and SI 2 on hole 8; the official card has the reverse (2 and 4). golfingrecord's 'Abu Dhabi Golf & Equestrian Club' (18 holes, 6365) and its White card (3239) are older/other versions.",
   "lat": 24.4425,
   "lon": 54.4035,
-  "latlonNote": "approximate centre, added by hand 10 Nov 2026"
+  "latlonNote": "approximate centre, added by hand 10 Nov 2026",
+  "logo": "logos/ad-city.png"
  },
  {
   "id": "abu-dhabi-golf-club-garden-course",
@@ -3002,7 +3050,8 @@
   "notes": "9-hole floodlit course (holes 19-27 at the club). Hole data from 18Birdies. Tee totals (3341/3037/2816/2530) exactly match 1golf.eu's Black/Green/White/Red totals; 1golf.eu calls the back tee 'Black', 18Birdies calls it 'Tournament'. Ratings are EGF 9-hole (19-27) figures (Back/Middle/Front/Ladies). 18Birdies gives slightly different 9-hole ratings: Tournament M 36.3/133, Green M 34.8/129, White M 33.8/125, Red W 34.7/123 (also women's Tournament 38.7/131, Green 37.1/126, White 35.9/122). EGF 18-hole ratings for Garden twice: Back 73/136, Middle 70/129, Front 68/125, Ladies 69.8/123. SI is the 9-hole order 1-9. Par 36.",
   "lat": 24.415,
   "lon": 54.524,
-  "latlonNote": "approximate centre, added by hand 10 Nov 2026"
+  "latlonNote": "approximate centre, added by hand 10 Nov 2026",
+  "logo": "logos/adgc.png"
  },
  {
   "id": "abu-dhabi-golf-club-national-course",
@@ -3317,7 +3366,8 @@
     24.419571,
     54.526102
    ]
-  ]
+  ],
+  "logo": "logos/adgc.png"
  },
  {
   "id": "al-ain-equestrian-shooting-golf-club-academy-course",
@@ -3382,7 +3432,8 @@
   "notes": "9-hole floodlit academy course. Only tee totals are published (GolfPass: Blue par 27, 886 yards; Red par 27, 738 yards). Par per hole is set to 3 because a 9-hole par-27 course can only be all par 3s; no source lists it hole by hole. No per-hole lengths, SI or ratings found. golfingrecord's card (nine par-4 holes of 300) is clearly placeholder data and was ignored.",
   "lat": 24.147,
   "lon": 55.787,
-  "latlonNote": "approximate centre, added by hand 10 Nov 2026"
+  "latlonNote": "approximate centre, added by hand 10 Nov 2026",
+  "logo": "logos/al-ain.png"
  },
  {
   "id": "al-ain-equestrian-shooting-golf-club-championship-course",
@@ -3652,7 +3703,8 @@
   "notes": "PAR 70 CONFIRMED (Golf Digest Middle East course feature): 18 holes, par 70, 7,117 yd from the tips; hole 10 is 678 yd (longest in the UAE), hole 12 417 yd, hole 16 456 yd from a newly added back tee. This card (Black 6,764) matches 18Birdies/GolfPass hole for hole and hole 10; the 7,117-yd tournament tees (16 = 456, 12 = 417) are not published hole by hole anywhere found, so the Black row here is the regular back tee, not the tips. Earlier conflicts: The official site (aesgc.com) has no scorecard. Hole data is from 18Birdies and matches GolfPass hole for hole: par 35/35 = 70, Black 6764 (3323+3441), Blue 6219, White 5718, Red 5287. Hole 4 Red: 18Birdies says 274 (longer than White's 264); GolfPass says 247, which fits its own front-9 total of 2673, so 247 is used. Hole19's Black card is the same tee in metres (6185). CONFLICTS: (1) EGF lists the 18-hole course as par 72 (36/36) with ratings Back 72.7/135, Middle 69.7/132, Front 67.5/129, Ladies 69.8/129. These do not fit the par-70 layout, so they were not used. (2) GolfPass's tee table says par 71 (Black 6612, 70.5/132; Blue 6129, 68.5/129; White 5687, 66.6/126; Red W 5282, 68.9/126). (3) golfingrecord has a par-71 card with a different front nine (pars 4,4,5,3,4,5,3,4,4; Black 6584), probably an older layout. Ratings here are 18Birdies' figures for the par-70 card. The 18Birdies men's Red rating (69.1/118), higher than men's White (66.7), looks wrong. Check the current card with the club before relying on this.",
   "lat": 24.147,
   "lon": 55.787,
-  "latlonNote": "approximate centre, added by hand 10 Nov 2026"
+  "latlonNote": "approximate centre, added by hand 10 Nov 2026",
+  "logo": "logos/al-ain.png"
  },
  {
   "id": "al-dhannah-golf-club",
@@ -3898,7 +3950,8 @@
   "notes": "SAND (brown) course near Abu Dhabi International Airport, not on the original list. Data from GolfPass only; no official card found. Status: closure was reported in 2017-18, followed by plans to redevelop it as a sports hub with the sand course kept; Visit Abu Dhabi still lists it. Confirm it is open. The men's SI is shown; women's SI from GolfPass: 8,12,18,14,2,16,6,10,4,17,5,13,3,11,1,15,9,7. Sums: par 35+36=71; White 3080+3644=6724 (GolfPass's tee table says 6711); Blue 3032+3479=6511; Red 2612+2879=5491 (the tee table calls it 'Gold'). The Red tee is assumed to be women's because GolfPass's women's SI row goes with it; this is not stated. No ratings.",
   "lat": 24.4405,
   "lon": 54.656,
-  "latlonNote": "approximate centre, added by hand 10 Nov 2026"
+  "latlonNote": "approximate centre, added by hand 10 Nov 2026",
+  "logo": "logos/al-ghazal.png"
  },
  {
   "id": "saadiyat-beach-golf-club",
@@ -4242,7 +4295,8 @@
   ],
   "notes": "LOW-MEDIUM CONFIDENCE. 9-hole floodlit Fry/Straka course, par 36 (official Viya page: 3,700 yards, par 36). Per-hole data is only from Hole19, which labels its single 'Black' tee in yards (total 3384). 3384 metres is 3700 yards, the official Black length, so the numbers are treated as METRES. Hole19 shows the same yards/metres mislabel on the Al Ain card. Other tee totals are from 1golf.eu, in yards: Black 3700, Gold 3422, Blue 3157, Silver (women) 3870, Orange (women) 2554. The Silver figure being longer than Black is odd but is as published. No per-hole data for those tees and no ratings (EGF page lists none).",
   "lat": 24.50003,
-  "lon": 54.6087
+  "lon": 54.6087,
+  "logo": "logos/yas-acres-fill.png"
  },
  {
   "id": "yas-links-abu-dhabi",
@@ -4509,7 +4563,8 @@
   ],
   "notes": "No official hole-by-hole card found on viyagolf.com (operator). Hole-by-hole yardages, par and SI are identical on 18Birdies and GolfPass. Tees are named by number (74/70/66/62/54), as both sources publish them. Men's 74/70/66 ratings and the women's 54 rating (72.0/129) match the EGF list (Back 76.1/143, Middle 74.9/139, Front 72.5/134, Ladies 72/129); the other ratings come only from 18Birdies. GolfPass labels 62 and 54 both as men's 72.0/129, which looks like a mix-up. Totals: the hole sums are 74=7414 (3697+3717), 70=7037, 66=6611, 62=6236, 54=5434. GolfPass's summary says 7425 for the 74 tee and 5455 for the 54 tee, which do not match its own hole sums. Par 36/36 = 72.",
   "lat": 24.47702,
-  "lon": 54.59658
+  "lon": 54.59658,
+  "logo": "logos/yas-links.png"
  },
  {
   "id": "yas-links-abu-dhabi-par-3-academy-course",
@@ -4585,7 +4640,8 @@
   "notes": "Floodlit 9-hole par-3 course. Yardages from GolfPass (Black 1136, Yellow 1001). The official Viya page says holes run 83-185 yards, which fits GolfPass exactly. golfingrecord's Yellow card (910) is the same tee in metres. 18Birdies has a different, longer set (Black 1238 / Yellow 1091, holes 88-202), probably an older layout, so it was not used. All sources agree on SI. GolfPass's tee table labels the 1136 tee 'White'. No published ratings (18Birdies shows non-standard 9-hole values of about 27.4/82.7, not used).",
   "lat": 24.47,
   "lon": 54.595,
-  "latlonNote": "approximate centre, added by hand 10 Nov 2026"
+  "latlonNote": "approximate centre, added by hand 10 Nov 2026",
+  "logo": "logos/yas-links.png"
  },
  {
   "id": "al-zorah-golf-club",
@@ -4750,7 +4806,8 @@
   "notes": "Club website (alzorahgolf.com) is a parked domain; no official card found online. Yardages identical in GolfPass and Golfify; AllSquare/Hole19 metre cards (Black 6553 m, Gold 5964, Silver 5549, Jade 4828) convert to the same numbers. Par and SI agree across all sources. Ratings from EGF (Back 138/74.7, Middle 135/71.8, Front 131/70, Ladies 128/71.3) - match GolfPass and AllSquare tee labels. Golfify (Black 73.6/136, Gold 73.0/135, Silver 69.9/132) and Hole19 (Gold 71.5/135, Silver 69.9/131, Jade 70.4/127) differ - not used. EGF 9-hole: 1-9 Back 136/37.5, Middle 131/35.6, Front 127/35.1, Ladies 126/35.3; 10-18 140/37.2, 138/35.9, 136/34.8, 128/35.1. Totals check OK: par 72; Black 3643+3526=7169, Gold 3263+3259=6522, Silver 3050+3021=6071, Jade 2705+2578=5283.",
   "lat": 25.392,
   "lon": 55.487,
-  "latlonNote": "approximate centre, added by hand 10 Nov 2026"
+  "latlonNote": "approximate centre, added by hand 10 Nov 2026",
+  "logo": "logos/al-zorah.png"
  },
  {
   "id": "al-hamra-golf-club",
@@ -5213,7 +5270,8 @@
   ],
   "notes": "Club website (towerlinksgolf.com) unreachable; no official card found. Yardages from GolfPass; 18Birdies Black matches hole-for-hole. Ratings from EGF (Back 141/75.2, Middle 139/73.6, Front 133/71.1, Ladies 131/72.7), which match GolfPass's Black/Green/White/Red; 18Birdies has Black 139/75.2 and Green 135/73.0 (differs). Hole19 has White 70.9/133. CONFLICT: metre-based cards (Hole19: Black 6575 m, Green 6113, White 5663, Red 5057; AllSquare similar) do not convert exactly to these yards - e.g. hole 5 Black 533 m (=583 yd vs 553), hole 8 Black 235 m (=257 yd vs 209). Likely a different/updated measurement; yard card kept since two yard sources agree and EGF ratings line up with it. AllSquare also prints a different SI order and calls Green 'Blue' - not used; Hole19 SI matches the one used. EGF 9-hole: 1-9 Back 145/38.5, Middle 141/37.4, Front 137/36.3, Ladies 135/37.1; 10-18 133/36.7, 128/35.6, 126/34.6, 124/35.6. Totals check OK: par 72; Black 3648+3450=7098, Green 3404+3240=6644, White 3211+2977=6188, Red 2853+2643=5496.",
   "lat": 25.76774,
-  "lon": 55.95439
+  "lon": 55.95439,
+  "logo": "logos/tower-links.png"
  },
  {
   "id": "sharjah-golf-shooting-club",
@@ -5354,6 +5412,7 @@
   ],
   "notes": "9-hole course played twice for 18 (holes 10-18 = holes 1-9 from alternate tees): front nine Black / White, back nine Blue / Yellow; ladies play the same Red/Ladies tee both nines. Club site has no scorecard. Yardages from Golfify (alternate-tees card); AllSquare agrees (except hole 7 Blue 456 vs 455) and Hole19 metre totals convert to the same (Black 3356 m, Blue 3352, White 3086, Yellow 3083, Red 2707). 18-hole totals: Black/Blue 7337, White/Yellow 6747, Red 5922 - consistent with EGF's 'in excess of 7,300 yards'. CONFLICT: GolfPass/18Birdies/Golf Digest ME show an older card: Black/Blue 7164, White/Yellow 6723, Red 5576 yd (e.g. front Black 420,397,160,536,442,574,471,164,435; Red front 2788). Hole19's 9-hole Red tee is 2706 m. Not used. SI: 18-hole values (front 13,8,17,12,3,2,9,16,5 / back 14,7,18,11,4,1,10,15,6) agree in Golfify, 18Birdies and GolfPass; 9-hole SI (AllSquare/Hole19) is 7,4,9,6,2,1,5,8,3. Ratings: EGF 18-hole Back 135/74.3, Middle 132/72.4, Ladies 130/71.8 (EGF also lists Front 132/72.4 = same as Middle); 18Birdies maps these to Black/Blue, White/Yellow and Red-women, but they may have been rated on the older yardages. EGF 9-hole: 1-9 Back 136/37.2, Middle/Front/Ladies 130/35.9; 10-18 Back 133/37.1, Middle/Front 133/36.5, Ladies 130/35.9. Golfify/AllSquare give different 9-hole ratings (e.g. Black 37.9/141 or 37.5/138) - not used. Totals check OK: par 36+36=72; Black 3671 + Blue 3666 = 7337; White 3375 + Yellow 3372 = 6747; Red 2961x2 = 5922.",
   "lat": 25.35548,
-  "lon": 55.48549
+  "lon": 55.48549,
+  "logo": "logos/sharjah.png"
  }
 ]

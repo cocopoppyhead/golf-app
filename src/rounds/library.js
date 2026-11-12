@@ -38,7 +38,9 @@ export async function importCourse(lib, tee) {
   Object.assign(c, {
     name: lib.name, libId: lib.id, tees: tee?.name || '', rating: tee?.rating ?? null, slope: tee?.slope ?? null,
     lat: lib.lat ?? null, lon: lib.lon ?? null,
-    holes: lib.par.map((p, i) => ({ par: p || 4, si: lib.si?.[i] ?? null, yds: yards(tee?.lengths?.[i], lib.unit), green: lib.greens?.[i] || null })),
+    // a course with no published scorecard yet (a new one): pars start at 4, to be set from the card
+    holes: (Array.isArray(lib.par) ? lib.par : Array(lib.holes || 18).fill(null)).map((p, i) => ({ par: p || 4, si: lib.si?.[i] ?? null, yds: yards(tee?.lengths?.[i], lib.unit), green: lib.greens?.[i] || null })),
+    parsUnset: !Array.isArray(lib.par) || undefined,
   });
   await putCourse(c);
   return c;
@@ -46,7 +48,7 @@ export async function importCourse(lib, tee) {
 
 /** Full-screen picker: search UAE courses (nearest first if location allowed), then pick tees. */
 export async function openLibrary({ onPicked = () => {}, toast = () => {}, pickTee = false } = {}) {
-  const lib = (await loadLibrary()).filter((c) => Array.isArray(c.par) && c.par.some(Boolean));
+  const lib = (await loadLibrary()).filter((c) => (Array.isArray(c.par) && c.par.some(Boolean)) || c.noCard);
   if (!lib.length) return toast('Course list not available. Check your connection.');
   let q = '', here = null, chosen = null, em = '';
   const EMIRATES = [...new Set(lib.map((c) => c.emirate).filter(Boolean))];
@@ -67,23 +69,23 @@ export async function openLibrary({ onPicked = () => {}, toast = () => {}, pickT
       const r = rank(c);
       const head = !f && r !== lastRank ? `<div class="libhead">${r === 0 ? 'Home course' : r === 1 ? 'Starred' : em ? `${em} courses` : 'All UAE courses'}</div>` : '';
       lastRank = r;
-      const par = c.par.reduce((a, b) => a + (b || 0), 0);
+      const par = Array.isArray(c.par) ? c.par.reduce((a, b) => a + (b || 0), 0) : null;
       const d = here && c.lat ? ` · ${km(here, c).toFixed(km(here, c) < 10 ? 1 : 0)} km` : '';
-      return `${head}<div class="librow"><button class="libitem" data-id="${esc(c.id)}">${badgeHtml(c.name, c.logo, { cls: 'libbadge' })}<span class="libtext"><b>${r === 0 ? `${icon('home', 14)} ` : ''}${esc(c.name)}</b><span class="mute small">${esc(c.emirate)} · ${c.holes} holes · par ${par}${d}</span></span><span class="mute">›</span></button></div>`;
+      return `${head}<div class="librow"><button class="libitem" data-id="${esc(c.id)}">${badgeHtml(c.name, c.logo, { cls: 'libbadge' })}<span class="libtext"><b>${r === 0 ? `${icon('home', 14)} ` : ''}${esc(c.name)}</b><span class="mute small">${esc(c.emirate)} · ${c.holes} holes · ${par ? `par ${par}` : 'new: scorecard to come'}${d}</span></span><span class="mute">›</span></button></div>`;
     }).join('') || '<p class="mute">No match. Use "+ Course" to add it by hand.</p>';
   };
 
   const draw = () => {
     if (chosen) {
       const c = chosen;
-      const par = c.par.reduce((a, b) => a + (b || 0), 0);
+      const par = Array.isArray(c.par) ? c.par.reduce((a, b) => a + (b || 0), 0) : null;
       el.innerHTML = `<div class="onb-in"><div class="onb-top"><button class="link" data-back>‹ Courses</button><button class="link" data-close>Close</button></div>
-        <div class="onb-body"><h2>${esc(c.name)}</h2><p class="mute">${esc(c.emirate)} · ${c.holes} holes · par ${par}</p>
+        <div class="onb-body"><h2>${esc(c.name)}</h2><p class="mute">${esc(c.emirate)} · ${c.holes} holes${par ? ` · par ${par}` : ''}</p>
         <label class="field-label">Which tees?</label>
         <div class="tees">${(c.tees || []).map((t, i) => {
           const tot = (t.lengths || []).reduce((a, b) => a + (b || 0), 0);
           return `<button class="tee" data-t="${i}"><b>${esc(t.name)}</b><span class="mute small">${tot ? `${yards(tot, c.unit).toLocaleString()} yds` : 'length n/a'}${t.rating ? ` · CR ${t.rating}` : ''}${t.slope ? ` · slope ${t.slope}` : ''}${t.gender === 'women' ? ' · ladies' : ''}</span></button>`;
-        }).join('') || '<button class="tee" data-t="-1"><b>Use this course</b><span class="mute small">No tee lengths published</span></button>'}</div>
+        }).join('') || `<button class="tee" data-t="-1"><b>Use this course</b><span class="mute small">${c.noCard ? 'No scorecard published yet: pars start at 4, set them in Edit course' : 'No tee lengths published'}</span></button>`}</div>
         ${c.notes ? `<p class="mute small" style="margin-top:14px">${esc(c.notes)}</p>` : ''}
         <p class="mute small" style="margin-top:10px">From the club's published scorecard. You can fix anything afterwards in Edit course.</p></div></div>`;
       el.querySelector('[data-back]').onclick = () => { chosen = null; draw(); };

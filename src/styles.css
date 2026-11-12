@@ -763,3 +763,4 @@ table.t5, table.dk { width: 100%; border-collapse: collapse; font-size: 13px; } 
 .holedone.under > b { color: var(--birdie); } .holedone.over > b { color: var(--double); }
 .shotpanel button.wide { background: var(--panel2); color: var(--ink); border: 1px solid var(--line); border-radius: 10px; padding: 10px; font: 500 13.5px var(--text); }
 .shotpanel button.wide.on { background: var(--acc); color: var(--acc-ink); border-color: var(--acc); }
+.clogo.haslogo.fill { border: 0; } .clogo.fill img { width: 100%; height: 100%; object-fit: cover; }

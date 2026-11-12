@@ -152,7 +152,7 @@ async function storeRounds(convert) {
   const converted = convert((snap) => {
     const m = resolve(snap);
     if (m.kind === 'course') return m.course;
-    if (m.kind === 'library') { const id = `lib:${m.lib.id}`; pending.set(id, m); return { id, name: m.lib.name, holes: m.lib.par.map((p, i) => ({ par: p || 4, si: m.lib.si?.[i] ?? null })) }; }
+    if (m.kind === 'library') { const id = `lib:${m.lib.id}`; pending.set(id, m); return { id, name: m.lib.name, holes: (m.lib.par || Array(m.lib.holes || 18).fill(4)).map((p, i) => ({ par: p || 4, si: m.lib.si?.[i] ?? null })) }; }
     const id = `new:${m.spec.name}`; pending.set(id, m); return { id, name: m.spec.name, holes: m.spec.holes };
   });
   const made = new Map(); // placeholder (+ tee for library courses) → the course created for it

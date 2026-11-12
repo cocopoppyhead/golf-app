@@ -9,10 +9,15 @@ const osmDir = 'public/courses/osm';
 const osm = fs.readdirSync(osmDir).filter((f) => f.endsWith('.json')).map((f) => JSON.parse(fs.readFileSync(`${osmDir}/${f}`, 'utf8')));
 
 describe('UAE course library', () => {
+  it('gives every course a logo file that exists', async () => {
+    const { existsSync } = await import('node:fs');
+    for (const c of lib) expect(c.logo && existsSync(`public/${c.logo}`), c.id).toBe(true);
+  });
   it('has unique ids, a par and SI per hole, and tees of the right length', () => {
     const ids = new Set(lib.map((c) => c.id));
     expect(ids.size).toBe(lib.length);
     for (const c of lib) {
+      if (c.noCard) { expect(c.par, c.id).toBeNull(); expect(c.notes, c.id).toBeTruthy(); continue; } // a new course with no published card yet
       expect(c.par.length, c.id).toBe(c.holes);
       expect(c.par.every((p) => p >= 3 && p <= 6), c.id).toBe(true);
       if (c.si?.length) { // 18-hole cards: 1…18; 9-hole cards may use odds or evens out of 18

@@ -16,6 +16,6 @@ const BASE = import.meta.env?.BASE_URL || '/';
 /** HTML for a badge. `logo` is a path under public/ (from the course library). */
 export function badgeHtml(name, logo, { cls = '', attrs = '' } = {}) {
   return logo
-    ? `<div class="clogo haslogo ${cls}" ${attrs}><img src="${BASE}${esc(logo)}" alt="" loading="lazy" /></div>`
+    ? `<div class="clogo haslogo ${/-fill\.png$/.test(logo) ? 'fill' : ''} ${cls}" ${attrs}><img src="${BASE}${esc(logo)}" alt="" loading="lazy" /></div>`
     : `<div class="clogo ${cls}" ${attrs} style="--h:${hue(name)}"><span>${esc(monogram(name))}</span></div>`;
 }
