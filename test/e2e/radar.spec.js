@@ -31,9 +31,16 @@ test('the skills radar draws six axes from rounds, switches windows and jumps to
   await expect(card.locator('[data-radar-n="100"]')).toBeDisabled();
   await expect(card).toContainText('Mind');
   await expect(card).toContainText('Short game');
-  await card.locator('.hexplain summary').click();
+  await expect(card.locator('.hbasis')).toContainText('10 rounds with shot detail');
+  // keep one round out of the radar but in the scores
+  await card.locator('[data-pickrounds]').click();
+  await page.locator('.pickrounds [data-radar-rid="r11"]').click();
+  await expect(page.locator('.pickrounds [data-radar-rid="r11"]')).toHaveText('Not in radar');
+  await page.locator('.pickrounds [data-close]').click();
+  await expect(page.locator('.radarcard .hused')).toContainText('Scores from 12 rounds, radar from 11');
+  await page.locator('.radarcard .hexplain summary').click();
   await expect(card.locator('.radarinfo')).toContainText('Wedges');
-  await card.locator('.radar [data-goto="putting"] .rl').click();
+  await page.locator('.radarcard .radar [data-goto="putting"] .rl').click();
   await page.waitForTimeout(600);
   expect(await page.evaluate(() => window.scrollY)).toBeGreaterThan(200);
 });
@@ -49,12 +56,12 @@ test('rounds that look unfinished are left out, and you can pick them back in', 
   await page.reload();
   await page.click('nav button[data-tab=history]');
   const card = page.locator('.radarcard');
-  await expect(card.locator('.hused')).toContainText('From 2 rounds, 1 left out');
+  await expect(card.locator('.hused')).toContainText('Scores from 2 rounds (1 left out), radar from 0');
   await card.locator('[data-pickrounds]').click();
   const row = page.locator('.pickrounds .prow.off');
   await expect(row).toHaveCount(1);
   await expect(row).toContainText('hole 5 not scored');
   await row.locator('input').check();
   await page.locator('.pickrounds [data-close]').click();
-  await expect(page.locator('.radarcard .hused')).toContainText('From 3 rounds');
+  await expect(page.locator('.radarcard .hused')).toContainText('Scores from 3 rounds');
 });

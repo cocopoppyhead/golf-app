@@ -30,7 +30,7 @@ const PLAN_BASE = 0.55; // "shots that came off as planned" that we treat as par
 
 /** Per-round raw material: strokes gained by axis (tour baseline, 18-hole scaled) plus the head inputs. */
 export function radarRound(round, course) {
-  if (!round || round.quick || !course) return null;
+  if (!round || round.quick || !course || round.radarPick === false) return null;
   // Strokes gained only counts holes where every stroke is accounted for (a hole with a missing shot
   // would credit two shots' worth of distance to one); per-18 scaling for those axes uses that count.
   // Garmin scorecards say nothing about penalties or tee-shot trouble, so they stay out of Mind.
@@ -62,7 +62,15 @@ export function radarRound(round, course) {
       else if (!t && (h.tee === 'LT' || h.tee === 'RT')) R.dirt++;
     }
   });
+  // Mind needs shot detail (penalties and tee results are logged per shot); a score-only round has nothing to say
+  if (!round.holes.some((h) => h?.shots?.length)) R.mind = false;
   return R.holes ? R : null;
+}
+
+/** Does this round give the radar anything: a hole with every shot accounted for, or shot detail for Mind? */
+export function feedsRadar(round, course) {
+  const R = radarRound(round, course);
+  return !!R && (R.complete > 0 || R.mind);
 }
 
 export { MIN_SHOTS };

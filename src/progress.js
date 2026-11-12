@@ -11,7 +11,7 @@ import { autoShotType } from './rounds/hole.js';
 import { CODES } from './rounds/stats.js';
 import { differential, adjustedGross, indexFrom, indexHistory } from './rounds/handicap.js';
 import { getSettings } from './store.js';
-import { skillRadar, radarSvg, radarRead, LONG_FROM } from './rounds/radar.js';
+import { skillRadar, radarSvg, radarRead, radarRound, feedsRadar, LONG_FROM } from './rounds/radar.js';
 import { levelLabel } from './benchmarks.js';
 import { ART, CONTOUR } from './art.js';
 import { counts, roundIssues, roundNotes } from './rounds/quality.js';
@@ -51,27 +51,35 @@ export async function loadRounds(n = 20, { all = false } = {}) {
     if (!c) continue;
     const ok = counts(r, c);
     if (!ok && !all) continue;
-    out.push(all ? { r, c, ok, issues: roundIssues(r, c), notes: roundNotes(r, c) } : { r, c, S: roundStats(r, c), G: roundSG(r, c), T: tiger5(r, c) });
+    out.push(all ? { r, c, ok, issues: roundIssues(r, c), notes: roundNotes(r, c), rad: radarRound({ ...r, radarPick: undefined }, c) } : { r, c, S: roundStats(r, c), G: roundSG(r, c), T: tiger5(r, c) });
   }
   return out;
 }
+
+const fmtShort = (t) => new Date(t).toLocaleDateString(undefined, { month: 'short', year: '2-digit' });
 
 /** Choose which rounds count: every round, a tick each, with what looks wrong spelled out. */
 async function roundsSheet(onDone) {
   const list = await loadRounds(0, { all: true });
   const sheet = document.createElement('div'); sheet.className = 'sheet itemsheet pickrounds';
-  const row = ({ r, c, ok, issues, notes }) => {
+  const chip = (r, rad) => {
+    if (!rad || !(rad.complete > 0 || rad.mind)) return '<span class="rchip none">Scores only</span>';
+    const on = r.radarPick !== false;
+    return `<button class="rchip ${on ? 'on' : ''}" data-radar-rid="${esc(r.id)}">${on ? `Radar · ${rad.complete} hole${rad.complete === 1 ? '' : 's'}` : 'Not in radar'}</button>`;
+  };
+  const row = ({ r, c, ok, issues, notes, rad }) => {
     const sc = (r.holes || []).reduce((a, h) => a + (h?.score || 0), 0) || r.score || null;
     const played = (r.holes || []).filter((h) => h?.score != null).length;
     const shots = r.shotsTracked || (r.holes || []).reduce((a, h) => a + (h?.shots?.length || 0), 0);
     const why = r.countPick != null ? [r.countPick ? 'counted by you' : 'left out by you', ...(issues.length ? issues : notes)].join(' · ') : issues.length ? issues.join(' · ') : notes.join(' · ');
     return `<label class="prow ${ok ? '' : 'off'}"><input type="checkbox" data-rid="${esc(r.id)}" ${ok ? 'checked' : ''}/>
       <span class="pmain"><b>${esc(r.courseName || c.name)}</b><span class="mute small">${new Date(r.date).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })} · ${r.quick ? 'score only' : `${played}/${c.holes.length} holes`}${shots ? ` · ${shots} shots` : ''}${r.source === 'garmin' ? ' · Garmin' : ''}</span>
-      ${why ? `<span class="pwhy ${r.countPick == null && issues.length ? 'warn' : ''}">${esc(why)}</span>` : ''}</span><span class="psc">${sc ?? '–'}</span></label>`;
+      ${why ? `<span class="pwhy ${r.countPick == null && issues.length ? 'warn' : ''}">${esc(why)}</span>` : ''}${chip(r, rad)}</span><span class="psc">${sc ?? '–'}</span></label>`;
   };
   const n = list.filter((x) => x.ok).length;
   sheet.innerHTML = `<div class="sheet-in"><div class="sheet-h"><b>Rounds in your stats</b><button class="link" data-close>Done</button></div>
     <p class="small mute" style="margin:0 0 10px">${n} of ${list.length} count. Rounds that look unfinished (under 9 holes, holes skipped in the middle, impossible scores, or most tracked holes missing shots) are left out until you tick them. A hole missing shots never counts toward strokes gained; its score and putts still do.</p>
+    <p class="small mute" style="margin:0 0 10px">The radar only uses holes where every shot was logged. Tap a round's radar tag to keep it out of the radar but in your scores.</p>
     <div class="plist">${list.map(row).join('') || '<p class="mute">No rounds yet.</p>'}</div>
     <button class="btn" data-auto style="width:100%;margin-top:12px">Back to automatic for every round</button></div>`;
   const byId = new Map(list.map((x) => [x.r.id, x]));
@@ -84,8 +92,16 @@ async function roundsSheet(onDone) {
     const w = e.target.closest('.prow').querySelector('.pwhy') || e.target.closest('.prow').querySelector('.pmain').appendChild(Object.assign(document.createElement('span'), { className: 'pwhy' }));
     w.className = 'pwhy'; w.textContent = e.target.checked ? 'counted by you' : 'left out by you';
   });
+  sheet.addEventListener('click', async (e) => {
+    const b = e.target.closest('[data-radar-rid]'); if (!b) return;
+    e.preventDefault();
+    const x = byId.get(b.dataset.radarRid); if (!x) return;
+    if (x.r.radarPick === false) delete x.r.radarPick; else x.r.radarPick = false;
+    x.r.updatedAt = Date.now(); changed = true; await putRound(x.r);
+    b.outerHTML = chip(x.r, x.rad);
+  });
   sheet.querySelector('[data-auto]').onclick = async () => {
-    for (const x of list) if (x.r.countPick != null) { delete x.r.countPick; x.r.updatedAt = Date.now(); await putRound(x.r); }
+    for (const x of list) if (x.r.countPick != null || x.r.radarPick != null) { delete x.r.countPick; delete x.r.radarPick; x.r.updatedAt = Date.now(); await putRound(x.r); }
     sheet.remove(); onDone(); roundsSheet(onDone);
   };
   sheet.querySelector('[data-close]').onclick = () => { sheet.remove(); if (changed) onDone(); };
@@ -172,14 +188,22 @@ function verdict(radar, key, read, hcp) {
 }
 
 function hero0Detail(ALL, hcp) {
-  const r = skillRadar(ALL.filter((x) => !x.S.quick).slice(0, 10), { hcp });
+  const r = skillRadar(ALL.filter((x) => feedsRadar(x.r, x.c)).slice(0, 10), { hcp });
   return r.axes.map((a) => `<div><b>${esc(a.label)}</b><span>${a.detail ? esc(a.detail) : 'Not enough rounds yet.'}</span></div>`).join('');
 }
 
 function heroBand(ALL, Hc, hcp, OUT = 0) {
-  const L = ALL.filter((x) => !x.S.quick);
+  // the radar only looks at rounds with shot detail: "Last 10" is the last 10 of those, not of every round
+  const L = ALL.filter((x) => feedsRadar(x.r, x.c));
+  const basis = (list) => {
+    const rows = list.map((x) => radarRound(x.r, x.c)).filter(Boolean);
+    const holes = rows.reduce((a, R) => a + R.complete, 0);
+    if (!list.length) return 'No rounds with shot detail yet: the radar needs holes where every shot was logged.';
+    const span = `${fmtShort(list[list.length - 1].r.date)} – ${fmtShort(list[0].r.date)}`;
+    return `${list.length} round${list.length === 1 ? '' : 's'} with shot detail (${span}): ${holes} hole${holes === 1 ? '' : 's'} with every shot logged.`;
+  };
   const windows = [10, 50, 100].map((n) => ({ n, radar: skillRadar(L.slice(0, n), { hcp }), ghost: L.length > n ? skillRadar(L.slice(n, 2 * n), { hcp }) : null }));
-  const views = Object.fromEntries(windows.map((w) => [w.n, `${radarSvg(w.radar, w.ghost)}${w.radar.ready ? '' : `<p class="hnote">The shape fills in after 3 hole-by-hole rounds with shot distances and first putts (${w.radar.nSg} so far).</p>`}`]));
+  const views = Object.fromEntries(windows.map((w) => [w.n, `${radarSvg(w.radar, w.ghost)}<p class="hbasis">${esc(basis(L.slice(0, w.n)))}</p>${w.radar.ready ? '' : `<p class="hnote">The shape fills in after 3 rounds with shot distances and first putts.</p>`}`]));
   const full = ALL.filter((x) => x.S.holes >= 18).sort((a, b) => a.r.date - b.r.date).slice(-20);
   const sc = full.map((x) => x.S.score);
   const avg = sc.length ? sc.reduce((a, b) => a + b, 0) / sc.length : null;
@@ -188,7 +212,7 @@ function heroBand(ALL, Hc, hcp, OUT = 0) {
   const idx = Hc?.current ? Hc.current.index : getSettings().handicap;
   return { windows, html: `<section class="hero radarcard" data-radar-views='${esc(JSON.stringify(views))}'><div class="contour" style="--mask:${CONTOUR}"></div>
     <h1>Your game</h1><p class="hsub">Strokes a round against a ${levelLabel(hcp)} golfer. Tap an area to jump to it.</p>
-    <p class="hused">From ${ALL.length} round${ALL.length === 1 ? '' : 's'}${OUT ? `, ${OUT} left out` : ''} <button class="link" data-pickrounds>Choose rounds</button></p>
+    <p class="hused">Scores from ${ALL.length} round${ALL.length === 1 ? '' : 's'}${OUT ? ` (${OUT} left out)` : ''}, radar from ${L.length} <button class="link" data-pickrounds>Choose rounds</button></p>
     <div class="rwin" role="group" aria-label="Rounds">${windows.map((w) => `<button data-radar-n="${w.n}" class="${w.n === 10 ? 'on' : ''}" ${L.length < w.n && w.n !== 10 ? 'disabled' : ''}>Last ${w.n}</button>`).join('')}</div>
     <div class="radarbox">${views[10]}</div>
     <div class="legend"><span><i class="lg-you"></i>You</span><span><i class="lg-gh"></i>Rounds before</span><span><i class="lg-scr"></i>Scratch</span></div>
@@ -345,7 +369,7 @@ export async function practiceFromRounds() {
   const sh = Object.entries(shape);
   if (sh.length) html += `<div class="card"><h2>Planned vs actual shape</h2>${sh.map(([k, s]) => `<div class="tend"><div><b>Planned ${k}: ${Math.round((s.ok / s.n) * 100)}% came off</b><div class="mute small">${s.n} shot${s.n > 1 ? 's' : ''}${Object.keys(s.got).length ? ` · instead: ${Object.entries(s.got).sort((a, z) => z[1] - a[1]).map(([g, v]) => `${esc(lab[g] || g)} ×${v}`).join(', ')}` : ''}</div></div></div>`).join('')}</div>`;
   const hcp = getSettings().handicap ?? 15;
-  const radar = skillRadar(R.filter((x) => !x.S.quick), { hcp });
+  const radar = skillRadar(R.filter((x) => feedsRadar(x.r, x.c)), { hcp });
   const ok = radar.axes.filter((a) => a.enough && a.value != null).sort((a, b) => a.value - b.value);
   if (ok.length >= 2) {
     const ART_FOR = { ott: 'driving', appL: 'approach', appW: 'approach', arg: 'short', putt: 'putting', head: 'mind' };
