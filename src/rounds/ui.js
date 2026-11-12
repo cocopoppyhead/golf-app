@@ -94,10 +94,7 @@ export async function roundsHome() {
     <div id="friendsCard"></div>
     ${await digestCard(done)}
     ${done.length ? `<button class="card gotoprog" data-act="progress"><span>${ART.putting}</span><span><b>Your game</b><small>Driving to putting, against a golfer at your level — in Progress</small></span><span class="mute">›</span></button>` : ''}
-    ${done.length ? `<h2 style="margin:26px 0 10px">Rounds</h2>` + done.map((r) => {
-      const s = r._stats;
-      return `<div class="hist" data-act="open" data-id="${r.id}"><div class="sc">${s ? s.score : '–'}</div><div><div class="t">${esc(r.courseName)} ${s ? `<span class="mute">${toParStr(s.toPar)}</span>` : ''}</div><div class="s">${fmtD(r.date)}${r.quick ? `${r.tees ? ` · ${esc(r.tees)}` : ''}${r.diff != null ? ` · diff ${r.diff.toFixed(1)}` : ''} · score only` : s ? `${s.puttsHoles ? ` · ${s.putts} putts` : ''}${s.firOpp ? ` · FIR ${pct(s.fir, s.firOpp)}%` : ''}${s.girOpp && s.puttsHoles ? ` · GIR ${pct(s.gir, s.girOpp)}%` : ''}${r.source === 'garmin' ? ' · Garmin' : ''}` : ''}${r.learning === false ? ' · not counted' : ''}${r.submitted === false ? ' · <span class="acc">details to finish</span>' : ''}</div></div><div class="mute">›</div></div>`;
-    }).join('') : ''}`;
+    ${done.length ? `<h2 style="margin:26px 0 10px">Rounds</h2>${done.slice(0, SHOW_ROUNDS).map(histRow).join('')}${done.length > SHOW_ROUNDS ? `<button class="btn allrounds" data-act="allrounds">All rounds (${done.length})</button>` : ''}` : ''}`;
   root.querySelectorAll('[data-act]').forEach((b) => b.addEventListener('click', () => homeAction(b.dataset.act, b.dataset.id)));
   bindCourseCards(root, groups, courseApi());
   renderFriendsCard(root.querySelector('#friendsCard'), { toast: ctx.toast, onJoined: () => mergeRemoteEvents().then(roundsHome) });
@@ -105,6 +102,36 @@ export async function roundsHome() {
   mergeRemoteEvents().then((changed) => { if (changed && root.querySelector('#friendsCard')) roundsHome(); });
   renderChecklist(root.querySelector('#gettingStarted'), { onGo: (where) => (where === 'library' ? homeAction('library') : where === 'play' ? (groups.length ? coursePage(groups[0], courseApi()) : homeAction('library')) : ctx.showTab?.(where)) });
 }
+const SHOW_ROUNDS = 5;
+/** One line in a rounds list: score, course, date, the round's numbers. */
+function histRow(r) {
+  const s = r._stats;
+  return `<div class="hist" data-act="open" data-id="${r.id}"><div class="sc">${s ? s.score : '–'}</div><div><div class="t">${esc(r.courseName)} ${s ? `<span class="mute">${toParStr(s.toPar)}</span>` : ''}</div><div class="s">${fmtD(r.date)}${r.quick ? `${r.tees ? ` · ${esc(r.tees)}` : ''}${r.diff != null ? ` · diff ${r.diff.toFixed(1)}` : ''} · score only` : s ? `${s.puttsHoles ? ` · ${s.putts} putts` : ''}${s.firOpp ? ` · FIR ${pct(s.fir, s.firOpp)}%` : ''}${s.girOpp && s.puttsHoles ? ` · GIR ${pct(s.gir, s.girOpp)}%` : ''}${r.source === 'garmin' ? ' · Garmin' : ''}` : ''}${r.learning === false ? ' · not counted' : ''}${r.submitted === false ? ' · <span class="acc">details to finish</span>' : ''}</div></div><div class="mute">›</div></div>`;
+}
+
+/** Every finished round, filterable by course and by when. */
+async function allRoundsSheet() {
+  const done = (await listRounds().catch(() => [])).filter((r) => r.finished);
+  await aggStats(done);
+  const courses = [...new Map(done.map((r) => [r.courseName, r.courseName])).values()].sort((a, b) => a.localeCompare(b));
+  const years = [...new Set(done.map((r) => new Date(r.date).getFullYear()))].sort((a, b) => b - a);
+  const WHEN = [['all', 'Any time'], ['30', 'Last 30 days'], ['90', 'Last 3 months'], ['365', 'Last 12 months'], ...years.map((y) => [`y${y}`, String(y)])];
+  let course = '', when = 'all';
+  const sheet = document.createElement('div'); sheet.className = 'sheet itemsheet allrounds';
+  const rows = () => done.filter((r) => (!course || r.courseName === course) && (when === 'all' || (when[0] === 'y' ? new Date(r.date).getFullYear() === +when.slice(1) : Date.now() - r.date <= +when * 864e5)));
+  const list = () => { const L = rows(); return `<p class="mute small" style="margin:0 0 6px">${L.length} round${L.length === 1 ? '' : 's'}</p>${L.map(histRow).join('') || '<p class="mute">No rounds match.</p>'}`; };
+  sheet.innerHTML = `<div class="sheet-in"><div class="sheet-h"><b>All rounds</b><button class="link" data-close>Close</button></div>
+    <div class="row2 arf"><label class="small">Course<select data-course><option value="">All courses</option>${courses.map((c) => `<option>${esc(c)}</option>`).join('')}</select></label>
+      <label class="small">When<select data-when>${WHEN.map(([v, l]) => `<option value="${v}">${l}</option>`).join('')}</select></label></div>
+    <div class="arlist">${list()}</div></div>`;
+  const redraw = () => { sheet.querySelector('.arlist').innerHTML = list(); };
+  sheet.querySelector('[data-course]').onchange = (e) => { course = e.target.value; redraw(); };
+  sheet.querySelector('[data-when]').onchange = (e) => { when = e.target.value; redraw(); };
+  sheet.querySelector('[data-close]').onclick = () => sheet.remove();
+  sheet.addEventListener('click', (e) => { const h = e.target.closest('.hist[data-id]'); if (h) { sheet.remove(); openRound(h.dataset.id); } });
+  document.body.appendChild(sheet);
+}
+
 /** This week against last: rounds, where the strokes went, practice, intention. Hidden when the fortnight is empty. */
 async function digestCard(done) {
   try {
@@ -169,6 +196,7 @@ async function homeAction(act, id) {
   const sel = root.querySelector('#courseSel')?.value;
   if (act === 'endopen') { const r = await getRound(id); const c = await getCourse(r.courseId).catch(() => null); cur = { round: r, course: c, hole: 0, review: false }; return played(r).length && c ? endRoundSheet(r, c) : discardSheet(r); }
   if (act === 'resume' || act === 'open') return openRound(id);
+  if (act === 'allrounds') return allRoundsSheet();
   if (act === 'newcourse') return editCourse(null);
   if (act === 'library') return openLibrary({ toast: ctx.toast, onPicked: (c) => openCoursePage(c.id) });
   if (act === 'editcourse') return editCourse(sel);
