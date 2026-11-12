@@ -14,7 +14,7 @@ import { getSettings } from './store.js';
 import { skillRadar, radarSvg, radarRead, LONG_FROM } from './rounds/radar.js';
 import { levelLabel } from './benchmarks.js';
 import { ART, CONTOUR } from './art.js';
-import { counts, roundIssues } from './rounds/quality.js';
+import { counts, roundIssues, roundNotes } from './rounds/quality.js';
 import { putRound } from './store.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -51,7 +51,7 @@ export async function loadRounds(n = 20, { all = false } = {}) {
     if (!c) continue;
     const ok = counts(r, c);
     if (!ok && !all) continue;
-    out.push(all ? { r, c, ok, issues: roundIssues(r, c) } : { r, c, S: roundStats(r, c), G: roundSG(r, c), T: tiger5(r, c) });
+    out.push(all ? { r, c, ok, issues: roundIssues(r, c), notes: roundNotes(r, c) } : { r, c, S: roundStats(r, c), G: roundSG(r, c), T: tiger5(r, c) });
   }
   return out;
 }
@@ -60,18 +60,18 @@ export async function loadRounds(n = 20, { all = false } = {}) {
 async function roundsSheet(onDone) {
   const list = await loadRounds(0, { all: true });
   const sheet = document.createElement('div'); sheet.className = 'sheet itemsheet pickrounds';
-  const row = ({ r, c, ok, issues }) => {
+  const row = ({ r, c, ok, issues, notes }) => {
     const sc = (r.holes || []).reduce((a, h) => a + (h?.score || 0), 0) || r.score || null;
     const played = (r.holes || []).filter((h) => h?.score != null).length;
     const shots = r.shotsTracked || (r.holes || []).reduce((a, h) => a + (h?.shots?.length || 0), 0);
-    const why = r.countPick != null ? (r.countPick ? 'counted by you' : 'left out by you') : issues.length ? issues.join(' · ') : '';
+    const why = r.countPick != null ? [r.countPick ? 'counted by you' : 'left out by you', ...(issues.length ? issues : notes)].join(' · ') : issues.length ? issues.join(' · ') : notes.join(' · ');
     return `<label class="prow ${ok ? '' : 'off'}"><input type="checkbox" data-rid="${esc(r.id)}" ${ok ? 'checked' : ''}/>
       <span class="pmain"><b>${esc(r.courseName || c.name)}</b><span class="mute small">${new Date(r.date).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })} · ${r.quick ? 'score only' : `${played}/${c.holes.length} holes`}${shots ? ` · ${shots} shots` : ''}${r.source === 'garmin' ? ' · Garmin' : ''}</span>
       ${why ? `<span class="pwhy ${r.countPick == null && issues.length ? 'warn' : ''}">${esc(why)}</span>` : ''}</span><span class="psc">${sc ?? '–'}</span></label>`;
   };
   const n = list.filter((x) => x.ok).length;
   sheet.innerHTML = `<div class="sheet-in"><div class="sheet-h"><b>Rounds in your stats</b><button class="link" data-close>Done</button></div>
-    <p class="small mute" style="margin:0 0 10px">${n} of ${list.length} count. Rounds that look unfinished (under 9 holes, holes skipped in the middle, impossible scores) are left out until you tick them. Holes without every shot tracked never count toward strokes gained either way.</p>
+    <p class="small mute" style="margin:0 0 10px">${n} of ${list.length} count. Rounds that look unfinished (under 9 holes, holes skipped in the middle, impossible scores, or most tracked holes missing shots) are left out until you tick them. A hole missing shots never counts toward strokes gained; its score and putts still do.</p>
     <div class="plist">${list.map(row).join('') || '<p class="mute">No rounds yet.</p>'}</div>
     <button class="btn" data-auto style="width:100%;margin-top:12px">Back to automatic for every round</button></div>`;
   const byId = new Map(list.map((x) => [x.r.id, x]));

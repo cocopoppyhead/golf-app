@@ -3,7 +3,27 @@
 // in the middle, no impossible hole scores. Anything else is left out until the golfer says otherwise;
 // round.countPick (true / false) is the golfer's own call and always wins over the automatic check.
 
+import { holeSG } from './sg.js';
+
 const MIN_HOLES = 9;
+
+/** Holes where shots were logged but they don't add up to the score with the putts (a shot missed, or putts not entered). */
+export function missingShots(r, c) {
+  let tracked = 0, missing = 0;
+  (r?.holes || []).forEach((h, i) => {
+    if (h?.score == null || !h.shots?.length) return;
+    tracked++;
+    const ch = c?.holes?.[i] || {};
+    if (!holeSG(h, ch.par || 4, ch.yds)?.complete) missing++;
+  });
+  return { tracked, missing };
+}
+
+/** A note on a round that still counts: holes with shots missing (left out of strokes gained only). */
+export function roundNotes(r, c) {
+  const { missing } = missingShots(r, c);
+  return missing ? [`${missing} hole${missing > 1 ? 's' : ''} missing shots`] : [];
+}
 
 /** What looks wrong with a round, as short phrases. Empty = looks whole. */
 export function roundIssues(r, c) {
@@ -26,6 +46,9 @@ export function roundIssues(r, c) {
     if (h.score < 1 || (h.putts > 0 && h.score <= h.putts) || h.score > par + 6) odd.push(i + 1); // more putts than strokes, or a snowman-plus
   });
   if (odd.length) out.push(`odd score on ${listHoles(odd)}`);
+  // most of the tracked holes don't add up: the tracking went wrong, so the round's shots can't be trusted
+  const { tracked, missing } = missingShots(r, c);
+  if (tracked >= 3 && missing > tracked / 2) out.push(`${missing} of ${tracked} tracked holes missing shots`);
   return out;
 }
 
