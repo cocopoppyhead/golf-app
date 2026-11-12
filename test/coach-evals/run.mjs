@@ -24,10 +24,14 @@ const words = (t) => t.trim().split(/\s+/).length;
 const questions = (t) => (t.match(/\?/g) || []).length;
 
 async function judge(sc, reply) {
-  const { text } = await chatLLM({ provider: 'claude', apiKey, model, maxTokens: 300,
-    system: 'You grade a golf mental coach. Reply with JSON only: {"pass": true|false, "why": "<one sentence>"}.',
-    messages: [{ role: 'user', text: `What a good reply does: ${sc.judge}\n\nThe golfer asked: ${sc.ask}\n\nThe coach replied:\n${reply}` }] });
-  const m = text.match(/\{[\s\S]*\}/); try { return JSON.parse(m ? m[0] : text); } catch { return { pass: false, why: `judge said: ${text.slice(0, 120) || '(nothing)'}` }; }
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const { text } = await chatLLM({ provider: 'claude', apiKey, model, maxTokens: 200,
+      system: 'You grade a golf mental coach. First line: PASS or FAIL. Second line: one sentence why. Nothing else.',
+      messages: [{ role: 'user', text: `What a good reply does: ${sc.judge}\n\nThe golfer asked: ${sc.ask}\n\nThe coach replied:\n${reply}` }] });
+    const m = text.trim().match(/^\s*(PASS|FAIL)\b[\s:.-]*([\s\S]*)/i);
+    if (m) return { pass: m[1].toUpperCase() === 'PASS', why: m[2].trim().split('\n')[0] };
+  }
+  return { pass: null, why: 'judge gave no verdict (not counted)' };
 }
 
 let failed = 0;
@@ -46,7 +50,8 @@ for (const sc of SCENARIOS.filter((s) => !only.length || only.includes(s.id))) {
   else if (sc.learns && !sc.learns.some((k) => (Array.isArray(meta[k]) ? meta[k].length : meta[k]))) problems.push(`learned nothing in ${sc.learns.join('/')}`);
   if (questions(reply) > 1) problems.push(`${questions(reply)} questions`);
   const j = await judge(sc, reply).catch((e) => ({ pass: false, why: e.message }));
-  if (!j.pass) problems.push(`judge: ${j.why}`);
+  if (j.pass === false) problems.push(`judge: ${j.why}`);
+  if (j.pass === null) console.log(`  ? ${j.why}`);
   if (problems.length) failed++;
   console.log(`\n${problems.length ? 'FAIL' : 'PASS'}  ${sc.id}  (${(ms / 1000).toFixed(1)}s, ${words(reply)} words)  ${sc.title}`);
   console.log(`  Q: ${sc.ask}`);

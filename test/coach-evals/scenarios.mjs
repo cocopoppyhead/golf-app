@@ -4,7 +4,10 @@ const par = [4, 4, 5, 3, 4, 4, 3, 5, 4, 4, 5, 3, 4, 4, 4, 3, 5, 4];
 export const course = { id: 'c', name: 'Trump International Dubai', holes: par.map((p) => ({ par: p })) };
 const day = (k, hour = 7) => Date.parse(`2026-10-${String(1 + k).padStart(2, '0')}T${String(hour - 4).padStart(2, '0')}:00:00Z`); // Dubai time
 /** A round: front and back given as strokes over par per hole (18 numbers), plus extras. */
-const round = (k, toPar, extra = {}) => ({ r: { id: `r${k}`, finished: true, date: day(k, extra.hour || 7), courseId: 'c', courseName: course.name, holes: par.map((p, i) => ({ score: p + toPar[i], putts: 2 })), ...extra }, c: course });
+// each round is nudged so no two cards are identical, keeping the story: within each nine, round k moves
+// its dropped shots along by k holes (so "+1 on holes 1-5" becomes "+1 on 2-6", then "3-7", and so on)
+const jitter = (k, toPar) => toPar.map((_, i) => { const nine = i < 9 ? 0 : 9, s = (k % 4); return toPar[nine + (((i - nine) - s + 9) % 9)]; });
+const round = (k, toPar, extra = {}) => ({ r: { id: `r${k}`, finished: true, date: day(k, extra.hour || 7), courseId: 'c', courseName: course.name, holes: par.map((p, i) => ({ score: p + jitter(k, toPar)[i], putts: 2 })), ...extra }, c: course });
 const flat = (front, back) => [...Array(9).fill(0).map((_, i) => (i < front ? 1 : 0)), ...Array(9).fill(0).map((_, i) => (i < back ? 1 : 0))];
 const hrHoles = (rc, f, b) => { rc.r.holes.forEach((h, i) => { h.hr = { avg: i < 9 ? f : b }; }); rc.r.hr = { avg: Math.round((f + b) / 2) }; return rc; };
 
@@ -101,6 +104,7 @@ export const SCENARIOS = [
     id: 'debrief-order', title: 'A debrief starts with what went well', mode: 'debrief',
     rounds: [0, 1, 2].map((k) => round(k, flat(2, 3), { best: [{ h: 6, club: '7 iron', note: 'flushed it, saw the window' }], debrief: { tags: ['Three-putts'] } })),
     ask: 'Talk me through Trump',
+    maxWords: 180,
     judge: 'The first thing it says is something specific that went well (e.g. the 7 iron on 7, "saw the window"), before the strokes lost; ends with one thing and one question.',
   },
 ];
