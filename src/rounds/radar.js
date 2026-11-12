@@ -11,7 +11,7 @@
 // osolo's own split, since Broadie doesn't publish one by distance. Everything is clipped to ±2
 // strokes so one axis can't flatten the rest, and scratch is drawn as the faint outer shape.
 import { holeSG, expected } from './sg.js';
-import { benchFor } from '../benchmarks.js';
+import { benchFor, targetHcp } from '../benchmarks.js';
 
 export const AXES = [
   { key: 'ott', label: 'Driving', share: 0.28, goto: 'driving' },
@@ -98,17 +98,24 @@ export function radarShots(round, course) {
     const chain = h.shots?.length && h.putts != null && !h.puttsAuto && h.shots.length + h.shots.filter((s) => s.pen).length === h.score - h.putts;
     // putting only from a hole that adds up, with putts actually entered (not assumed) and a first-putt distance:
     // a missing putt would otherwise look like a good day on the greens
-    if (chain && h.putts > 0 && h.firstPutt != null) out.putts.push({ sg: expected('grn', h.firstPutt) - h.putts });
+    // Garmin's "first putt" is measured to the green's centre, not the day's pin, so a one-putt "from 50 feet"
+    // is really from close to a pin that wasn't in the middle: never score putting from it
+    const garminGreen = h.firstPuttSrc === 'garmin-green' || h.shots?.some((s) => s?.src === 'garmin');
+    if (chain && !garminGreen && h.putts > 0 && h.firstPutt != null) out.putts.push({ sg: expected('grn', h.firstPutt) - h.putts });
     if (sg && (sg.complete || chain)) {
       sg.shots.forEach((s, k) => {
         if (!s) return;
+        if (garminGreen && k === sg.shots.length - 1) return; // finishes on the green, measured to its centre: not known
         const d = k === 0 ? (h.shots?.[0]?.dist ?? ch.yds) : h.shots?.[k]?.dist;
         out.shots.push({ cat: s.cat === 'app' ? (d != null && d < LONG_FROM ? 'appW' : 'appL') : s.cat, sg: s.sg, src: sg.complete ? 'hole' : 'chain' });
       });
       return;
     }
-    // Garmin: each recorded shot carries its own finish
+    // Garmin: each recorded shot carries its own finish. Leave out what can't be real: a start further than the
+    // hole is long (a stray detection), a "tee shot" that isn't from near the tee, a finish exactly on the green
+    // point (the watch's placeholder, not where the ball stopped)
     for (const x of h.looseShots || []) {
+      if (!ch.yds || x.from > ch.yds + 30 || (x.tee && Math.abs(x.from - ch.yds) > 60) || x.onGreen || x.to < 1) continue; // on the green = to its centre, not the pin
       const a = expected(x.tee ? 'tee' : 'unk', x.tee ? (ch.yds || x.from) : x.from);
       const b = x.onGreen ? expected('grn', x.toFt) : expected('unk', x.to);
       if (a == null || b == null) continue;
@@ -136,7 +143,8 @@ export function skillRadar(list, { hcp = 15 } = {}) {
   const sgHoles = sgRows.reduce((s, R) => s + R.complete, 0);
   const mean = (arr, f) => (arr.length ? arr.reduce((a, R) => a + f(R), 0) / arr.length : null);
   const h = Math.max(0, Math.min(25, Number.isFinite(hcp) ? hcp : 15));
-  const gap = TOUR_GAP(h), B = benchFor(h), B0 = benchFor(0);
+  const target = targetHcp(h);
+  const gap = TOUR_GAP(h), B = benchFor(h), B0 = benchFor(target); // B0: the level you're aiming at (the outer ring)
   const axes = AXES.map((a) => {
     if (a.key === 'head') {
       const n = rows.length;
@@ -160,13 +168,13 @@ export function skillRadar(list, { hcp = 15 } = {}) {
     const sg = (samples.reduce((s2, x) => s2 + x.sg, 0) / shots) * perRound; // vs tour, a round
     const level = -gap * a.share; // what your level loses to tour on this axis
     const value = clip(sg - level);
-    const scratch = clip(-TOUR_GAP(0) * a.share - level);
+    const scratch = clip(-TOUR_GAP(target) * a.share - level);
     const garmin = samples.filter((x) => x.src === 'garmin').length;
     const min = a.key === 'putt' ? 18 : MIN_SHOTS;
     return { ...a, value, raw: sg, level, scratch, n, shots, garmin, enough: n >= 3 && shots >= min, detail: `${sg >= 0 ? '+' : ''}${sg.toFixed(1)} strokes a round against the tour baseline (${shots} ${a.key === 'putt' ? 'holes' : 'shots'}${garmin ? `, ${garmin} from Garmin` : ''}, ${n} rounds); a ${h <= 1 ? 'scratch' : Math.round(h) + '-handicap'} golfer is about ${level.toFixed(1)}.` };
   });
   const ready = axes.filter((a) => a.enough).length >= 4;
-  return { hcp: h, n: pool.filter((p) => p.s.shots.length + p.s.putts.length).length, nSg: sgRows.length, axes, ready };
+  return { hcp: h, target, n: pool.filter((p) => p.s.shots.length + p.s.putts.length).length, nSg: sgRows.length, axes, ready };
 }
 
 /** The strongest and weakest axes, for the one-line read and the practice link. */
@@ -213,7 +221,7 @@ export function radarSvg(radar, ghost = null, { size = 300 } = {}) {
     <polygon points="${ring(0.5)}" class="rr level"/>
     <polygon points="${ring(0.25)}" class="rr"/>
     ${radar.axes.map((_, i) => { const [x, y] = ptF(i, 1); return `<line x1="${CX}" y1="${C}" x2="${x.toFixed(1)}" y2="${y.toFixed(1)}" class="rs"/>`; }).join('')}
-    <text x="${CX + 4}" y="${(C - R + 11).toFixed(1)}" class="rring">Scratch</text>
+    <text x="${CX + 4}" y="${(C - R + 11).toFixed(1)}" class="rring">${radar.target ? `${radar.target} handicap` : 'Scratch'}</text>
     <text x="${CX + 4}" y="${(C - R * 0.5 + 11).toFixed(1)}" class="rring">Your level</text>
     ${ghost && ghost.axes.some((a) => a.enough) ? `<polygon points="${poly(ghost.axes.map((a) => (a.enough ? a.value : 0)))}" class="rghost"/>` : ''}
     ${anyShape ? `<polygon points="${poly(shape.map((v) => v ?? 0))}" class="ryou"/>${shape.map((v, i) => (v == null ? '' : `<circle cx="${pt(i, v)[0].toFixed(1)}" cy="${pt(i, v)[1].toFixed(1)}" r="3.5" class="rdot"/>`)).join('')}` : ''}

@@ -8,6 +8,7 @@ import { RULES, DEFAULT_RULES, checkRules } from '../rounds/tiger.js';
 import { moodLine, intentionLabel } from '../rounds/intentions.js';
 import { systemPrompt } from './playbook.js';
 import { heatByHole, roundPeak } from '../heat.js';
+import { targetHcp } from '../benchmarks.js';
 
 /** The default prompt: the playbook in its open-question mode (coach/playbook.js). */
 export const SYSTEM = systemPrompt('open');
@@ -140,7 +141,7 @@ export function mindContext({ rounds = [], settings = {}, focus = null, picture 
   const rules = (settings.roundRules || DEFAULT_RULES).map((id) => RULES[id]?.label).filter(Boolean);
   const parts = [evidenceText(evidence(rounds))];
   if (settings.golfer) parts.push(`ABOUT THE GOLFER\n${settings.golfer}`);
-  if (settings.handicap != null) parts.push(`Handicap: ${settings.handicap}.`);
+  if (settings.handicap != null) { const tg = targetHcp(+settings.handicap); parts.push(`Handicap: ${settings.handicap}. The level they're aiming at: ${tg ? `a ${tg} handicap` : 'scratch'} (five shots better, in steps of five); compare them to that, not to the tour.`); }
   parts.push(`THEIR ROUTINE\nBefore every shot: ${R.preshot.join(' / ')}.\nBetween shots: ${R.mind.join(' / ')}.${R.swingThought ? `\nSwing thought: ${R.swingThought}.` : ''}${R.custom ? '' : '\n(This is the app\'s example routine; they have not written their own yet.)'}\nRound rules: ${rules.join('; ')}.`);
   if (focus) parts.push(`THE ROUND THEY WANT TO TALK ABOUT\n${roundLines(focus)}${focus.r.intention ? ` Their one thing for the day: "${intentionLabel(focus.r.intention)}"${focus.r.intentionKept ? `, kept ${focus.r.intentionKept}/5` : ''}.` : ''}`);
   const pats = patterns(rounds);

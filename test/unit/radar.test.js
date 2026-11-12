@@ -76,7 +76,8 @@ describe('skills radar', () => {
     const read = radarRead(S);
     expect(read.worst.key).toBe('head');
     const svg = radarSvg(S, skillRadar(list(10), { hcp: 15 }));
-    expect(svg).toContain('class="ryou"'); expect(svg).toContain('class="rghost"'); expect(svg).toContain('scratchring'); expect(svg).toContain('>Scratch<');
+    expect(svg).toContain('class="ryou"'); expect(svg).toContain('class="rghost"'); expect(svg).toContain('scratchring'); expect(svg).toContain('>10 handicap<'); // a 15 aims at 10
+    expect(radarSvg(skillRadar(list(10), { hcp: 6 }))).toContain('>Scratch<');
     expect((svg.match(/data-goto=/g) || []).length).toBe(6);
     expect(svg).toContain('Short game'); expect(svg).toContain('Mind');
     expect(radarSvg(skillRadar([], { hcp: 15 }))).not.toContain('class="ryou"');
@@ -88,7 +89,8 @@ describe('the radar scores shots one by one', () => {
   it('takes Garmin shots from a hole that does not add up, each with its own finish', () => {
     const r = { holes: [{ score: 5, putts: 2, looseShots: [{ tee: true, from: 400, to: 140, toFt: 0, onGreen: false }, { tee: false, from: 140, to: 6, toFt: 20, onGreen: true }] }, null, null] };
     const S = radarShots(r, c);
-    expect(S.shots.map((s) => s.cat)).toEqual(['ott', 'appL']);
+    // the approach finishing on the green is measured to the green's centre, not the pin: left out
+    expect(S.shots.map((s) => s.cat)).toEqual(['ott']);
     expect(S.shots.every((s) => s.src === 'garmin')).toBe(true);
     expect(S.putts).toEqual([]); // no first-putt distance: putting stays out
   });
@@ -108,5 +110,21 @@ describe('the radar scores shots one by one', () => {
     expect(radarShots(r, c).putts.length).toBe(0);
     const ok = { holes: [{ score: 4, putts: 2, firstPutt: 20, shots: [{ lie: 'tee', dist: 400 }, { lie: 'fw', dist: 150 }] }, null, null] };
     expect(radarShots(ok, c).putts.length).toBe(1);
+  });
+});
+
+import { targetHcp } from '../../src/benchmarks.js';
+describe('the level to aim at', () => {
+  it('is five shots better, in steps of five, never past scratch', () => {
+    expect([0, 3, 6, 9.9, 10, 12, 15, 20, 27].map(targetHcp)).toEqual([0, 0, 0, 0, 5, 5, 10, 15, 20]);
+  });
+  it('leaves out Garmin putting and glitches', () => {
+    const c = { holes: [{ par: 4, yds: 400 }] };
+    const r = { holes: [{ score: 4, putts: 1, firstPutt: 50, firstPuttSrc: 'garmin-green', shots: [{ lie: 'tee', dist: 400, src: 'garmin' }, { lie: 'unk', dist: 150, src: 'garmin' }, { lie: 'unk', dist: 20, src: 'garmin' }] }] };
+    const S = radarShots(r, c);
+    expect(S.putts).toEqual([]);
+    expect(S.shots.length).toBe(2); // the last shot finishes on the green (to its centre): out
+    const g = { holes: [{ score: 6, putts: 2, looseShots: [{ tee: true, from: 1099, to: 0, toFt: 0, onGreen: true }, { tee: false, from: 152, to: 0, toFt: 0, onGreen: true }] }] };
+    expect(radarShots(g, c).shots).toEqual([]);
   });
 });

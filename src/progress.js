@@ -13,7 +13,7 @@ import { differential, adjustedGross, indexFrom, indexHistory } from './rounds/h
 import { getSettings, saveSettings } from './store.js';
 import { heatByHole } from './heat.js';
 import { skillRadar, radarSvg, radarRead, radarRound, radarUses, radarShots, LONG_FROM } from './rounds/radar.js';
-import { levelLabel } from './benchmarks.js';
+import { levelLabel, benchFor, targetHcp } from './benchmarks.js';
 import { ART, CONTOUR } from './art.js';
 import { counts, roundIssues, roundNotes } from './rounds/quality.js';
 import { bodyStats } from './rounds/body.js';
@@ -223,9 +223,9 @@ function heroBand(ALL, Hc, hcp, OUT = 0, KINDS = null) {
     ${KINDS ? `<div class="kindf" role="group" aria-label="Which rounds">${[['all', 'All'], ['comp', 'Competition'], ['casual', 'Casual']].map(([k, l]) => `<button data-kindf="${k}" class="${KINDS === k ? 'on' : ''}">${l}</button>`).join('')}</div>` : ''}
     <div class="rwin" role="group" aria-label="Rounds">${windows.map((w, i) => { const prev = i ? windows[i - 1].n : 0; const off = i > 0 && L.length <= prev; return `<button data-radar-n="${w.n}" class="${w.n === 10 ? 'on' : ''}" ${off ? 'disabled' : ''}>${L.length > prev && L.length < w.n && i > 0 ? `All ${L.length}` : `Last ${w.n}`}</button>`; }).join('')}</div>
     <div class="radarbox">${views[10]}</div>
-    <div class="legend"><span><i class="lg-you"></i>You</span><span><i class="lg-gh"></i>Rounds before</span><span><i class="lg-lvl"></i>Your level</span><span><i class="lg-scr"></i>Scratch</span></div>
+    <div class="legend"><span><i class="lg-you"></i>You</span><span><i class="lg-gh"></i>Rounds before</span><span><i class="lg-lvl"></i>Your level</span><span><i class="lg-scr"></i>${targetHcp(hcp) ? `${targetHcp(hcp)} handicap` : 'Scratch'}</span></div>
     <div class="hstats">${tile(idx != null ? f1(idx) : '–', Hc?.current ? 'Handicap index' : 'Handicap (yours)')}${tile(avg != null ? f1(avg) : '–', `Average, last ${sc.length || 0}`)}${tile(trend != null ? sgn(trend) : '–', 'Last 5 vs the 5 before')}</div>
-    <details class="hexplain"><summary>How the shape is scored</summary><div class="radarinfo"><p>Each area is strokes gained per 18 holes (tour baseline) minus what a golfer at your handicap loses there. Broadie's split: an h-handicap gives up about h+3 strokes a round, 28% driving, 40% approach (60/40 long vs wedges at ${LONG_FROM} yd), 17% short game, 15% putting. Mind is penalties and recovery drives against your level's rate, plus how often rated shots went to plan. The outer ring is a scratch golfer, the dashed ring is your level: on each spoke the gap between them is that part's share of the strokes your handicap gives up to scratch.</p>
+    <details class="hexplain"><summary>How the shape is scored</summary><div class="radarinfo"><p>Each area is strokes gained per 18 holes (tour baseline) minus what a golfer at your handicap loses there. Broadie's split: an h-handicap gives up about h+3 strokes a round, 28% driving, 40% approach (60/40 long vs wedges at ${LONG_FROM} yd), 17% short game, 15% putting. Mind is penalties and recovery drives against your level's rate, plus how often rated shots went to plan. The outer ring is the level you're aiming at, five shots better than you in steps of five (scratch from a 6, a 5 from a 10), the dashed ring is your level: on each spoke the gap between them is that part's share of the strokes between the two.</p>
       ${hero0Detail(ALL, hcp)}</div></details>
   </section>` };
 }
@@ -263,8 +263,17 @@ export async function renderScoring(el) {
   const dist = (() => {
     if (!holesL) return '';
     const rows = [['Birdies', T('birdies'), 'var(--birdie)'], ['Pars', T('pars'), 'var(--par)'], ['Bogeys', T('bogeys'), 'var(--bogey)'], ['Doubles+', T('doubles'), 'var(--double)']];
-    return `<div class="card"><h3>Every hole, last ${L.length} round${L.length > 1 ? 's' : ''}</h3><div class="dstrip">${rows.filter((r) => r[1]).map(([, n, c]) => `<i style="flex:${n};background:${c}"></i>`).join('')}</div>
-      <div class="dstrip-l">${rows.map(([l, n, c]) => `<span><i style="background:${c}"></i>${l} <b>${Math.round((100 * n) / holesL)}%</b></span>`).join('')}</div></div>`;
+    const tg = targetHcp(hcp), TB = benchFor(tg), who = tg ? `A ${tg} handicap` : 'Scratch';
+    const per = (n) => (n * 18) / holesL;
+    const toParYou = L.length ? L.reduce((a, x) => a + (x.S.toPar * 18) / Math.max(9, x.S.holes), 0) / L.length : null;
+    const cmp = [['Over par a round', toParYou, TB.avgScore - 72, false], ['Birdies', per(T('birdies')), TB.birdies, true], ['Pars', per(T('pars')), TB.pars, true], ['Bogeys', per(T('bogeys')), TB.bogeys, false], ['Doubles+', per(T('doubles')), TB.doubles, false]];
+    const tStrip = [['b', TB.birdies, 'var(--birdie)'], ['p', TB.pars, 'var(--par)'], ['o', TB.bogeys, 'var(--bogey)'], ['d', TB.doubles, 'var(--double)']];
+    return `<div class="card"><h3>Every hole, last ${L.length} round${L.length > 1 ? 's' : ''}</h3>
+      <div class="dlab">You</div><div class="dstrip">${rows.filter((r) => r[1]).map(([, n, c]) => `<i style="flex:${n};background:${c}"></i>`).join('')}</div>
+      <div class="dlab">${who}</div><div class="dstrip tgt">${tStrip.map(([, n, c]) => `<i style="flex:${n};background:${c}"></i>`).join('')}</div>
+      <div class="dstrip-l">${rows.map(([l, n, c]) => `<span><i style="background:${c}"></i>${l} <b>${Math.round((100 * n) / holesL)}%</b></span>`).join('')}</div>
+      <table class="dcmp"><thead><tr><th></th><th>You</th><th>${who}</th></tr></thead><tbody>${cmp.filter(([, you]) => you != null).map(([l, you, them, more]) => `<tr><td>${l === 'Over par a round' ? l : `${l} a round`}</td><td class="${(more ? you >= them : you <= them) ? 'ok' : 'gap'}">${you.toFixed(1)}</td><td>${them.toFixed(1)}</td></tr>`).join('')}</tbody></table>
+      <p class="note">${who}: the level five shots better than you, in steps of five. Their numbers are Shot Scope's averages for that handicap (over par: a typical round on a par 72 of average difficulty).</p></div>`;
   })();
   const full = [...R].filter((x) => x.S.holes >= 18).sort((a, b) => a.r.date - b.r.date).slice(-20);
   const sc = full.map((x) => x.S.score);

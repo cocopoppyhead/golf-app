@@ -93,7 +93,7 @@ export function fitHole(card, shots, pin, par, names = {}) {
     if (!h.looseShots.length) delete h.looseShots;
     return h;
   }
-  if (card.putts > 0) h.firstPutt = nearestFt(toPin(on[0].start) / 0.3048);
+  if (card.putts > 0) { h.firstPutt = nearestFt(toPin(on[0].start) / 0.3048); h.firstPuttSrc = 'garmin-green'; } // to the green's centre, not the pin
   h.shots = off.map((s, k) => {
     const x = { lie: k === 0 ? 'tee' : 'unk', dist: Math.round(toPin(s.start) / YD), src: 'garmin', res: null, t: s.t };
     x.gps = { ...s.start, acc: 5 };
