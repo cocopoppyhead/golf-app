@@ -182,21 +182,25 @@ const fmt = (v) => (v == null ? '–' : +Math.abs(v).toFixed(1) === 0 ? '0.0' : 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
 /**
- * SVG radar. Rings: dashed = your level (0), faint outer = +2 (inner = −2); scratch drawn dotted.
- * `ghost` is an earlier radar (same axes) drawn faded behind the current shape.
+ * SVG radar. Each spoke runs from well behind your level (centre) through your level (dashed ring, halfway)
+ * to scratch (the outer ring): so the outer ring is the target, whatever your handicap. Per spoke, the
+ * distance from your level to scratch is that spoke's share of the strokes your handicap gives up to a
+ * scratch golfer; beyond scratch pokes slightly past the ring. `ghost` is an earlier radar, drawn faded.
  */
 export function radarSvg(radar, ghost = null, { size = 300 } = {}) {
   const N = radar.axes.length, W = size * 1.22, C = size / 2, CX = W / 2, R = size * 0.34;
   const ang = (i) => -Math.PI / 2 + (i * 2 * Math.PI) / N;
-  const rOf = (v) => R * (0.5 + (v == null ? -CLIP : v) / (2 * CLIP)); // −2 → 0, 0 → R/2, +2 → R
-  const pt = (i, v) => [CX + Math.cos(ang(i)) * rOf(v), C + Math.sin(ang(i)) * rOf(v)];
+  // strokes from your level to scratch on each spoke (never under half a stroke, so a near-scratch golfer still has a scale)
+  const span = radar.axes.map((a) => Math.max(0.5, a.scratch ?? 0));
+  const frac = (i, v) => (v == null ? 0 : Math.max(0, Math.min(1.12, 0.5 + (0.5 * v) / span[i]))); // level → ½, scratch → 1
+  const pt = (i, v) => [CX + Math.cos(ang(i)) * R * frac(i, v), C + Math.sin(ang(i)) * R * frac(i, v)];
+  const ptF = (i, f) => [CX + Math.cos(ang(i)) * R * f, C + Math.sin(ang(i)) * R * f];
   const poly = (vals) => vals.map((v, i) => pt(i, v).map((x) => x.toFixed(1)).join(',')).join(' ');
-  const ring = (v) => poly(radar.axes.map(() => v));
+  const ring = (f) => radar.axes.map((_, i) => ptF(i, f).map((x) => x.toFixed(1)).join(',')).join(' ');
   const shape = radar.axes.map((a) => (a.enough ? a.value : null));
   const anyShape = shape.some((v) => v != null);
-  const scratch = radar.axes.map((a) => (a.enough ? a.scratch : null));
   const labels = radar.axes.map((a, i) => {
-    const [x, y] = pt(i, CLIP + 0.7);
+    const [x, y] = ptF(i, 1.35);
     const anchor = Math.abs(Math.cos(ang(i))) < 0.2 ? 'middle' : Math.cos(ang(i)) > 0 ? 'start' : 'end';
     const v = a.enough ? a.value : null;
     const cls = v == null ? 'none' : v >= 0.3 ? 'good' : v <= -0.3 ? 'work' : 'even';
@@ -204,12 +208,13 @@ export function radarSvg(radar, ghost = null, { size = 300 } = {}) {
     return `<g class="rax ${cls}" data-goto="${a.goto}" style="cursor:pointer"><rect x="${hx.toFixed(1)}" y="${(y - 16).toFixed(1)}" width="100" height="34" fill="transparent"/><text x="${x.toFixed(1)}" y="${(y - 4).toFixed(1)}" text-anchor="${anchor}" class="rl">${esc(a.label)}</text><text x="${x.toFixed(1)}" y="${(y + 12).toFixed(1)}" text-anchor="${anchor}" class="rv">${a.enough ? fmt(a.value) : a.n < 3 ? `${a.n}/3 rounds` : a.shots != null ? `${a.shots}/${MIN_SHOTS} shots` : '–'}</text></g>`;
   }).join('');
   return `<svg viewBox="0 0 ${W} ${size}" class="radar" role="img" aria-label="Skills radar">
-    <polygon points="${ring(CLIP)}" class="rr outer"/>
-    <polygon points="${ring(CLIP / 2)}" class="rr"/>
-    <polygon points="${ring(0)}" class="rr level"/>
-    <polygon points="${ring(-CLIP / 2)}" class="rr"/>
-    ${radar.axes.map((_, i) => { const [x, y] = pt(i, CLIP); return `<line x1="${CX}" y1="${C}" x2="${x.toFixed(1)}" y2="${y.toFixed(1)}" class="rs"/>`; }).join('')}
-    ${scratch.some((v) => v != null) ? `<polygon points="${poly(scratch.map((v) => v ?? 0))}" class="rscratch"/>` : ''}
+    <polygon points="${ring(1)}" class="rr outer scratchring"/>
+    <polygon points="${ring(0.75)}" class="rr"/>
+    <polygon points="${ring(0.5)}" class="rr level"/>
+    <polygon points="${ring(0.25)}" class="rr"/>
+    ${radar.axes.map((_, i) => { const [x, y] = ptF(i, 1); return `<line x1="${CX}" y1="${C}" x2="${x.toFixed(1)}" y2="${y.toFixed(1)}" class="rs"/>`; }).join('')}
+    <text x="${CX + 4}" y="${(C - R + 11).toFixed(1)}" class="rring">Scratch</text>
+    <text x="${CX + 4}" y="${(C - R * 0.5 + 11).toFixed(1)}" class="rring">Your level</text>
     ${ghost && ghost.axes.some((a) => a.enough) ? `<polygon points="${poly(ghost.axes.map((a) => (a.enough ? a.value : 0)))}" class="rghost"/>` : ''}
     ${anyShape ? `<polygon points="${poly(shape.map((v) => v ?? 0))}" class="ryou"/>${shape.map((v, i) => (v == null ? '' : `<circle cx="${pt(i, v)[0].toFixed(1)}" cy="${pt(i, v)[1].toFixed(1)}" r="3.5" class="rdot"/>`)).join('')}` : ''}
     ${labels}

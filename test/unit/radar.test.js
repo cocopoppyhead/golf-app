@@ -76,7 +76,7 @@ describe('skills radar', () => {
     const read = radarRead(S);
     expect(read.worst.key).toBe('head');
     const svg = radarSvg(S, skillRadar(list(10), { hcp: 15 }));
-    expect(svg).toContain('class="ryou"'); expect(svg).toContain('class="rghost"'); expect(svg).toContain('class="rscratch"');
+    expect(svg).toContain('class="ryou"'); expect(svg).toContain('class="rghost"'); expect(svg).toContain('scratchring'); expect(svg).toContain('>Scratch<');
     expect((svg.match(/data-goto=/g) || []).length).toBe(6);
     expect(svg).toContain('Short game'); expect(svg).toContain('Mind');
     expect(radarSvg(skillRadar([], { hcp: 15 }))).not.toContain('class="ryou"');

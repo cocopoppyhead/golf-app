@@ -917,3 +917,6 @@ table.t5, table.dk { width: 100%; border-collapse: collapse; font-size: 13px; } 
 .heatcard .hleg { display: flex; flex-wrap: wrap; gap: 4px 14px; } .heatcard .sw.bar { width: 8px; height: 8px; background: var(--bogey); }
 .inprog .ip-h { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; } .inprog .ip-h > div:last-child { display: flex; flex-direction: column; gap: 1px; min-width: 0; } .inprog .ip-h b { font-size: 16px; }
 .inprog .clogo { width: 52px; height: 52px; flex: none; }
+.radar .rring { font-size: 8.5px; fill: var(--mute); letter-spacing: .2px; } .hero .radar .rring { fill: var(--chrome-mute); }
+.radar .rr.scratchring { stroke: var(--soft); stroke-width: 1.2; }
+.lg-scr { border-top-style: solid !important; border-color: var(--chrome-ink) !important; opacity: .7; } .lg-lvl { border-color: var(--chrome-mute) !important; border-top-style: dashed !important; }
