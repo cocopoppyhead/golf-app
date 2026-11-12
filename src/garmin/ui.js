@@ -32,7 +32,7 @@ export function garminSheet({ toast = () => {}, onImported = () => {} } = {}) {
   q('[data-close]').onclick = () => sheet.remove();
   q('[data-copy]').onclick = async () => { try { await navigator.clipboard.writeText(BOOKMARKLET); q('[data-copy]').textContent = 'Copied'; } catch { toast('Copy failed: use the console version below.'); } };
   const report = (r) => {
-    q('[data-out]').innerHTML = `<b>Imported ${r.added} round${r.added === 1 ? '' : 's'}</b>${r.updated ? ` · added shots to ${r.updated} you had` : ''}${r.skipped ? ` (${r.skipped} already here)` : ''}${r.newCourses.length ? ` · new courses: ${r.newCourses.map(esc).join(', ')}` : ''}${r.shots ? ` · ${r.shots} tracked shots` : ''}${r.failed ? ` · ${r.failed} file${r.failed > 1 ? 's' : ''} couldn't be read` : ''}.`;
+    q('[data-out]').innerHTML = `<b>Imported ${r.added} round${r.added === 1 ? '' : 's'}</b>${r.updated ? ` · added shots and heart rate to ${r.updated} you had` : ''}${r.skipped ? ` (${r.skipped} already here)` : ''}${r.newCourses.length ? ` · new courses: ${r.newCourses.map(esc).join(', ')}` : ''}${r.shots ? ` · ${r.shots} tracked shots` : ''}${r.failed ? ` · ${r.failed} file${r.failed > 1 ? 's' : ''} couldn't be read` : ''}.`;
     toast(`Garmin: ${r.added} rounds imported`); onImported(r);
   };
   q('[data-pickmany]').onclick = async () => {
@@ -64,7 +64,7 @@ export function garminSheet({ toast = () => {}, onImported = () => {} } = {}) {
       try {
         const exp = JSON.parse(await f.text());
         const r = await importGarminExport(exp);
-        q('[data-out]').innerHTML = `<b>Imported ${r.added} round${r.added === 1 ? '' : 's'}</b>${r.updated ? ` · added shots to ${r.updated} you had` : ''}${r.skipped ? ` (${r.skipped} already here)` : ''}${r.newCourses.length ? ` · new courses: ${r.newCourses.map(esc).join(', ')}` : ''}${r.shots ? ` · ${r.shots} tracked shots` : ''}.`;
+        q('[data-out]').innerHTML = `<b>Imported ${r.added} round${r.added === 1 ? '' : 's'}</b>${r.updated ? ` · added shots and heart rate to ${r.updated} you had` : ''}${r.skipped ? ` (${r.skipped} already here)` : ''}${r.newCourses.length ? ` · new courses: ${r.newCourses.map(esc).join(', ')}` : ''}${r.shots ? ` · ${r.shots} tracked shots` : ''}.`;
         toast(`Garmin: ${r.added} rounds imported`); onImported(r);
       } catch (e) { q('[data-out]').textContent = e.message || String(e); }
     };
@@ -161,9 +161,10 @@ async function storeRounds(convert) {
     const old = have.get(r.id);
     if (old) {
       // an earlier import without shots: take the shots now that osolo can read them, keep everything else
-      if (old.source === 'garmin' && (r.shotsTracked || 0) > (old.shotsTracked || 0) && old.holes?.length === r.holes.length) {
-        const holes = old.holes.map((h, i) => (h && r.holes[i] ? { ...h, shots: r.holes[i].shots, firstPutt: h.firstPutt ?? r.holes[i].firstPutt, gir: h.gir ?? r.holes[i].gir, putts: h.putts ?? r.holes[i].putts } : h));
-        await putRound({ ...old, holes, shotsTracked: r.shotsTracked, garmin: { ...(old.garmin || {}), ...r.garmin }, updatedAt: Date.now() });
+      const moreShots = (r.shotsTracked || 0) > (old.shotsTracked || 0), newHr = !!r.hr && !old.hr;
+      if (old.source === 'garmin' && (moreShots || newHr) && old.holes?.length === r.holes.length) {
+        const holes = old.holes.map((h, i) => (h && r.holes[i] ? { ...h, ...(moreShots ? { shots: r.holes[i].shots, firstPutt: h.firstPutt ?? r.holes[i].firstPutt, gir: h.gir ?? r.holes[i].gir, putts: h.putts ?? r.holes[i].putts } : {}), hr: r.holes[i].hr || h.hr } : h));
+        await putRound({ ...old, holes, shotsTracked: Math.max(r.shotsTracked || 0, old.shotsTracked || 0), hr: r.hr || old.hr, garmin: { ...(old.garmin || {}), ...r.garmin }, updatedAt: Date.now() });
         updated++; shots += r.shotsTracked; continue;
       }
       skipped++; continue;

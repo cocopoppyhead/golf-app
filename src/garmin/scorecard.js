@@ -8,6 +8,8 @@
 //   192 hole score: 0 player index · 1 hole number · 2 strokes · 5 putts (−1 or blank = not entered)
 //   193 hole: 0 number · 1 length (cm) · 2 par · 3 stroke index · 4/5 green (semicircles)
 //   194 shot: 1 hole number · 253 time · 2/3 start · 4/5 end (semicircles) · 7 club id (Golf-CLUB.json; 0 = none)
+//             11 heart rate (bpm) from the watch: checked against the round's activity recording, it is
+//             the wrist heart rate when the shot was played (the time in 253 is logged a shot later)
 // Shots are only there when the watch tracked them (newer watches, CT10 sensors). They carry no lie, and
 // the list is noisy: practice strokes with a sensored club show up as extra shots from the same spot,
 // and swings without a sensor can be missed. fitHole() cleans that up and only trusts a hole when the
@@ -40,7 +42,7 @@ export function readScorecard(buf, id = null) {
   for (const { fields: f } of msgs.filter((m) => m.num === 194)) {
     const start = pt(f[2], f[3]); if (!f[1] || !start) continue;
     if (!shots.has(f[1])) shots.set(f[1], []);
-    shots.get(f[1]).push({ t: f[253] != null ? fitDate(f[253]) : null, start, end: pt(f[4], f[5]), clubId: f[7] || null });
+    shots.get(f[1]).push({ t: f[253] != null ? fitDate(f[253]) : null, start, end: pt(f[4], f[5]), clubId: f[7] || null, hr: f[11] >= 35 && f[11] <= 230 ? f[11] : null });
   }
   for (const l of shots.values()) l.sort((a, b) => (a.t ?? 0) - (b.t ?? 0));
   return {
@@ -73,6 +75,9 @@ export function bagNames(clubs = [], types = []) {
  */
 export function fitHole(card, shots, pin, par, names = {}) {
   const h = { score: card.score, putts: card.putts, tee: null, gir: null, miss: null, bunker: false, firstPutt: null, tags: [], shots: null };
+  // heart rate on the hole, whether or not the shots reconcile: the mean and the highest at a shot
+  const hrs = (shots || []).map((s) => s.hr).filter(Boolean);
+  if (hrs.length) h.hr = { avg: Math.round(hrs.reduce((a, b) => a + b, 0) / hrs.length), max: Math.max(...hrs), n: hrs.length };
   if (!shots?.length || !pin || card.putts == null) return h;
   const real = shots.filter((s, i) => !(i + 1 < shots.length && metres([s.start.lat, s.start.lon], [shots[i + 1].start.lat, shots[i + 1].start.lon]) < SAME_SPOT));
   const P = [pin.lat, pin.lon];
@@ -85,11 +90,20 @@ export function fitHole(card, shots, pin, par, names = {}) {
     x.gps = { ...s.start, acc: 5 };
     if (s.end) { x.end = { ...s.end }; x.flew = Math.round(metres([s.start.lat, s.start.lon], [s.end.lat, s.end.lon]) / YD); }
     const club = names[s.clubId]; if (club) x.d = { club };
+    if (s.hr) x.hr = s.hr;
     return x;
   });
   if (!card.putts && h.shots.length) h.shots[h.shots.length - 1].res = 'G';
   h.gir = card.score - card.putts <= par - 2;
   return h;
+}
+
+/** The round's heart rate from its holes: average over every shot, the highest, and how many shots had one. */
+export function roundHr(holes) {
+  const H = holes.filter((h) => h?.hr);
+  if (!H.length) return null;
+  const n = H.reduce((a, h) => a + h.hr.n, 0);
+  return { avg: Math.round(H.reduce((a, h) => a + h.hr.avg * h.hr.n, 0) / n), max: Math.max(...H.map((h) => h.hr.max)), n };
 }
 
 /** The scorecard id from the export's file name: Golf-SCORECARD_RAWDATA-199043740.fit → 199043740. */
@@ -117,6 +131,7 @@ export function convertScorecards(cards, resolveCourse, { names = {} } = {}) {
       id: `r_g${sc.id ?? sc.start}`, garminId: sc.id, date: sc.start || Date.now(), courseId: course.id, courseName: course.name, tees: sc.course.tee || course.tees || '',
       learning: true, finished: true, source: 'garmin', holes, holesPlayed: holes.filter(Boolean).length, shotsTracked: holes.reduce((a, h) => a + (h?.shots?.length || 0), 0),
       players: partners, cond: null, mood: {}, garmin: { durationMin: sc.end && sc.start ? Math.round((sc.end - sc.start) / 60000) : null, scorecard: true },
+      hr: roundHr(holes),
     });
   }
   return out.sort((a, b) => b.date - a.date);
