@@ -908,8 +908,8 @@ $('#importFile').addEventListener('change', async (e) => {
   const f = e.target.files?.[0]; e.target.value = ''; if (!f) return;
   try {
     const r = await importData(await f.text());
-    settings = getSettings(); fillSettings(); applyTheme(); renderRecent();
-    toast(`Imported: ${r.settings.join(', ') || 'no settings'}${r.records ? ` + ${r.records} records` : ''}`, 5000);
+    settings = getSettings(); fillSettings(); applyTheme(); renderRecent(); window.dispatchEvent(new Event('golf-synced'));
+    toast(`Imported ${r.records} record${r.records === 1 ? '' : 's'}${r.settings.length ? ` and settings (${r.settings.join(', ')})` : ''}.`, 6000);
   } catch (err) { toast(err.message, 5000); }
 });
 
