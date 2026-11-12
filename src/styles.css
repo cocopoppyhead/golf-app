@@ -641,7 +641,7 @@ table.t5, table.dk { width: 100%; border-collapse: collapse; font-size: 13px; } 
 .hero .radar .rax.work .rv { fill: var(--chrome-work); }
 .hero .legend { display: flex; justify-content: center; gap: 16px; font-size: 12.5px; color: var(--chrome-mute); }
 .hero .legend i { display: inline-block; width: 15px; border-top: 2px solid; vertical-align: middle; margin-right: 6px; }
-.lg-you { border-color: var(--chrome-acc) !important; } .lg-gh { border-color: var(--you) !important; border-top-style: dashed !important; } .hero .lg-gh { border-color: var(--chrome-you) !important; } .lg-scr { border-color: var(--chrome-mute) !important; border-top-style: dotted !important; }
+.lg-you { border-color: var(--chrome-acc) !important; } .lg-gh { border-color: var(--you) !important; border-top-style: dashed !important; } .hero .lg-gh { border-color: var(--chrome-you) !important; } .lg-scr { border-color: var(--chrome-ink) !important; opacity: .6; }
 .hero .hstats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--chrome-line); }
 .hero .hstats b { display: block; font: 600 32px/1 var(--display); } .hero .hstats small { color: var(--chrome-mute); font-size: 12.5px; }
 
@@ -918,7 +918,7 @@ table.t5, table.dk { width: 100%; border-collapse: collapse; font-size: 13px; } 
 .inprog .ip-h { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; } .inprog .ip-h > div:last-child { display: flex; flex-direction: column; gap: 1px; min-width: 0; } .inprog .ip-h b { font-size: 16px; }
 .inprog .clogo { width: 52px; height: 52px; flex: none; }
 .radar .rring { font-size: 8.5px; fill: var(--mute); letter-spacing: .2px; } .hero .radar .rring { fill: var(--chrome-mute); }
-.radar .rr.scratchring { stroke: var(--soft); stroke-width: 1.2; }
+.radar .rr.target { stroke: var(--soft); stroke-width: 1.6; } .radar .rring.target { fill: var(--soft); font-weight: 600; } .hero .radar .rr.target { stroke: var(--chrome-ink, #fff); stroke-opacity: .55; } .hero .radar .rring.target { fill: var(--chrome-ink, #fff); }
 .lg-scr { border-top-style: solid !important; border-color: var(--chrome-ink) !important; opacity: .7; } .lg-lvl { border-color: var(--chrome-mute) !important; border-top-style: dashed !important; }
 .dlab { font-size: 12px; color: var(--mute); font-weight: 600; margin: 8px 0 3px; }
 .dstrip.tgt { opacity: .85; }

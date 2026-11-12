@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { radarShots, radarRound, skillRadar, radarRead, radarSvg, AXES } from '../../src/rounds/radar.js';
+import { radarShots, radarRound, skillRadar, radarRead, radarSvg, eqLabel, AXES } from '../../src/rounds/radar.js';
 
 const course = { holes: Array.from({ length: 18 }, (_, i) => ({ par: i % 6 === 2 ? 3 : i % 6 === 5 ? 5 : 4, yds: i % 6 === 2 ? 170 : 400 })) };
 // a tidy golfer: every drive in play, approaches from 160 (long) or 100 (wedge), two putts from 20 ft; penalties on request
@@ -76,23 +76,29 @@ describe('skills radar', () => {
     const read = radarRead(S);
     expect(read.worst.key).toBe('head');
     const svg = radarSvg(S, skillRadar(list(10), { hcp: 15 }));
-    expect(svg).toContain('class="ryou"'); expect(svg).toContain('class="rghost"'); expect(svg).toContain('scratchring'); expect(svg).toContain('>10 handicap<'); // a 15 aims at 10
+    expect(svg).toContain('class="ryou"'); expect(svg).toContain('class="rghost"'); for (const k of ['>Scratch<', '>5<', '>10<', '>15<', '>20<']) expect(svg).toContain(k); // fixed handicap rings
+    expect(svg).toContain('class="rring target">10<'); // a 15 aims at 10
     expect(radarSvg(skillRadar(list(10), { hcp: 6 }))).toContain('>Scratch<');
     expect((svg.match(/data-goto=/g) || []).length).toBe(6);
     expect(svg).toContain('Short game'); expect(svg).toContain('Mind');
     expect(radarSvg(skillRadar([], { hcp: 15 }))).not.toContain('class="ryou"');
+    expect(eqLabel(6.4)).toBe('6'); expect(eqLabel(0.2)).toBe('Scratch'); expect(eqLabel(-2)).toBe('+2');
   });
 });
 
 describe('the radar scores shots one by one', () => {
   const c = { holes: [{ par: 4, yds: 400 }, { par: 4, yds: 380 }, { par: 3, yds: 170 }] };
   it('takes Garmin shots from a hole that does not add up, each with its own finish', () => {
-    const r = { holes: [{ score: 5, putts: 2, looseShots: [{ tee: true, from: 400, to: 140, toFt: 0, onGreen: false }, { tee: false, from: 140, to: 6, toFt: 20, onGreen: true }] }, null, null] };
+    const r = { holes: [{ score: 4, putts: 2, looseShots: [{ tee: true, from: 400, to: 140, toFt: 0, onGreen: false }, { tee: false, from: 140, to: 6, toFt: 20, onGreen: true }] }, null, null] };
     const S = radarShots(r, c);
     // the approach finishing on the green is measured to the green's centre, not the pin: left out
     expect(S.shots.map((s) => s.cat)).toEqual(['ott']);
     expect(S.shots.every((s) => s.src === 'garmin')).toBe(true);
     expect(S.putts).toEqual([]); // no first-putt distance: putting stays out
+  });
+  it('drops Garmin shots on a hole with a stroke the watch did not see (a penalty, usually): the drive would look clean', () => {
+    const r = { holes: [{ score: 5, putts: 2, looseShots: [{ tee: true, from: 400, to: 140, toFt: 0, onGreen: false }, { tee: false, from: 140, to: 6, toFt: 20, onGreen: true }] }, null, null] };
+    expect(radarShots(r, c).shots).toEqual([]);
   });
   it('takes logged shots from a hole whose strokes add up even without a first-putt distance', () => {
     const r = { holes: [{ score: 4, putts: 2, shots: [{ lie: 'tee', dist: 400 }, { lie: 'fw', dist: 150 }] }, null, null] };
@@ -126,5 +132,15 @@ describe('the level to aim at', () => {
     expect(S.shots.length).toBe(2); // the last shot finishes on the green (to its centre): out
     const g = { holes: [{ score: 6, putts: 2, looseShots: [{ tee: true, from: 1099, to: 0, toFt: 0, onGreen: true }, { tee: false, from: 152, to: 0, toFt: 0, onGreen: true }] }] };
     expect(radarShots(g, c).shots).toEqual([]);
+  });
+});
+
+describe('the handicap each part plays like', () => {
+  it('turns strokes against tour into a handicap with Broadie\'s h + 3 split', () => {
+    const R = skillRadar(list(10), { hcp: 6 });
+    for (const a of R.axes.filter((x) => x.raw != null)) expect(a.eq).toBeCloseTo(Math.max(-4, Math.min(36, -a.raw / a.share - 3)), 6);
+    // a part of the game exactly at a 6's level plays like a 6
+    expect(-(-(6 + 3) * 0.28) / 0.28 - 3).toBeCloseTo(6);
+    expect(R.target).toBe(0);
   });
 });

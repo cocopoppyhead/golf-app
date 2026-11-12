@@ -1,6 +1,5 @@
-// The skills radar: six axes, each in strokes per round against golfers at your handicap, so the
-// dashed ring is "what someone at your level does" and the shape says where you are better or worse
-// than that. Axes: Driving, Long approach (140+), Wedges (30–139), Short game (chips, pitches, bunkers),
+// The skills radar: six axes, each showing the handicap that part of your game plays like, on fixed
+// rings for scratch, 5, 10, 15 and 20 (value, in strokes against your own level, drives the verdicts). Axes: Driving, Long approach (140+), Wedges (30–139), Short game (chips, pitches, bunkers),
 // Putting, Mind (penalties, recovery drives, shots that went to plan).
 //
 // Strokes gained in sg.js is measured against the tour baseline, so a club golfer is negative in every
@@ -114,7 +113,12 @@ export function radarShots(round, course) {
     // Garmin: each recorded shot carries its own finish. Leave out what can't be real: a start further than the
     // hole is long (a stray detection), a "tee shot" that isn't from near the tee, a finish exactly on the green
     // point (the watch's placeholder, not where the ball stopped)
-    for (const x of h.looseShots || []) {
+    // ...and only when the watch saw every stroke off the green (its shots plus the putts make the score). If one
+    // is missing it is usually a penalty (water, OB) the watch can't see, and the drive before it would be
+    // scored as if it found the fairway: on Conor's own cards that flattered driving by about 0.1 a drive.
+    const loose = h.looseShots || [];
+    if (h.putts == null || loose.length !== h.score - h.putts) return;
+    for (const x of loose) {
       if (!ch.yds || x.from > ch.yds + 30 || (x.tee && Math.abs(x.from - ch.yds) > 60) || x.onGreen || x.to < 1) continue; // on the green = to its centre, not the pin
       const a = expected(x.tee ? 'tee' : 'unk', x.tee ? (ch.yds || x.from) : x.from);
       const b = x.onGreen ? expected('grn', x.toFt) : expected('unk', x.to);
@@ -157,7 +161,11 @@ export function skillRadar(list, { hcp = 15 } = {}) {
       const planPart = planN >= 15 ? (planned / planN - PLAN_BASE) * 2 : 0;
       const value = clip(penPart + dirtPart + planPart);
       const scratch = clip((B.penalties - B0.penalties) + (B.teeTrouble - B0.teeTrouble) * firOpp * RECOVERY_COST);
-      return { ...a, value, scratch, n, enough: n >= 3, detail: `${pen.toFixed(1)} penalties and ${dirt.toFixed(1)} recovery drives a round (your level: ${B.penalties.toFixed(1)} and ${(B.teeTrouble * firOpp).toFixed(1)})${planN >= 15 ? `; ${Math.round((100 * planned) / planN)}% of rated shots went to plan` : ''}.`, parts: { penPart, dirtPart, planPart } };
+      // the handicap this plays like: strokes per handicap on this axis from the gap between your level and the target
+      // the handicap this plays like: strokes per handicap from the benchmark slope between your level and five worse
+      const B5 = benchFor(h + 5), perHcp = Math.max(0.05, ((B5.penalties - B.penalties) + (B5.teeTrouble - B.teeTrouble) * firOpp * RECOVERY_COST) / 5);
+      const eq = Math.max(-4, Math.min(36, h - (penPart + dirtPart + planPart) / perHcp));
+      return { ...a, value, scratch, eq, n, enough: n >= 3, detail: `${pen.toFixed(1)} penalties and ${dirt.toFixed(1)} recovery drives a round (your level: ${B.penalties.toFixed(1)} and ${(B.teeTrouble * firOpp).toFixed(1)})${planN >= 15 ? `; ${Math.round((100 * planned) / planN)}% of rated shots went to plan` : ''}.`, parts: { penPart, dirtPart, planPart } };
     }
     // shot by shot from every round in the window (see radarShots); putting by hole
     const samples = a.key === 'putt' ? pool.flatMap((p) => p.s.putts) : pool.flatMap((p) => p.s.shots.filter((s) => s.cat === a.key));
@@ -169,9 +177,10 @@ export function skillRadar(list, { hcp = 15 } = {}) {
     const level = -gap * a.share; // what your level loses to tour on this axis
     const value = clip(sg - level);
     const scratch = clip(-TOUR_GAP(target) * a.share - level);
+    const eq = Math.max(-4, Math.min(36, -sg / a.share - 3)); // the handicap whose golfers lose this much to tour here (Broadie: h + 3 a round, by share)
     const garmin = samples.filter((x) => x.src === 'garmin').length;
     const min = a.key === 'putt' ? 18 : MIN_SHOTS;
-    return { ...a, value, raw: sg, level, scratch, n, shots, garmin, enough: n >= 3 && shots >= min, detail: `${sg >= 0 ? '+' : ''}${sg.toFixed(1)} strokes a round against the tour baseline (${shots} ${a.key === 'putt' ? 'holes' : 'shots'}${garmin ? `, ${garmin} from Garmin` : ''}, ${n} rounds); a ${h <= 1 ? 'scratch' : Math.round(h) + '-handicap'} golfer is about ${level.toFixed(1)}.` };
+    return { ...a, value, raw: sg, level, scratch, eq, n, shots, garmin, enough: n >= 3 && shots >= min, detail: `${sg >= 0 ? '+' : ''}${sg.toFixed(1)} strokes a round against the tour baseline (${shots} ${a.key === 'putt' ? 'holes' : 'shots'}${garmin ? `, ${garmin} from Garmin` : ''}, ${n} rounds); a ${h <= 1 ? 'scratch' : Math.round(h) + '-handicap'} golfer is about ${level.toFixed(1)}.` };
   });
   const ready = axes.filter((a) => a.enough).length >= 4;
   return { hcp: h, target, n: pool.filter((p) => p.s.shots.length + p.s.putts.length).length, nSg: sgRows.length, axes, ready };
@@ -186,45 +195,46 @@ export function radarRead(radar) {
 }
 
 // --- drawing ---
-const fmt = (v) => (v == null ? '–' : +Math.abs(v).toFixed(1) === 0 ? '0.0' : `${v >= 0 ? '+' : '−'}${Math.abs(v).toFixed(1)}`);
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
+export const RINGS = [0, 5, 10, 15, 20]; // the handicaps drawn as rings, scratch outermost
+const FLOOR = 25; // the centre: a 25 handicap
+/** "Plays like" for a spoke label: 7, Scratch, or +2 for better than scratch. */
+export const eqLabel = (eq) => { const r = Math.round(eq); return r === 0 ? 'Scratch' : r < 0 ? `+${-r}` : r > FLOOR ? `${FLOOR}+` : `${r}`; };
+
 /**
- * SVG radar. Each spoke runs from well behind your level (centre) through your level (dashed ring, halfway)
- * to scratch (the outer ring): so the outer ring is the target, whatever your handicap. Per spoke, the
- * distance from your level to scratch is that spoke's share of the strokes your handicap gives up to a
- * scratch golfer; beyond scratch pokes slightly past the ring. `ghost` is an earlier radar, drawn faded.
+ * SVG radar on a fixed scale: rings at what a scratch, 5, 10, 15 and 20 handicap do in each part of the game,
+ * scratch outermost, the ring you're aiming at drawn stronger. Each spoke sits at the handicap that part of
+ * your game plays like (Broadie: an h-handicap loses h + 3 strokes a round to tour, split by share); better
+ * than scratch pokes slightly past the ring. `ghost` is an earlier radar, drawn faded.
  */
 export function radarSvg(radar, ghost = null, { size = 300 } = {}) {
   const N = radar.axes.length, W = size * 1.22, C = size / 2, CX = W / 2, R = size * 0.34;
   const ang = (i) => -Math.PI / 2 + (i * 2 * Math.PI) / N;
-  // strokes from your level to scratch on each spoke (never under half a stroke, so a near-scratch golfer still has a scale)
-  const span = radar.axes.map((a) => Math.max(0.5, a.scratch ?? 0));
-  const frac = (i, v) => (v == null ? 0 : Math.max(0, Math.min(1.12, 0.5 + (0.5 * v) / span[i]))); // level → ½, scratch → 1
-  const pt = (i, v) => [CX + Math.cos(ang(i)) * R * frac(i, v), C + Math.sin(ang(i)) * R * frac(i, v)];
+  const frac = (eq) => (eq == null ? 0 : Math.max(0, Math.min(1.12, (FLOOR - eq) / FLOOR))); // scratch → 1, 25 → centre
   const ptF = (i, f) => [CX + Math.cos(ang(i)) * R * f, C + Math.sin(ang(i)) * R * f];
+  const pt = (i, eq) => ptF(i, frac(eq));
   const poly = (vals) => vals.map((v, i) => pt(i, v).map((x) => x.toFixed(1)).join(',')).join(' ');
   const ring = (f) => radar.axes.map((_, i) => ptF(i, f).map((x) => x.toFixed(1)).join(',')).join(' ');
-  const shape = radar.axes.map((a) => (a.enough ? a.value : null));
+  const shape = radar.axes.map((a) => (a.enough ? a.eq : null));
   const anyShape = shape.some((v) => v != null);
+  const h = radar.hcp ?? 15;
   const labels = radar.axes.map((a, i) => {
     const [x, y] = ptF(i, 1.35);
     const anchor = Math.abs(Math.cos(ang(i))) < 0.2 ? 'middle' : Math.cos(ang(i)) > 0 ? 'start' : 'end';
-    const v = a.enough ? a.value : null;
-    const cls = v == null ? 'none' : v >= 0.3 ? 'good' : v <= -0.3 ? 'work' : 'even';
+    const v = a.enough ? a.eq : null;
+    const cls = v == null ? 'none' : v <= h - 1.5 ? 'good' : v >= h + 1.5 ? 'work' : 'even';
     const hx = anchor === 'middle' ? x - 50 : anchor === 'start' ? x - 4 : x - 96;
-    return `<g class="rax ${cls}" data-goto="${a.goto}" style="cursor:pointer"><rect x="${hx.toFixed(1)}" y="${(y - 16).toFixed(1)}" width="100" height="34" fill="transparent"/><text x="${x.toFixed(1)}" y="${(y - 4).toFixed(1)}" text-anchor="${anchor}" class="rl">${esc(a.label)}</text><text x="${x.toFixed(1)}" y="${(y + 12).toFixed(1)}" text-anchor="${anchor}" class="rv">${a.enough ? fmt(a.value) : a.n < 3 ? `${a.n}/3 rounds` : a.shots != null ? `${a.shots}/${MIN_SHOTS} shots` : '–'}</text></g>`;
+    return `<g class="rax ${cls}" data-goto="${a.goto}" style="cursor:pointer"><rect x="${hx.toFixed(1)}" y="${(y - 16).toFixed(1)}" width="100" height="34" fill="transparent"/><text x="${x.toFixed(1)}" y="${(y - 4).toFixed(1)}" text-anchor="${anchor}" class="rl">${esc(a.label)}</text><text x="${x.toFixed(1)}" y="${(y + 12).toFixed(1)}" text-anchor="${anchor}" class="rv">${a.enough ? eqLabel(a.eq) : a.n < 3 ? `${a.n}/3 rounds` : a.shots != null ? `${a.shots}/${MIN_SHOTS} shots` : '–'}</text></g>`;
   }).join('');
-  return `<svg viewBox="0 0 ${W} ${size}" class="radar" role="img" aria-label="Skills radar">
-    <polygon points="${ring(1)}" class="rr outer scratchring"/>
-    <polygon points="${ring(0.75)}" class="rr"/>
-    <polygon points="${ring(0.5)}" class="rr level"/>
-    <polygon points="${ring(0.25)}" class="rr"/>
+  const rings = RINGS.map((k) => `<polygon points="${ring(frac(k))}" class="rr${k === 0 ? ' outer' : ''}${k === radar.target ? ' target' : ''}"/>`).join('');
+  const ringLabels = RINGS.map((k) => `<text x="${CX + 4}" y="${(C - R * frac(k) + 10).toFixed(1)}" class="rring${k === radar.target ? ' target' : ''}">${k ? k : 'Scratch'}</text>`).join('');
+  return `<svg viewBox="0 0 ${W} ${size}" class="radar" role="img" aria-label="Skills radar: the handicap each part of your game plays like">
+    ${rings}
     ${radar.axes.map((_, i) => { const [x, y] = ptF(i, 1); return `<line x1="${CX}" y1="${C}" x2="${x.toFixed(1)}" y2="${y.toFixed(1)}" class="rs"/>`; }).join('')}
-    <text x="${CX + 4}" y="${(C - R + 11).toFixed(1)}" class="rring">${radar.target ? `${radar.target} handicap` : 'Scratch'}</text>
-    <text x="${CX + 4}" y="${(C - R * 0.5 + 11).toFixed(1)}" class="rring">Your level</text>
-    ${ghost && ghost.axes.some((a) => a.enough) ? `<polygon points="${poly(ghost.axes.map((a) => (a.enough ? a.value : 0)))}" class="rghost"/>` : ''}
-    ${anyShape ? `<polygon points="${poly(shape.map((v) => v ?? 0))}" class="ryou"/>${shape.map((v, i) => (v == null ? '' : `<circle cx="${pt(i, v)[0].toFixed(1)}" cy="${pt(i, v)[1].toFixed(1)}" r="3.5" class="rdot"/>`)).join('')}` : ''}
+    ${ringLabels}
+    ${ghost && ghost.axes.some((a) => a.enough) ? `<polygon points="${poly(ghost.axes.map((a) => (a.enough ? a.eq : FLOOR)))}" class="rghost"/>` : ''}
+    ${anyShape ? `<polygon points="${poly(shape.map((v) => v ?? FLOOR))}" class="ryou"/>${shape.map((v, i) => (v == null ? '' : `<circle cx="${pt(i, v)[0].toFixed(1)}" cy="${pt(i, v)[1].toFixed(1)}" r="3.5" class="rdot"/>`)).join('')}` : ''}
     ${labels}
   </svg>`;
 }
