@@ -6,18 +6,10 @@
 import { getRoutine } from '../rounds/routine.js';
 import { RULES, DEFAULT_RULES, checkRules } from '../rounds/tiger.js';
 import { moodLine, intentionLabel } from '../rounds/intentions.js';
+import { systemPrompt } from './playbook.js';
 
-export const SYSTEM = `You are this golfer's mental-game coach. You know their recent rounds (given below) and use them: name the round, the hole, the number. Grounded in sports psychology that works on a golf course: process goals over outcome goals, a consistent pre-shot routine, committing to a target, accepting the result and resetting between shots, attention on the next shot only, managing arousal (breathing, tempo), and honest post-round reflection.
-How to talk:
-- Short and plain, like a good caddie. Two to five sentences unless they ask for more. No lists unless they ask.
-- Ask one question at a time when you need to understand something.
-- Be honest. If the data says they bailed on their routine when it mattered, say so kindly and plainly. No flattery.
-- Give one thing to do, concrete enough to try on the next round or the next shot.
-- Their mood scale: 1 = flat, 5 = calm and focused (ideal), 10 = agitated.
-- You are not a therapist. If they describe real distress beyond golf, say so gently and suggest talking to someone they trust or a professional.
-- Accuracy: quote numbers exactly as given. Never add up scores or work out to-par yourself; the app has done it. "+3" means three over par. If something isn't in the data, say you don't have it rather than guess.
-- Look for the story across rounds first: the PATTERNS section (front vs back nine, lopsided cards, what follows a double, heat, tee time, heart rate, feeling at the turn). A back nine that falls away can be tiredness, heat, hunger or lost focus: use the heart rate, temperature, tee time and their notes to say which looks likelier, and ask when you can't tell.
-- If they correct you, accept it, use their version, and move on without a long apology.`;
+/** The default prompt: the playbook in its open-question mode (coach/playbook.js). */
+export const SYSTEM = systemPrompt('open');
 
 const FREQ = { 4: 'always', 3: 'mostly', 2: 'sometimes', 1: 'rarely' };
 const fmtD = (t) => new Date(t).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
@@ -95,6 +87,17 @@ export function patterns(rcs) {
   if (hrs.length >= 6) { const mid = hrs[Math.floor(hrs.length / 2)]; split('Heart rate', (x) => (x.r.hr?.avg ? x.r.hr.avg > mid : null), `above ${mid} bpm average`, 'at or below'); }
   split('Feeling at the turn', (x) => (x.r.mood?.turn ? x.r.mood.turn >= 7 : null), 'wound up (7+ of 10)', 'calmer');
   split('Kind of round', (x) => (x.r.kind ? x.r.kind === 'comp' : null), 'competition', 'casual');
+  // heart rate through the round: front against back, where the watch logged it per hole
+  const hrRows = rows.map((x) => ({ f: avg(x.hs.filter((h) => h.i < 9).map((h) => h.h.hr?.avg).filter(Boolean)), b: avg(x.hs.filter((h) => h.i >= 9).map((h) => h.h.hr?.avg).filter(Boolean)) })).filter((x) => x.f && x.b);
+  if (hrRows.length >= 3) out.push(`Heart rate by nine (${hrRows.length} rounds): front ${Math.round(avg(hrRows.map((x) => x.f)))}, back ${Math.round(avg(hrRows.map((x) => x.b)))} bpm on average.`);
+  // the start against the warm-up
+  const startOf = (x) => x.hs.filter((h) => h.i < 3).reduce((a, h) => a + h.d, 0);
+  const warm = rows.filter((x) => x.r.warmup && x.r.warmup !== 'none'), cold = rows.filter((x) => x.r.warmup === 'none');
+  if (warm.length >= 3 && cold.length >= 3) out.push(`First three holes: ${one(avg(warm.map(startOf)))} after a warm-up (${warm.length} rounds), ${one(avg(cold.map(startOf)))} with none (${cold.length}).`);
+  // process against score
+  const tot = (x) => x.f + x.b;
+  const goodP = rows.filter((x) => x.r.process?.accept >= 3), badP = rows.filter((x) => x.r.process?.accept && x.r.process.accept <= 2);
+  if (goodP.length >= 3 && badP.length >= 3) out.push(`When they let bad shots go (mostly or always) they averaged ${one(avg(goodP.map(tot)))} (${goodP.length} rounds); sometimes or rarely, ${one(avg(badP.map(tot)))} (${badP.length}).`);
   return out;
 }
 
@@ -108,6 +111,9 @@ export function mindContext({ rounds = [], settings = {}, focus = null } = {}) {
   parts.push(`THEIR ROUTINE\nBefore every shot: ${R.preshot.join(' / ')}.\nBetween shots: ${R.mind.join(' / ')}.${R.swingThought ? `\nSwing thought: ${R.swingThought}.` : ''}${R.custom ? '' : '\n(This is the app\'s example routine; they have not written their own yet.)'}\nRound rules: ${rules.join('; ')}.`);
   if (focus) parts.push(`THE ROUND THEY WANT TO TALK ABOUT\n${roundLines(focus)}${focus.r.intention ? ` Their one thing for the day: "${intentionLabel(focus.r.intention)}"${focus.r.intentionKept ? `, kept ${focus.r.intentionKept}/5` : ''}.` : ''}`);
   const pats = patterns(rounds);
+  const tags = {}; rounds.forEach(({ r }) => (r.debrief?.tags || []).forEach((t) => { tags[t] = (tags[t] || 0) + 1; }));
+  const top = Object.entries(tags).filter(([, n]) => n >= 2).sort((a, b) => b[1] - a[1]).slice(0, 5);
+  if (top.length) pats.push(`What they say cost them most, across ${rounds.length} rounds: ${top.map(([t, n]) => `${t} (${n})`).join(', ')}.`);
   if (pats.length) parts.push(`PATTERNS (worked out by the app from their rounds; trust these numbers)\n${pats.join('\n')}`);
   const rest = rounds.filter((x) => !focus || x.r.id !== focus.r.id).slice(0, 12);
   parts.push(rest.length ? `RECENT ROUNDS (newest first)\n${rest.map(roundLines).join('\n')}` : 'RECENT ROUNDS\nNone logged yet.');

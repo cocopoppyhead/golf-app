@@ -2,7 +2,8 @@
 // round's summary (to talk that round through). Uses whichever AI you connected in Settings.
 import { getSettings, listRounds, getCourse } from '../store.js';
 import { aiFrom, aiReady, aiName, chatLLM, md } from './ai.js';
-import { SYSTEM, mindContext, loadChat, saveChat, clearChat } from './mind.js';
+import { mindContext, loadChat, saveChat, clearChat } from './mind.js';
+import { systemPrompt } from './playbook.js';
 import { counts } from '../rounds/quality.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -16,7 +17,8 @@ export function turns(list) {
 const STARTERS = ['Get my head right before today', 'Talk me through my last round', 'Why do my rounds unravel?', 'First-tee nerves'];
 
 /** focus: { r, c } to talk one round through. onSettings: go to Settings → Connect AI. */
-export async function openMindChat({ focus = null, onSettings = () => {} } = {}) {
+export async function openMindChat({ focus = null, mode = null, onSettings = () => {} } = {}) {
+  let M = mode || (focus ? 'debrief' : 'open');
   const s = getSettings();
   let msgs = loadChat().filter((m) => m.text && m.text !== '…'), busy = false, err = '', live = '';
   const sheet = document.createElement('div'); sheet.className = 'sheet mindchat';
@@ -57,6 +59,7 @@ export async function openMindChat({ focus = null, onSettings = () => {} } = {})
   };
   const send = async (q) => {
     if (busy) return;
+    if (!msgs.length && !focus && q === STARTERS[0]) M = 'pre-round'; // "Get my head right before today"
     msgs = [...msgs, { role: 'user', text: q, at: Date.now() }]; busy = true; err = ''; draw();
     try {
       const onText = (t) => {
@@ -64,7 +67,7 @@ export async function openMindChat({ focus = null, onSettings = () => {} } = {})
         el.classList.remove('mc-typing'); el.innerHTML = md(t);
         const log = sheet.querySelector('.mc-log'); if (log.scrollHeight - log.scrollTop - log.clientHeight < 120) log.scrollTop = log.scrollHeight;
       };
-      const { text, cut } = await chatLLM({ ...aiFrom(s), system: `${SYSTEM}\n\n${await context()}`, messages: turns(msgs.slice(-20)), onText });
+      const { text, cut } = await chatLLM({ ...aiFrom(s), system: `${systemPrompt(M)}\n\n${await context()}`, messages: turns(msgs.slice(-20)), onText });
       if (!text.trim()) throw new Error('No reply came back.');
       msgs = [...msgs, { role: 'assistant', text: text.trim() + (cut ? '\n\n_(Cut short. Say "go on" for the rest.)_' : ''), at: Date.now() }]; saveChat(msgs);
     } catch (e) { err = `${e.message || 'That didn\'t go through.'} Try again.`; msgs = msgs.slice(0, -1); }
