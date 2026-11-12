@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { radarRound, skillRadar, radarRead, radarSvg, AXES } from '../../src/rounds/radar.js';
+import { radarShots, radarRound, skillRadar, radarRead, radarSvg, AXES } from '../../src/rounds/radar.js';
 
 const course = { holes: Array.from({ length: 18 }, (_, i) => ({ par: i % 6 === 2 ? 3 : i % 6 === 5 ? 5 : 4, yds: i % 6 === 2 ? 170 : 400 })) };
 // a tidy golfer: every drive in play, approaches from 160 (long) or 100 (wedge), two putts from 20 ft; penalties on request
@@ -55,9 +55,10 @@ describe('skills radar', () => {
     r.holes[5] = { ...r.holes[5], shots: [r.holes[5].shots[0]] }; // a hole with a missing shot
     const R = radarRound(r, course);
     expect(R.holes).toBe(18); expect(R.complete).toBe(17); expect(R.mind).toBe(true);
-    // one hole short of a shot keeps the whole round out of the radar
-    expect(skillRadar([{ r, c: course }], { hcp: 15 }).n).toBe(0);
-    expect(skillRadar([{ r: round(0), c: course }], { hcp: 15 }).n).toBe(1);
+    // a hole short of a shot no longer keeps the round out: its other holes' shots count, that hole's don't
+    expect(skillRadar([{ r, c: course }], { hcp: 15 }).n).toBe(1);
+    const full = radarShots(round(0, { pen: 4 }), course).shots.length, part = radarShots(r, course).shots.length;
+    expect(full - part).toBe(round(0, { pen: 4 }).holes[5].shots.length);
     const g = radarRound({ ...round(1), source: 'garmin', garmin: { durationMin: 240 } }, course);
     expect(g.mind).toBe(false);
     const S = skillRadar(list(5).map((x) => ({ ...x, r: { ...x.r, source: 'garmin', garmin: { scorecard: true } } })), { hcp: 15 });
@@ -79,5 +80,27 @@ describe('skills radar', () => {
     expect((svg.match(/data-goto=/g) || []).length).toBe(6);
     expect(svg).toContain('Short game'); expect(svg).toContain('Mind');
     expect(radarSvg(skillRadar([], { hcp: 15 }))).not.toContain('class="ryou"');
+  });
+});
+
+describe('the radar scores shots one by one', () => {
+  const c = { holes: [{ par: 4, yds: 400 }, { par: 4, yds: 380 }, { par: 3, yds: 170 }] };
+  it('takes Garmin shots from a hole that does not add up, each with its own finish', () => {
+    const r = { holes: [{ score: 5, putts: 2, looseShots: [{ tee: true, from: 400, to: 140, toFt: 0, onGreen: false }, { tee: false, from: 140, to: 6, toFt: 20, onGreen: true }] }, null, null] };
+    const S = radarShots(r, c);
+    expect(S.shots.map((s) => s.cat)).toEqual(['ott', 'appL']);
+    expect(S.shots.every((s) => s.src === 'garmin')).toBe(true);
+    expect(S.putts).toEqual([]); // no first-putt distance: putting stays out
+  });
+  it('takes logged shots from a hole whose strokes add up even without a first-putt distance', () => {
+    const r = { holes: [{ score: 4, putts: 2, shots: [{ lie: 'tee', dist: 400 }, { lie: 'fw', dist: 150 }] }, null, null] };
+    const S = radarShots(r, c);
+    expect(S.shots.length).toBe(1); // the drive (finish known: the next shot); the approach's finish isn't known
+    expect(S.shots[0]).toMatchObject({ cat: 'ott', src: 'chain' });
+  });
+  it('leaves out a hole with a shot missing in the middle', () => {
+    const r = { holes: [{ score: 5, putts: 2, firstPutt: 12, shots: [{ lie: 'tee', dist: 400 }, { lie: 'fw', dist: 150 }] }, null, null] };
+    expect(radarShots(r, c).shots.length).toBe(0);
+    expect(radarShots(r, c).putts.length).toBe(1); // putting is still known
   });
 });

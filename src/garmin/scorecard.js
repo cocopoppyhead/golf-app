@@ -83,7 +83,16 @@ export function fitHole(card, shots, pin, par, names = {}) {
   const P = [pin.lat, pin.lon];
   const toPin = (p) => metres([p.lat, p.lon], P);
   const off = real.filter((s) => toPin(s.start) > ON_GREEN), on = real.filter((s) => toPin(s.start) <= ON_GREEN);
-  if (off.length !== card.score - card.putts || (card.putts > 0 && !on.length)) return h;
+  if (off.length !== card.score - card.putts || (card.putts > 0 && !on.length)) {
+    // the hole doesn't add up (a shot missed, or one too many), but each recorded shot still has a start and a
+    // finish on the ground: keep those as loose shots for the radar, which scores each one on its own
+    h.looseShots = off.filter((s) => s.end).map((s, k) => ({
+      tee: k === 0 && s === real[0], from: Math.round(toPin(s.start) / YD), to: Math.round(toPin(s.end) / YD), toFt: Math.round(toPin(s.end) / 0.3048),
+      onGreen: toPin(s.end) <= ON_GREEN, club: names[s.clubId] || null,
+    })).filter((x) => x.to < x.from);
+    if (!h.looseShots.length) delete h.looseShots;
+    return h;
+  }
   if (card.putts > 0) h.firstPutt = nearestFt(toPin(on[0].start) / 0.3048);
   h.shots = off.map((s, k) => {
     const x = { lie: k === 0 ? 'tee' : 'unk', dist: Math.round(toPin(s.start) / YD), src: 'garmin', res: null, t: s.t };

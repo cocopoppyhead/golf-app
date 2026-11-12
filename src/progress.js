@@ -11,7 +11,7 @@ import { autoShotType } from './rounds/hole.js';
 import { CODES } from './rounds/stats.js';
 import { differential, adjustedGross, indexFrom, indexHistory } from './rounds/handicap.js';
 import { getSettings, saveSettings } from './store.js';
-import { skillRadar, radarSvg, radarRead, radarRound, feedsRadar, LONG_FROM } from './rounds/radar.js';
+import { skillRadar, radarSvg, radarRead, radarRound, radarUses, radarShots, LONG_FROM } from './rounds/radar.js';
 import { levelLabel } from './benchmarks.js';
 import { ART, CONTOUR } from './art.js';
 import { counts, roundIssues, roundNotes } from './rounds/quality.js';
@@ -64,10 +64,12 @@ async function roundsSheet(onDone) {
   const list = await loadRounds(0, { all: true });
   const sheet = document.createElement('div'); sheet.className = 'sheet itemsheet pickrounds';
   const chip = (r, rad) => {
-    if (!rad || !rad.holes || !r.holes?.some((h) => h?.shots?.length)) return '<span class="rchip none">Scores only</span>';
-    if (rad.complete < rad.holes) return `<span class="rchip none">Not in radar: ${rad.holes - rad.complete} hole${rad.holes - rad.complete === 1 ? '' : 's'} missing shots</span>`;
+    const S = radarShots({ ...r, radarPick: undefined }, list.find((x) => x.r === r)?.c);
+    const n = S.shots.length, p = S.putts.length;
+    if (!n && !p) return '<span class="rchip none">Scores only</span>';
     const on = r.radarPick !== false;
-    return `<button class="rchip ${on ? 'on' : ''}" data-radar-rid="${esc(r.id)}">${on ? `In radar · all ${rad.holes} holes tracked` : 'Left out of radar'}</button>`;
+    const what = rad && rad.holes && rad.complete === rad.holes ? `all ${rad.holes} holes tracked` : `${n} shot${n === 1 ? '' : 's'}${p ? `, ${p} putting holes` : ''}`;
+    return `<button class="rchip ${on ? 'on' : ''}" data-radar-rid="${esc(r.id)}">${on ? `In radar · ${what}` : 'Left out of radar'}</button>`;
   };
   const row = ({ r, c, ok, issues, notes, rad }) => {
     const sc = (r.holes || []).reduce((a, h) => a + (h?.score || 0), 0) || r.score || null;
@@ -190,22 +192,24 @@ function verdict(radar, key, read, hcp) {
 }
 
 function hero0Detail(ALL, hcp) {
-  const r = skillRadar(ALL.filter((x) => feedsRadar(x.r, x.c)).slice(0, 10), { hcp });
+  const r = skillRadar(ALL.filter((x) => radarUses(x.r, x.c)).slice(0, 10), { hcp });
   return r.axes.map((a) => `<div><b>${esc(a.label)}</b><span>${a.detail ? esc(a.detail) : 'Not enough rounds yet.'}</span></div>`).join('');
 }
 
 function heroBand(ALL, Hc, hcp, OUT = 0, KINDS = null) {
-  // the radar only looks at rounds with shot detail: "Last 10" is the last 10 of those, not of every round
-  const L = ALL.filter((x) => feedsRadar(x.r, x.c));
+  // the radar looks at rounds with any shot it can score on its own: "Last 10" is the last 10 of those
+  const L = ALL.filter((x) => radarUses(x.r, x.c));
   const basis = (list) => {
-    const rows = list.map((x) => radarRound(x.r, x.c)).filter(Boolean);
-    const holes = rows.reduce((a, R) => a + R.complete, 0);
-    if (!list.length) return 'No round yet has every shot logged on every hole, so the radar is empty. Choose rounds shows which ones came close (holes missing shots).';
+    if (!list.length) return 'No round yet has a shot with a known start and finish, so the radar is empty. Log shot distances, or import Garmin rounds with shot tracking.';
+    const S = list.map((x) => radarShots(x.r, x.c));
+    const shots = S.flatMap((s) => s.shots), putts = S.reduce((a, s) => a + s.putts.length, 0);
+    const n = (k) => shots.filter((s) => s.cat === k).length, g = shots.filter((s) => s.src === 'garmin').length;
+    const full = list.map((x) => radarRound(x.r, x.c)).filter((R) => R && R.holes && R.complete === R.holes).length;
     const span = `${fmtShort(list[list.length - 1].r.date)} – ${fmtShort(list[0].r.date)}`;
-    return `${list.length} fully tracked round${list.length === 1 ? '' : 's'} (${span}), ${holes} holes: every shot logged on every hole.`;
+    return `${list.length} round${list.length === 1 ? '' : 's'} (${span}), ${full} with every shot logged: ${n('ott')} drives, ${n('appL') + n('appW')} approaches, ${n('arg')} short-game shots, ${putts} putting holes${g ? ` (${g} shots from Garmin)` : ''}. Each shot counts only when its start and finish are known.`;
   };
   const windows = [10, 50, 100].map((n) => ({ n, radar: skillRadar(L.slice(0, n), { hcp }), ghost: L.length > n ? skillRadar(L.slice(n, 2 * n), { hcp }) : null }));
-  const views = Object.fromEntries(windows.map((w) => [w.n, `${radarSvg(w.radar, w.ghost)}<p class="hbasis">${esc(basis(L.slice(0, w.n)))}</p>${w.radar.ready ? '' : `<p class="hnote">The shape fills in after 3 rounds with shot distances and first putts.</p>`}`]));
+  const views = Object.fromEntries(windows.map((w) => [w.n, `${radarSvg(w.radar, w.ghost)}<p class="hbasis">${esc(basis(L.slice(0, w.n)))}</p>${w.radar.ready ? '' : `<p class="hnote">Each spoke fills in once it has 3 rounds and enough shots (10, or 18 holes for putting).</p>`}`]));
   const full = ALL.filter((x) => x.S.holes >= 18).sort((a, b) => a.r.date - b.r.date).slice(-20);
   const sc = full.map((x) => x.S.score);
   const avg = sc.length ? sc.reduce((a, b) => a + b, 0) / sc.length : null;
@@ -396,7 +400,7 @@ export async function practiceFromRounds() {
   const sh = Object.entries(shape);
   if (sh.length) html += `<div class="card"><h2>Planned vs actual shape</h2>${sh.map(([k, s]) => `<div class="tend"><div><b>Planned ${k}: ${Math.round((s.ok / s.n) * 100)}% came off</b><div class="mute small">${s.n} shot${s.n > 1 ? 's' : ''}${Object.keys(s.got).length ? ` · instead: ${Object.entries(s.got).sort((a, z) => z[1] - a[1]).map(([g, v]) => `${esc(lab[g] || g)} ×${v}`).join(', ')}` : ''}</div></div></div>`).join('')}</div>`;
   const hcp = getSettings().handicap ?? 15;
-  const radar = skillRadar(R.filter((x) => feedsRadar(x.r, x.c)), { hcp });
+  const radar = skillRadar(R.filter((x) => radarUses(x.r, x.c)), { hcp });
   const ok = radar.axes.filter((a) => a.enough && a.value != null).sort((a, b) => a.value - b.value);
   if (ok.length >= 2) {
     const ART_FOR = { ott: 'driving', appL: 'approach', appW: 'approach', arg: 'short', putt: 'putting', head: 'mind' };

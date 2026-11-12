@@ -118,3 +118,19 @@ describe('Garmin scorecard shots', () => {
     expect(expected('unk', 150)).toBeCloseTo((expected('fw', 150) + expected('rgh', 150)) / 2, 5);
   });
 });
+
+import { fitHole } from '../../src/garmin/scorecard.js';
+describe('a Garmin hole that does not add up', () => {
+  const pin = { lat: 25.0, lon: 55.0 };
+  const at = (m) => ({ lat: 25.0 + m / 111320, lon: 55.0 }); // m metres north of the pin
+  it('keeps its shots as loose shots with their own finish, not as the hole\'s shots', () => {
+    // a 5 with 2 putts, but only two full shots recorded (one missed)
+    const shots = [{ start: at(360), end: at(130), clubId: 1 }, { start: at(130), end: at(8), clubId: 2 }, { start: at(8), end: at(0) }];
+    const h = fitHole({ score: 5, putts: 2 }, shots, pin, 4, { 1: 'Driver', 2: '8 iron' });
+    expect(h.shots).toBeNull();
+    expect(h.looseShots.length).toBe(2);
+    expect(h.looseShots[0]).toMatchObject({ tee: true, club: 'Driver', onGreen: false });
+    expect(h.looseShots[1]).toMatchObject({ tee: false, onGreen: true, club: '8 iron' });
+    expect(h.looseShots[0].from).toBeGreaterThan(h.looseShots[0].to);
+  });
+});

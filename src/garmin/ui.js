@@ -211,8 +211,9 @@ async function storeRounds(convert) {
     if (old) {
       // an earlier import without shots: take the shots now that osolo can read them, keep everything else
       const moreShots = (r.shotsTracked || 0) > (old.shotsTracked || 0), newHr = !!r.hr && !old.hr;
-      if (old.source === 'garmin' && (moreShots || newHr) && old.holes?.length === r.holes.length) {
-        const holes = old.holes.map((h, i) => (h && r.holes[i] ? { ...h, ...(moreShots ? { shots: r.holes[i].shots, firstPutt: h.firstPutt ?? r.holes[i].firstPutt, gir: h.gir ?? r.holes[i].gir, putts: h.putts ?? r.holes[i].putts } : {}), hr: r.holes[i].hr || h.hr } : h));
+      const newLoose = r.holes.some((h, i) => h?.looseShots && !old.holes?.[i]?.looseShots);
+      if (old.source === 'garmin' && (moreShots || newHr || newLoose) && old.holes?.length === r.holes.length) {
+        const holes = old.holes.map((h, i) => (h && r.holes[i] ? { ...h, ...(moreShots ? { shots: r.holes[i].shots, firstPutt: h.firstPutt ?? r.holes[i].firstPutt, gir: h.gir ?? r.holes[i].gir, putts: h.putts ?? r.holes[i].putts } : {}), ...(r.holes[i].looseShots && !h.shots ? { looseShots: r.holes[i].looseShots } : {}), hr: r.holes[i].hr || h.hr } : h));
         await putRound({ ...old, holes, shotsTracked: Math.max(r.shotsTracked || 0, old.shotsTracked || 0), hr: r.hr || old.hr, garmin: { ...(old.garmin || {}), ...r.garmin }, updatedAt: Date.now() });
         updated++; shots += r.shotsTracked; continue;
       }
