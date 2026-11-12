@@ -46,6 +46,6 @@ describe('the game block the coach reads', () => {
   });
   it('playbook has the four hats and the triage', () => {
     const p = systemPrompt();
-    for (const k of ['The strategist', 'The swing coach', 'The psychologist', 'The caddie', 'WHICH HAT LEADS', 'WHAT YOU STAND FOR']) expect(p).toContain(k);
+    for (const k of ['The strategist', 'The swing coach', 'The psychologist', 'The caddie', 'HOW TO TELL WHICH IT IS', 'WHAT YOU STAND FOR']) expect(p).toContain(k);
   });
 });
