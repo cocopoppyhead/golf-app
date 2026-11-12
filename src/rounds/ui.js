@@ -3,6 +3,7 @@ import { CODES, roundStats, aggregate, pct, played } from './stats.js';
 import { openLibrary, loadLibrary } from './library.js';
 import { getConditions, conditionsAt } from '../weather.js';
 import { heroHtml, fillWeather, clubName, whereAmI, placeHero } from './hero.js';
+import { badgeHtml } from './badge.js';
 import { getSettings as S0, saveSettings as S1 } from '../store.js';
 
 import { putRound, getRound, deleteRound, listRounds, putCourse, getCourse, listCourses, deleteCourse, listSwings } from '../store.js';
@@ -94,7 +95,7 @@ export async function roundsHome() {
   const me = (S0().nickname || S0().name || '').split(' ')[0];
   const gs = '<div id="gettingStarted"></div>';
   root.innerHTML = `
-    ${open ? `<div class="card event-card"><b>Round in progress</b><p class="mute small">${esc(open.courseName)} · ${fmtD(open.date)} · ${played(open).length} holes logged</p><div class="row"><button class="btn primary" data-act="resume" data-id="${open.id}">Resume round</button><button class="btn" data-act="endopen" data-id="${open.id}">End / discard</button></div></div>` : ''}
+    ${open ? `<div class="card event-card inprog"><div class="ip-h">${(() => { const g = groups.find((x) => x.variants.some((v) => v.id === open.courseId)); return badgeHtml(open.courseName, null, g ? { attrs: `data-thumb="${esc(g.key)}"` } : {}); })()}<div><span class="mute small">Round in progress</span><b>${esc(open.courseName)}</b><span class="mute small">${fmtD(open.date)} · ${played(open).length} of ${(open.holes || []).length} holes logged</span></div></div><div class="row"><button class="btn primary" data-act="resume" data-id="${open.id}">Resume round</button><button class="btn" data-act="endopen" data-id="${open.id}">End / discard</button></div></div>` : ''}
     ${open ? '' : heroHtml({ name: me, groups: recent, today })}
     ${done.length ? '' : gs}
     ${upcoming.length ? `<div class="sechead"><h2>Upcoming</h2></div><div class="card upcoming">${upcoming.map(upcomingRow).join('')}</div>` : ''}

@@ -915,3 +915,5 @@ table.t5, table.dk { width: 100%; border-collapse: collapse; font-size: 13px; } 
 .heatcard .hleg { margin: 4px 0 6px; } .heatcard .sw { display: inline-block; width: 10px; height: 3px; border-radius: 2px; background: var(--ink); vertical-align: middle; margin-right: 4px; } .heatcard .sw.hrsw { background: var(--pro); }
 .heatcard .heatwarn { color: var(--work); }
 .heatcard .hleg { display: flex; flex-wrap: wrap; gap: 4px 14px; } .heatcard .sw.bar { width: 8px; height: 8px; background: var(--bogey); }
+.inprog .ip-h { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; } .inprog .ip-h > div:last-child { display: flex; flex-direction: column; gap: 1px; min-width: 0; } .inprog .ip-h b { font-size: 16px; }
+.inprog .clogo { width: 52px; height: 52px; flex: none; }
