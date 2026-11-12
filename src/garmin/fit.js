@@ -15,18 +15,32 @@ const T = {
   0x8e: [8, (v, o, le) => Number(v.getBigInt64(o, le)), null], 0x8f: [8, (v, o, le) => Number(v.getBigUint64(o, le)), null], 0x90: [8, (v, o, le) => Number(v.getBigUint64(o, le)), null],
 };
 
-export function parseFit(buf) {
+/**
+ * opts.only: a Set of message numbers to keep (others are skipped without decoding: fast for activity
+ * files with thousands of records). opts.stop(msg): return true to stop after that message.
+ * Records with a compressed timestamp header get their timestamp (field 253) filled in.
+ */
+export function parseFit(buf, opts = {}) {
   const v = new DataView(buf instanceof ArrayBuffer ? buf : buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength));
   const headerSize = v.getUint8(0);
   if (String.fromCharCode(v.getUint8(8), v.getUint8(9), v.getUint8(10), v.getUint8(11)) !== '.FIT') throw new Error('Not a FIT file');
   const end = Math.min(v.byteLength, headerSize + v.getUint32(4, true));
-  const defs = {}; const out = [];
+  const defs = {}; const out = []; const only = opts.only || null; const ts = { last: null };
   let o = headerSize;
+  const take = (def, oo, cts) => {
+    if (only && !only.has(def.num)) return oo + def.size + def.devSize;
+    const n = out.length; const next = readData(v, oo, def, out);
+    const m = out[n];
+    if (cts != null && ts.last != null) { const off = cts & 0x1f; m.fields[253] = ts.last + ((off - (ts.last & 0x1f)) & 0x1f); }
+    if (m.fields[253] != null) ts.last = m.fields[253];
+    return next;
+  };
   while (o < end) {
     const h = v.getUint8(o); o += 1;
-    if (h & 0x80) { // compressed timestamp header: a data message for local type in bits 5–6
+    if (h & 0x80) { // compressed timestamp header: a data message for local type in bits 5–6, time offset in bits 0–4
       const def = defs[(h >> 5) & 0x03]; if (!def) throw new Error('FIT: data before its definition');
-      o = readData(v, o, def, out);
+      o = take(def, o, h);
+      if (opts.stop && out.length && opts.stop(out[out.length - 1])) break;
       continue;
     }
     const local = h & 0x0f;
@@ -37,13 +51,21 @@ export function parseFit(buf) {
       for (let i = 0; i < n; i++) { fields.push({ num: v.getUint8(o), size: v.getUint8(o + 1), type: v.getUint8(o + 2) }); o += 3; }
       let devSize = 0;
       if (hasDev) { const nd = v.getUint8(o); o += 1; for (let i = 0; i < nd; i++) { devSize += v.getUint8(o + 1); o += 3; } }
-      defs[local] = { num, le, fields, devSize };
+      defs[local] = { num, le, fields, devSize, size: fields.reduce((a, f) => a + f.size, 0) };
     } else {
       const def = defs[local]; if (!def) throw new Error('FIT: data before its definition');
-      o = readData(v, o, def, out);
+      const before = out.length;
+      o = take(def, o, null);
+      if (opts.stop && out.length > before && opts.stop(out[out.length - 1])) break;
     }
   }
   return out;
+}
+
+/** The file_id message only (type 4 = activity, time created), reading no further than it. */
+export function fitFileId(buf) {
+  const m = parseFit(buf, { only: new Set([0]), stop: (x) => x.num === 0 })[0];
+  return m ? { type: m.fields[0], manufacturer: m.fields[1], created: fitDate(m.fields[4]) } : null;
 }
 
 function readData(v, o, def, out) {

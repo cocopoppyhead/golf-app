@@ -49,6 +49,23 @@ export async function getConditions({ force = false } = {}) {
  * Without a heading, rel = 'into' | 'behind' | 'across' | null picked by hand.
  * Returns { head: mph (+ into you, − behind), cross: mph }.
  */
+/**
+ * The weather for a round already played (Open-Meteo's archive, hourly): the mean over the round's hours
+ * and the hottest hour. Archive data runs to about five days ago.
+ */
+export async function historicConditions(lat, lon, startMs, durationMin = 240) {
+  if (lat == null || lon == null || !startMs) return null;
+  const day = (t) => new Date(t).toISOString().slice(0, 10);
+  const end = startMs + (durationMin || 240) * 60e3;
+  const url = `https://archive-api.open-meteo.com/v1/archive?latitude=${(+lat).toFixed(3)}&longitude=${(+lon).toFixed(3)}&start_date=${day(startMs)}&end_date=${day(end)}&hourly=temperature_2m,relative_humidity_2m,wind_speed_10m&wind_speed_unit=mph&timezone=GMT`;
+  const r = await fetch(url); if (!r.ok) throw new Error(`weather archive ${r.status}`);
+  const j = await r.json(); const H = j.hourly || {};
+  const idx = (H.time || []).map((t, i) => [Date.parse(`${t}:00Z`), i]).filter(([t]) => t >= startMs - 3600e3 && t <= end).map(([, i]) => i);
+  if (!idx.length) return null;
+  const mean = (k) => Math.round((idx.reduce((a, i) => a + (H[k][i] ?? 0), 0) / idx.length) * 10) / 10;
+  return { tempC: mean('temperature_2m'), maxC: Math.max(...idx.map((i) => H.temperature_2m[i] ?? -99)), humidity: Math.round(mean('relative_humidity_2m')), windMph: mean('wind_speed_10m'), at: startMs, lat: +(+lat).toFixed(3), lon: +(+lon).toFixed(3), source: 'open-meteo-archive' };
+}
+
 export function windComponents(cond, { heading = null, rel = null } = {}) {
   if (!cond) return { head: 0, cross: 0 };
   const w = cond.windMph || 0;

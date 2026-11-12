@@ -4,6 +4,9 @@ import { BOOKMARKLET } from './bookmarklet.js';
 import { convertExport, matchCourse } from './import.js';
 import { readScorecard, scorecardId, convertScorecards, bagNames } from './scorecard.js';
 import { readZipEntries } from './zip.js';
+import { readActivity, activityStamp, matchActivity } from './activity.js';
+import { historicConditions } from '../weather.js';
+import { getCourse } from '../store.js';
 import { listCourses, putCourse, listRounds, putRound } from '../store.js';
 import { loadLibrary, importCourse } from '../rounds/library.js';
 import { icon } from '../icons.js';
@@ -16,7 +19,7 @@ export function garminSheet({ toast = () => {}, onImported = () => {} } = {}) {
   sheet.innerHTML = `<div class="sheet-in"><div class="sheet-h"><b>Import from Garmin</b><button class="link" data-close>Close</button></div>
     <p class="small" style="margin:0 0 8px">Garmin has no public golf API. Two ways to bring your rounds in:</p>
     <div class="card" style="margin:0 0 12px"><b>Your Garmin data export (easiest)</b>
-      <p class="small mute" style="margin:4px 0 8px">Garmin Connect → Account settings → Data management → Export your data. Garmin emails a zip. Choose that zip here, or the files from its <code>DI_CONNECT/DI-GOLF</code> folder (select them all). Scores and putts for every round, on the right courses.</p>
+      <p class="small mute" style="margin:4px 0 8px">Garmin Connect → Account settings → Data management → Export your data. Garmin emails a zip. Choose that zip here, or the files from its <code>DI_CONNECT/DI-GOLF</code> folder (select them all). Scores, putts and tracked shots for every round, on the right courses. The activities zip in <code>DI-Connect-Uploaded-Files</code> adds your heart rate through each round.</p>
       <button class="btn primary" data-pickmany style="width:100%">${icon('upload', 14)} Choose the zip or the DI-GOLF files</button></div>
     <p class="small" style="margin:0 0 6px"><b>Or the osolo export</b> — adds every CT10 shot with its club and where it finished:</p>
     <ol class="steps">
@@ -32,7 +35,7 @@ export function garminSheet({ toast = () => {}, onImported = () => {} } = {}) {
   q('[data-close]').onclick = () => sheet.remove();
   q('[data-copy]').onclick = async () => { try { await navigator.clipboard.writeText(BOOKMARKLET); q('[data-copy]').textContent = 'Copied'; } catch { toast('Copy failed: use the console version below.'); } };
   const report = (r) => {
-    q('[data-out]').innerHTML = `<b>Imported ${r.added} round${r.added === 1 ? '' : 's'}</b>${r.updated ? ` · added shots and heart rate to ${r.updated} you had` : ''}${r.skipped ? ` (${r.skipped} already here)` : ''}${r.newCourses.length ? ` · new courses: ${r.newCourses.map(esc).join(', ')}` : ''}${r.shots ? ` · ${r.shots} tracked shots` : ''}${r.failed ? ` · ${r.failed} file${r.failed > 1 ? 's' : ''} couldn't be read` : ''}.`;
+    q('[data-out]').innerHTML = `<b>Imported ${r.added} round${r.added === 1 ? '' : 's'}</b>${r.updated ? ` · added shots and heart rate to ${r.updated} you had` : ''}${r.skipped ? ` (${r.skipped} already here)` : ''}${r.newCourses.length ? ` · new courses: ${r.newCourses.map(esc).join(', ')}` : ''}${r.shots ? ` · ${r.shots} tracked shots` : ''}${r.failed ? ` · ${r.failed} file${r.failed > 1 ? 's' : ''} couldn't be read` : ''}.${r.activities ? `<br>${r.activities} golf activities: heart rate added to ${r.hrRounds} round${r.hrRounds === 1 ? '' : 's'}.` : ''}${r.weather ? ` Weather on the day for ${r.weather}.` : ''}`;
     toast(`Garmin: ${r.added} rounds imported`); onImported(r);
   };
   q('[data-pickmany]').onclick = async () => {
@@ -42,7 +45,7 @@ export function garminSheet({ toast = () => {}, onImported = () => {} } = {}) {
         const files = await nativePick();
         if (!files) { q('[data-out]').textContent = ''; return; }
         q('[data-out]').textContent = 'Reading your Garmin files…';
-        report(await importGarminFiles(files));
+        report(await importGarminFiles(files, { progress: (t) => { q('[data-out]').textContent = t; } }));
       } catch (e) { q('[data-out]').textContent = e.message || String(e); }
       return;
     }
@@ -51,7 +54,7 @@ export function garminSheet({ toast = () => {}, onImported = () => {} } = {}) {
     inp.onchange = async () => {
       const files = [...(inp.files || [])]; inp.remove(); if (!files.length) return;
       q('[data-out]').textContent = 'Reading your Garmin files…';
-      try { report(await importGarminFiles(files)); } catch (e) { q('[data-out]').textContent = `${e.message || e} (${files.length === 1 ? `${files[0].name}, ${(files[0].size / 1e6).toFixed(1)} MB` : `${files.length} files`})`; }
+      try { report(await importGarminFiles(files, { progress: (t) => { q('[data-out]').textContent = t; } })); } catch (e) { q('[data-out]').textContent = `${e.message || e} (${files.length === 1 ? `${files[0].name}, ${(files[0].size / 1e6).toFixed(1)} MB` : `${files.length} files`})`; }
     };
     inp.click();
   };
@@ -93,17 +96,28 @@ async function nativePick() {
  * Files from Garmin's account export: the zip itself, or the DI-GOLF files picked together. Scorecard FIT
  * files become rounds; an osolo-garmin JSON among them is imported too; other files are ignored.
  */
-export async function importGarminFiles(files) {
-  const entries = [];
+export async function importGarminFiles(files, { progress = () => {} } = {}) {
+  const entries = []; const acts = [];
+  const isAct = (n) => /\.fit$/i.test(n) && !/SCORECARD_RAWDATA/i.test(n);
+  // activity files stream through: only golf ones are kept, as a summary (heart rate a minute, start, place)
+  let seenActs = 0;
+  const each = (e) => {
+    if (!isAct(e.name)) return true;
+    seenActs++; if (seenActs % 200 === 0) progress(`Reading activities… ${seenActs}`);
+    if (activityStamp(e.bytes) == null) return false;
+    try { const a = readActivity(e.bytes); if (a) acts.push(a); } catch { /* a damaged file: skip */ }
+    return false;
+  };
   for (const f of files) {
     const sig = new Uint8Array(await f.slice(0, 4).arrayBuffer());
     const isZip = sig[0] === 0x50 && sig[1] === 0x4b && (sig[2] === 3 || sig[2] === 5);
     if (isZip) {
-      const want = (n) => /SCORECARD_RAWDATA-\d+\.fit$/i.test(n) || /Golf-CLUB(_TYPES)?\.json$/i.test(n) || /osolo-garmin.*\.json$/i.test(n) || /\.zip$/i.test(n);
-      const got = await readZipEntries(f, want);
+      const want = (n) => /SCORECARD_RAWDATA-\d+\.fit$/i.test(n) || /Golf-CLUB(_TYPES)?\.json$/i.test(n) || /osolo-garmin.*\.json$/i.test(n) || /\.zip$/i.test(n) || isAct(n);
+      const got = await readZipEntries(f, want, each);
       for (const e of got) {
         if (!/\.zip$/i.test(e.name)) { entries.push(e); continue; }
-        if (e.bytes.byteLength < 200e6) entries.push(...(await readZipEntries(new Blob([e.bytes]), (n) => want(n) && !/\.zip$/i.test(n)).catch(() => []))); // Garmin sometimes zips inside the zip
+        // Garmin zips inside the zip (DI-Connect-Uploaded-Files holds the activities)
+        if (e.bytes.byteLength < 400e6) entries.push(...(await readZipEntries(new Blob([e.bytes]), (n) => want(n) && !/\.zip$/i.test(n), each).catch(() => [])));
       }
     }
     else entries.push({ name: f.name, bytes: await f.arrayBuffer() });
@@ -114,7 +128,7 @@ export async function importGarminFiles(files) {
     const b = new Uint8Array(e.bytes); seen.push(e.name);
     const isFit = b.length > 12 && b[8] === 0x2e && b[9] === 0x46 && b[10] === 0x49 && b[11] === 0x54; // ".FIT"
     if (isFit) {
-      try { const sc = readScorecard(e.bytes, scorecardId(e.name)); cards.push(sc); } catch { /* not a golf round */ } // a FIT that isn't a golf round (an activity)
+      try { const sc = readScorecard(e.bytes, scorecardId(e.name)); cards.push(sc); } catch { try { const a = readActivity(e.bytes); if (a) acts.push(a); } catch { /* neither */ } }
     } else if (b[0] === 0x7b) { // "{"
       try {
         const j = JSON.parse(new TextDecoder().decode(b));
@@ -126,7 +140,7 @@ export async function importGarminFiles(files) {
   }
   // a card without a scorecard id in its name: key it by its start time so re-imports still dedupe
   cards.forEach((c) => { if (!c.id) c.id = `t${Math.round((c.start || 0) / 1000)}`; });
-  if (!cards.length && !exps.length) {
+  if (!cards.length && !exps.length && !acts.length) {
     const list = seen.slice(0, 6).map((n) => n.split('/').pop()).join(', ');
     throw new Error(`No golf scorecards found${seen.length ? ` in ${seen.length} file${seen.length > 1 ? 's' : ''} (${list}${seen.length > 6 ? ', …' : ''})` : ''}. Choose the Garmin export zip, or the Golf-SCORECARD_RAWDATA files from DI_CONNECT/DI-GOLF.`);
   }
@@ -135,7 +149,42 @@ export async function importGarminFiles(files) {
   for (const exp of exps) add(await importGarminExport(exp)); // shot-level rounds first: same ids win
   const names = bagNames(clubs, clubTypes);
   if (cards.length) add(await storeRounds((resolve) => convertScorecards(cards, resolve, { names })));
+  if (acts.length) { progress(`Matching ${acts.length} golf activities to your rounds…`); total.hrRounds = await attachActivities(acts); total.activities = acts.length; }
+  progress('Looking up the weather on each day…');
+  total.weather = await backfillWeather().catch(() => 0);
   return total;
+}
+
+/** Golf activities → heart rate (once a minute, average, peak) and where it started, on the rounds they match. */
+async function attachActivities(acts) {
+  const rounds = (await listRounds().catch(() => [])).filter((r) => r.finished);
+  let n = 0;
+  for (const a of acts) {
+    const r = matchActivity(a, rounds); if (!r) continue;
+    if (r.hrTrace?.length === a.trace.length && r.hrAct?.avg === a.avgHr) continue; // already there
+    r.hrTrace = a.trace; r.hrAct = { avg: a.avgHr, max: a.maxHr, durationMin: a.durationMin };
+    if (!r.hr) r.hr = { avg: a.avgHr, max: a.maxHr, n: a.trace.length, src: 'activity' };
+    r.garmin = { ...(r.garmin || {}), lat: a.lat, lon: a.lon, durationMin: r.garmin?.durationMin ?? a.durationMin };
+    r.updatedAt = Date.now(); await putRound(r); n++;
+  }
+  return n;
+}
+
+/** The weather on the day for rounds that don't have it (Garmin rounds, rounds logged without a connection). */
+export async function backfillWeather({ limit = 120 } = {}) {
+  const rounds = (await listRounds().catch(() => [])).filter((r) => r.finished && !r.cond?.start?.tempC && Date.now() - r.date > 5 * 864e5).slice(0, limit);
+  let n = 0; let q = 0;
+  const one = async (r) => {
+    let lat = r.garmin?.lat, lon = r.garmin?.lon;
+    if (lat == null) { const c = await getCourse(r.courseId).catch(() => null); lat = c?.lat; lon = c?.lon; }
+    if (lat == null) return;
+    const w = await historicConditions(lat, lon, r.date, r.garmin?.durationMin || 240).catch(() => null);
+    if (!w) return;
+    r.cond = { ...(r.cond || {}), start: w, historic: true }; r.updatedAt = Date.now(); await putRound(r); n++;
+  };
+  const pool = Array.from({ length: 4 }, async () => { while (q < rounds.length) await one(rounds[q++]); });
+  await Promise.all(pool);
+  return n;
 }
 
 /** Convert and store: courses matched or created, rounds added unless already imported. */

@@ -282,7 +282,7 @@ function Shell() {
     else if (msg.type === 'share.text') Share.share({ message: msg.text || '' }).catch(() => {});
     else if (msg.type === 'files.pick') {
       // Garmin export: golf scorecards (and an osolo export, or zips nested in the export) out of whatever was picked
-      const want = (n) => /SCORECARD_RAWDATA-\d+\.fit$/i.test(n) || /Golf-CLUB(_TYPES)?\.json$/i.test(n) || /osolo-garmin.*\.json$/i.test(n) || /\.zip$/i.test(n);
+      const want = (n) => /\.fit$/i.test(n) || /Golf-CLUB(_TYPES)?\.json$/i.test(n) || /osolo-garmin.*\.json$/i.test(n) || /\.zip$/i.test(n);
       pickForImport(want).then((r) => send({ type: 'files.picked', id: msg.id, ...r })).catch((e) => send({ type: 'files.picked', id: msg.id, error: e?.message || String(e), files: [] }));
     }
     else if (msg.type === 'open.url' && /^https?:\/\//.test(msg.url || '')) Linking.openURL(msg.url).catch(() => {});

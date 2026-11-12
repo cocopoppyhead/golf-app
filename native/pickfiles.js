@@ -19,7 +19,9 @@ export async function pickForImport(want) {
       const size = h.size ?? f.size;
       const head = await readAt(h, 0, 4);
       if (head[0] === 0x50 && head[1] === 0x4b && (head[2] === 3 || head[2] === 5)) {
-        for (const e of await zipEntries(h, size, want)) files.push({ name: e.name, method: e.method, b64: toBase64(e.data) });
+        // a zip that isn't huge (the activities zip, a small export) goes over whole; the web app reads it
+        if (size <= 80e6) files.push({ name: f.name || 'garmin.zip', b64: toBase64(await readAt(h, 0, size)) });
+        else for (const e of await zipEntries(h, size, want)) files.push({ name: e.name, method: e.method, b64: toBase64(e.data) });
       } else if (size <= 20e6) {
         files.push({ name: f.name, b64: toBase64(await readAt(h, 0, size)) });
       } else skipped.push(f.name);

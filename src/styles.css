@@ -803,3 +803,6 @@ table.t5, table.dk { width: 100%; border-collapse: collapse; font-size: 13px; } 
 .bestc button.on { background: var(--acc); color: var(--acc-ink); border-color: var(--acc); }
 .bestnote { margin-top: 10px; } .bestnote b { font-size: 13.5px; } .bestnote textarea { width: 100%; margin-top: 4px; }
 .again.best div { margin-top: 3px; }
+.bodycard h3 { margin: 14px 0 6px; } .bodycard h3:first-child { margin-top: 0; }
+.brow { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--line); }
+.brow:last-of-type { border-bottom: 0; } .brow small { display: block; color: var(--mute); font-size: 12px; } .brow .bv { font: 700 20px var(--display); }

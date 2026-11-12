@@ -1,7 +1,8 @@
 // Read chosen entries out of a zip without loading the whole archive: the central directory says where
 // each file sits, so a multi-gigabyte Garmin export costs only the bytes of the golf files. Stored and
 // deflated entries (all Garmin uses); zip64 offsets for archives over 4 GB.
-export async function readZipEntries(file, want = () => true) {
+/** each(entry): optional; called as each entry is read, and an entry it returns false for isn't kept (so thousands of files can stream through). */
+export async function readZipEntries(file, want = () => true, each = null) {
   const size = file.size;
   const tail = new DataView(await file.slice(Math.max(0, size - 66000), size).arrayBuffer());
   let eocd = -1;
@@ -39,7 +40,7 @@ export async function readZipEntries(file, want = () => true) {
     const start = local + 30 + lh.getUint16(26, true) + lh.getUint16(28, true);
     const raw = file.slice(start, start + comp);
     const bytes = method === 0 ? await raw.arrayBuffer() : method === 8 ? await new Response(raw.stream().pipeThrough(new DecompressionStream('deflate-raw'))).arrayBuffer() : null;
-    if (bytes) out.push({ name, bytes });
+    if (bytes && (!each || (await each({ name, bytes })) !== false)) out.push({ name, bytes });
   }
   return out;
 }

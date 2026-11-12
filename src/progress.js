@@ -15,6 +15,7 @@ import { skillRadar, radarSvg, radarRead, radarRound, feedsRadar, LONG_FROM } fr
 import { levelLabel } from './benchmarks.js';
 import { ART, CONTOUR } from './art.js';
 import { counts, roundIssues, roundNotes } from './rounds/quality.js';
+import { bodyStats } from './rounds/body.js';
 import { putRound } from './store.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -326,6 +327,18 @@ export async function renderScoring(el) {
     return `<div class="card"><div class="trio">${tile(planN ? `${pctN(planned, planN)}%` : '–', 'shots to plan')}${tile(kept.length ? `${(kept.reduce((a, b) => a + b, 0) / kept.length).toFixed(1)}★` : '–', 'intention kept')}${tile((pens * p18).toFixed(1), 'penalties a round')}</div>
       <p class="note">${planN ? `From ${planN} shots you rated in Details.` : 'Rate shots in Details (went to plan, or not) and set an intention at the first tee, and this fills in.'}</p></div>`;
   })();
+  // --- body: heart rate and heat ---
+  const B = bodyStats(ALL);
+  const tp = (v) => (v == null ? '–' : `${v >= 0 ? '+' : '−'}${Math.abs(v).toFixed(1)}`);
+  const row = (label, sub, v) => `<div class="brow"><span><b>${label}</b>${sub ? `<small>${sub}</small>` : ''}</span><span class="bv">${tp(v)}</span></div>`;
+  const body = B.hr || B.heat || B.years || B.closing ? `<div class="card bodycard">
+      ${B.hr ? `<h3>Heart rate</h3>${row(`Calmer rounds`, `${B.hr.low.n} rounds · ${Math.round(B.hr.low.bpm)} bpm average`, B.hr.low.toPar)}${row(`Higher heart rate`, `${B.hr.high.n} rounds · ${Math.round(B.hr.high.bpm)} bpm average`, B.hr.high.toPar)}` : ''}
+      ${B.heat ? `<h3>Heat</h3>${B.heat.map((b) => row(b.label, `${b.n} rounds`, b.toPar)).join('')}` : ''}
+      ${B.closing ? `<h3>Closing holes</h3>${row('Holes 1–14', `${Math.round(B.closing.early.bpm)} bpm at your shots`, B.closing.early.toPar)}${row('Holes 15–18', `${Math.round(B.closing.late.bpm)} bpm at your shots`, B.closing.late.toPar)}<p class="note">Per hole to par, ${B.closing.n} rounds with heart rate on every hole.</p>` : ''}
+      ${B.years ? `<h3>Year by year</h3>${B.years.map((y) => row(String(y.year), `${y.n} rounds · ${Math.round(y.bpm)} bpm average`, y.toPar)).join('')}<p class="note">A falling round heart rate at the same effort is a sign of fitness.</p>` : ''}
+      <p class="note">Score per 18 holes to par. Heart rate from your Garmin; weather on the day from the round or Open-Meteo's archive.</p></div>`
+    : (B.n ? '' : '<div class="card"><p class="note">Import your Garmin data (Settings → Import data → Garmin, with the activities zip) and your heart rate through each round, and the heat on the day, show here against your score.</p></div>');
+  const bodyLine = B.hr && Math.abs(B.hr.high.toPar - B.hr.low.toPar) >= 1 ? `On higher-heart-rate days you score ${Math.abs(B.hr.high.toPar - B.hr.low.toPar).toFixed(1)} a round ${B.hr.high.toPar > B.hr.low.toPar ? 'worse' : 'better'}.` : B.hr ? 'Your heart rate on the day makes little difference to your score so far.' : '';
   const y = new Date().getFullYear(); const Y = ALL.filter((x) => ym(x.r.date) === y);
   const year = Y.length ? `<div class="card yearcard"><h3>${y}</h3><div class="trio">${tile(Y.length, 'rounds')}${tile(new Set(Y.map((x) => x.r.courseName)).size, 'courses')}${tile(Y.reduce((a, x) => a + (x.S.holes || 0), 0), 'holes')}</div></div>` : '';
 
@@ -336,6 +349,7 @@ export async function renderScoring(el) {
     area('short', 'short', 'Short game', verdict(radar, 'arg', read, hcp), short),
     area('putting', 'putting', 'Putting', verdict(radar, 'putt', read, hcp), putting),
     area('mind', 'mind', 'Mind', verdict(radar, 'head', read, hcp), mind),
+    area('body', 'mind', 'Body', bodyLine, body),
     year,
   ].join('');
   el.onclick = (e) => {
