@@ -1,8 +1,7 @@
-// Settings tab: the form (units, height, hand, quality, keys, round rules), the AI coach box
-// (provider, key, model list) and the theme. Shares `settings` with main.js through `api`:
+// Settings tab: connect hardware, connect AI (provider tiles, key, model), import data, the app
+// settings (theme, units, height, hand, quality, videos) and the backup. Shares `settings` with main.js through `api`:
 // { settings (get/set), toast, afterAccountChange }.
 import { aiFrom, PROVIDERS, listModels } from './coach/ai.js';
-import { RULES, DEFAULT_RULES } from './rounds/tiger.js';
 import { renderInstall } from './install.js';
 import { renderAccount } from './cloud/account.js';
 import { renderRangefinder } from './rangefinder.js';
@@ -12,37 +11,82 @@ const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
 let api = null;
+const BASE = import.meta.env?.BASE_URL || '/';
+// what's in the AI grid: the three that work today, then the ones on the way
+const AI_SOON = [['grok', 'Grok', 'xAI', null], ['deepseek', 'DeepSeek', 'text only, no photos', 'deepseek'], ['mistral', 'Mistral', 'Le Chat', 'mistralai'], ['qwen', 'Qwen', 'Alibaba', 'qwen'], ['kimi', 'Kimi', 'Moonshot AI', 'kimi']];
+const AI_NOW = { claude: ['Claude', 'Anthropic', 'claude'], openai: ['ChatGPT', 'OpenAI', 'openai'], gemini: ['Gemini', 'Google', 'googlegemini'] };
+const HW_SOON = [['apple', 'Apple Watch', 'Score and shots from your wrist', 'apple'], ['wearos', 'Galaxy Watch & Wear OS', 'Samsung, Pixel Watch', 'wearos'], ['garmin', 'Garmin watch, live', 'Rounds sync as you play, no export', 'garmin'], ['putt', 'osolo putter sensor', 'Every putt stroke, in the grip', null], ['glasses', 'osolo glasses', 'Chips and putts that finish close', null], ['launch', 'Launch monitors, live', 'TrackMan, Garmin R10, Rapsodo', null]];
+const IMPORT_SOON = [['tmfile', 'TrackMan files', 'The CSV / report download'], ['arccos', 'Arccos', 'Rounds and shots'], ['shotscope', 'Shot Scope', 'Rounds and shots'], ['apps', '18Birdies, Hole19, Golfshot', 'Scorecards']];
+const ICON = {
+  laser: '<svg viewBox="0 0 24 24"><rect x="3" y="7" width="14" height="10" rx="3"/><circle cx="17" cy="12" r="4"/><path d="M21 12h2"/></svg>',
+  gps: '<svg viewBox="0 0 24 24"><path d="M12 22s7-6.1 7-12a7 7 0 1 0-14 0c0 5.9 7 12 7 12z"/><circle cx="12" cy="10" r="2.5"/></svg>',
+  launch: '<svg viewBox="0 0 24 24"><path d="M3 19c4-9 10-13 18-14"/><circle cx="4" cy="19" r="2"/><path d="M15 5h6v6"/></svg>',
+  card: '<svg viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg>',
+  file: '<svg viewBox="0 0 24 24"><path d="M14 3H6v18h12V7z"/><path d="M14 3v4h4M9 14l3 3 3-3M12 10v7"/></svg>',
+  putt: '<svg viewBox="0 0 24 24"><path d="M14 2v14"/><path d="M14 16h-6l-1 3h7"/><circle cx="18" cy="20" r="2"/></svg>',
+  glasses: '<svg viewBox="0 0 24 24"><circle cx="6.5" cy="14" r="3.5"/><circle cx="17.5" cy="14" r="3.5"/><path d="M10 14h4M3 13l1-6M21 13l-1-6"/></svg>',
+  tmfile: '<svg viewBox="0 0 24 24"><path d="M14 3H6v18h12V7z"/><path d="M14 3v4h4M8 13h8M8 17h5"/></svg>',
+  arccos: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 4v4M12 16v4M4 12h4M16 12h4"/></svg>',
+  shotscope: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/></svg>',
+  apps: '<svg viewBox="0 0 24 24"><rect x="4" y="4" width="7" height="7" rx="2"/><rect x="13" y="4" width="7" height="7" rx="2"/><rect x="4" y="13" width="7" height="7" rx="2"/><rect x="13" y="13" width="7" height="7" rx="2"/></svg>',
+};
+const brand = (slug, letter) => (slug ? `<img src="${BASE}brands/${slug}.svg" alt="" />` : `<b class="mono">${esc(letter)}</b>`);
+const iconHtml = (k, slug) => (slug ? brand(slug) : ICON[k] || '');
+
 /** Bind the form once. */
 export function initSettingsUi(a) {
   api = a;
-  $('#settingsForm').aiProvider.addEventListener('change', showProvider);
+  const f = $('#settingsForm');
   $('#aiModels').addEventListener('click', loadModels);
-  for (const n of ['openaiKey', 'geminiKey']) $('#settingsForm')[n].addEventListener('change', loadModels);
-  $('#settingsForm').theme.addEventListener('change', (e) => { api.settings.theme = e.target.value; saveSettings(api.settings); applyTheme(); });
-  $('#settingsForm').system.addEventListener('change', (e) => {
-    const f = $('#settingsForm'); const h = parseFloat(f.height.value);
-    const m = e.target.value === 'metric';
+  for (const n of ['openaiKey', 'geminiKey']) $('#aiForm')[n].addEventListener('change', loadModels);
+  f.theme.addEventListener('change', (e) => { api.settings.theme = e.target.value; saveSettings(api.settings); applyTheme(); });
+  f.system.addEventListener('change', (e) => {
+    const h = parseFloat(f.height.value); const m = e.target.value === 'metric';
     if (!isNaN(h)) f.height.value = m ? Math.round(h * 2.54) : Math.round((h / 2.54) * 10) / 10;
     $('#hUnit').textContent = m ? 'cm' : 'in';
   });
-  $('#settingsForm').addEventListener('submit', (e) => {
+  f.addEventListener('submit', (e) => {
     e.preventDefault();
-    const f = e.target;
     const h = parseFloat(f.height.value);
-    api.settings = {
-      ...api.settings,
-      theme: f.theme.value, system: f.system.value, heightIn: isNaN(h) ? api.settings.heightIn : f.system.value === 'metric' ? h / 2.54 : h,
-      handedness: f.handedness.value, quality: f.quality.value, keepVideos: f.keepVideos.checked,
-      keys: f.keys.value, roundRules: [...document.querySelectorAll('[data-rule]')].filter((x) => x.checked).map((x) => x.dataset.rule),
-      apiKey: f.apiKey.value.trim(), openaiKey: f.openaiKey.value.trim(), geminiKey: f.geminiKey.value.trim(), aiProvider: f.aiProvider.value, golfer: f.golfer.value.trim(),
-      routine: { preshot: f.routinePre.value.trim(), mind: f.routineMind.value.trim(), swingThought: f.swingThought.value.trim() },
-      [PROVIDERS[f.aiProvider.value].modelField]: f.aiModel.value || PROVIDERS[f.aiProvider.value].def,
-    };
-    saveSettings(api.settings);
-    applyTheme();
+    api.settings = { ...api.settings, theme: f.theme.value, system: f.system.value, heightIn: isNaN(h) ? api.settings.heightIn : f.system.value === 'metric' ? h / 2.54 : h, handedness: f.handedness.value, quality: f.quality.value, keepVideos: f.keepVideos.checked };
+    saveSettings(api.settings); applyTheme();
     $('#savedMsg').hidden = false;
-    aiSummary(false);
   });
+  $('#aiForm').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const g = e.target; const prov = g.aiProvider.value; const P = PROVIDERS[prov];
+    api.settings = { ...api.settings, aiProvider: prov, apiKey: g.apiKey.value.trim(), openaiKey: g.openaiKey.value.trim(), geminiKey: g.geminiKey.value.trim(), [P.modelField]: g.aiModel.value || P.def };
+    saveSettings(api.settings);
+    $('#aiForm').hidden = true; drawAi(); api.toast?.(`${P.short} connected`);
+  });
+  $('#aiCancel').onclick = () => { $('#aiForm').hidden = true; drawAi(); };
+  // static "coming soon" lists
+  const soon = (list, withSub = true) => list.map(([k, name, sub, slug]) => `<div class="soonitem"><span class="hwic">${iconHtml(k, slug)}</span><span><b>${esc(name)}</b>${withSub && sub ? `<span class="mute small">${esc(sub)}</span>` : ''}</span></div>`).join('');
+  $('#hwSoon').innerHTML = soon(HW_SOON);
+  $('#importSoon').innerHTML = soon(IMPORT_SOON);
+  $('#aiSoon').innerHTML = AI_SOON.map(([k, name, sub, slug]) => `<div class="aitile soon"><span class="ailogo">${brand(slug, name[0])}</span><b>${esc(name)}</b><span class="mute small">${esc(sub)}</span></div>`).join('');
+  document.querySelectorAll('.hwic[data-ic]').forEach((el) => { el.innerHTML = el.dataset.ic === 'garmin' ? brand('garmin') : ICON[el.dataset.ic] || ''; });
+}
+
+/** The AI tiles: the connected one ticked; tap one to add or change its key. */
+function drawAi() {
+  const cur = aiFrom(api.settings);
+  $('#aiGrid').innerHTML = Object.entries(AI_NOW).map(([id, [name, sub, slug]]) => {
+    const P = PROVIDERS[id]; const has = !!api.settings[P.keyField];
+    const on = has && cur.provider === id;
+    return `<button type="button" class="aitile ${on ? 'on' : ''}" data-ai="${id}"><span class="ailogo">${brand(slug)}</span><b>${esc(name)}</b><span class="mute small">${on ? `In use${cur.model ? ` · ${esc(cur.model)}` : ''}` : has ? 'Key saved · tap to use' : esc(sub)}</span>${on ? '<span class="aitick">✓</span>' : ''}</button>`;
+  }).join('');
+  document.querySelectorAll('[data-ai]').forEach((b) => b.onclick = () => openAi(b.dataset.ai));
+}
+function openAi(prov) {
+  const g = $('#aiForm'); g.hidden = false; g.aiProvider.value = prov;
+  g.apiKey.value = api.settings.apiKey || ''; g.openaiKey.value = api.settings.openaiKey || ''; g.geminiKey.value = api.settings.geminiKey || '';
+  document.querySelectorAll('#aiForm [data-prov]').forEach((el) => (el.hidden = el.dataset.prov !== prov));
+  const P = PROVIDERS[prov]; const curM = api.settings[P.modelField] || P.def;
+  g.aiModel.innerHTML = curM ? `<option value="${esc(curM)}">${esc(curM)}</option>` : '<option value="">Best available (auto)</option>';
+  document.querySelectorAll('[data-ai]').forEach((b) => b.classList.toggle('sel', b.dataset.ai === prov));
+  if (g[P.keyField].value.trim() && prov !== 'claude') loadModels();
+  g.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
 export function fillSettings() {
@@ -56,37 +100,14 @@ export function fillSettings() {
   renderRangefinder($('#laserRow'), { toast: api.toast });
   f.handedness.value = api.settings.handedness; f.quality.value = api.settings.quality;
   f.keepVideos.checked = api.settings.keepVideos !== false;
-  f.keys.value = api.settings.keys || '';
-  const on = new Set(api.settings.roundRules || DEFAULT_RULES);
-  $('#rulesBoxes').innerHTML = Object.entries(RULES).map(([id, r]) => `<label class="check small"><input type="checkbox" data-rule="${id}" ${on.has(id) ? 'checked' : ''}/> ${esc(r.label)}</label>`).join('');
-  f.apiKey.value = api.settings.apiKey || ''; f.openaiKey.value = api.settings.openaiKey || ''; f.geminiKey.value = api.settings.geminiKey || ''; f.golfer.value = api.settings.golfer;
-  const rt = api.settings.routine || {}; f.routinePre.value = rt.preshot || ''; f.routineMind.value = rt.mind || ''; f.swingThought.value = rt.swingThought || '';
-  f.aiProvider.value = aiFrom(api.settings).provider; showProvider();
-  aiSummary(false);
+  $('#aiForm').hidden = true; drawAi();
   $('#savedMsg').hidden = true;
 }
-// AI coach: a one-line summary; tap to open the provider, key and model
-function aiSummary(open) {
-  const a = aiFrom(api.settings); const P = PROVIDERS[a.provider];
-  $('#aiBox').hidden = !open;
-  $('#aiSum').innerHTML = a.apiKey
-    ? `<span><b>AI coach</b> · ${esc(P.short)}${a.model ? ` · <span class="mute">${esc(a.model)}</span>` : ''} <span class="goodc">✓</span></span><button type="button" class="link" id="aiToggle">${open ? 'Done' : 'Change'}</button>`
-    : `<span><b>AI coach</b> <span class="mute">not connected</span><div class="mute small">Claude, ChatGPT or Gemini</div></span><button type="button" class="link acc" id="aiToggle">${open ? 'Cancel' : 'Connect'}</button>`;
-  $('#aiToggle').onclick = () => aiSummary($('#aiBox').hidden);
-}
-// AI provider: show its key field and the models that key can use
-function showProvider() {
-  const f = $('#settingsForm'); const prov = f.aiProvider.value; const P = PROVIDERS[prov];
-  document.querySelectorAll('[data-prov]').forEach((el) => (el.hidden = el.dataset.prov !== prov));
-  const cur = api.settings[P.modelField] || P.def;
-  f.aiModel.innerHTML = cur ? `<option value="${esc(cur)}">${esc(cur)}</option>` : '<option value="">Best available (auto)</option>';
-  if (f[P.keyField].value.trim() && prov !== 'claude') loadModels();
-}
 async function loadModels() {
-  const f = $('#settingsForm'); const prov = f.aiProvider.value; const P = PROVIDERS[prov];
+  const f = $('#aiForm'); const prov = f.aiProvider.value; const P = PROVIDERS[prov];
   const key = f[P.keyField].value.trim();
   if (!key) { $('#aiModelHint').textContent = `Add your ${P.short} key first.`; return; }
-  if (prov === 'claude') { const cur = f.aiModel.value || P.def; f.aiModel.innerHTML = [...new Set([cur, 'claude-sonnet-5-5', 'claude-opus-5-5', 'claude-haiku-5-5'])].map((m) => `<option ${m === cur ? 'selected' : ''}>${esc(m)}</option>`).join(''); return; }
+  if (prov === 'claude') { const cur = f.aiModel.value || P.def; f.aiModel.innerHTML = [...new Set([cur, 'claude-sonnet-5-5', 'claude-opus-5-5', 'claude-haiku-5-5'])].filter(Boolean).map((m) => `<option ${m === cur ? 'selected' : ''}>${esc(m)}</option>`).join(''); return; }
   $('#aiModelHint').textContent = 'Checking your key…';
   try {
     const ids = await listModels(prov, key);

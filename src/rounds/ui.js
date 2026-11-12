@@ -22,6 +22,7 @@ import { icon } from '../icons.js';
 import { approachBands } from './bands.js';
 import { INTENTIONS, intentionLabel, WARMUP, MOOD_WORDS } from './intentions.js';
 import { getRoutine, routineHtml } from './routine.js';
+import { planSheet } from '../mygame.js';
 export { MOOD_WORDS, moodLine } from './intentions.js';
 import { weeklyDigest } from '../digest.js';
 import { ART } from '../art.js';
@@ -91,6 +92,7 @@ export async function roundsHome() {
     <div class="sechead"><h2>Your courses</h2><button class="link acc" data-act="library">+ Find a course</button></div>
     ${groups.length ? courseCardsHtml(groups, rounds) : `<div class="card"><p class="mute">Pick your course from the UAE list and the scorecard, map and tees fill in. Tap a course for its page: start or schedule a round, preview the holes, your record there.</p><button class="btn primary big" data-act="library">${icon('search')} Find a UAE course</button></div>`}
     <div class="row" style="margin-top:8px"><button class="btn" data-act="post">${icon('plus')} Post a score</button><button class="btn" data-act="import">${icon('camera')} Import a scorecard</button><button class="btn" data-act="newcourse">${icon('edit')} By hand</button></div>
+    <button class="card gotoprog planrow" data-act="plan"><span>${icon('info', 22)}</span><span><b>My routine and round rules</b><small>Before every shot, between shots, and the rules checked after each round</small></span><span class="mute">›</span></button>
     <div id="friendsCard"></div>
     ${await digestCard(done)}
     ${done.length ? `<button class="card gotoprog" data-act="progress"><span>${ART.putting}</span><span><b>Your game</b><small>Driving to putting, against a golfer at your level — in Progress</small></span><span class="mute">›</span></button>` : ''}
@@ -102,6 +104,8 @@ export async function roundsHome() {
   mergeRemoteEvents().then((changed) => { if (changed && root.querySelector('#friendsCard')) roundsHome(); });
   renderChecklist(root.querySelector('#gettingStarted'), { onGo: (where) => (where === 'library' ? homeAction('library') : where === 'play' ? (groups.length ? coursePage(groups[0], courseApi()) : homeAction('library')) : ctx.showTab?.(where)) });
 }
+/** Settings → Import data → Scorecard photo. */
+export const openCardImport = () => importCard(null);
 const SHOW_ROUNDS = 5;
 /** One line in a rounds list: score, course, date, the round's numbers. */
 function histRow(r) {
@@ -197,6 +201,7 @@ async function homeAction(act, id) {
   if (act === 'endopen') { const r = await getRound(id); const c = await getCourse(r.courseId).catch(() => null); cur = { round: r, course: c, hole: 0, review: false }; return played(r).length && c ? endRoundSheet(r, c) : discardSheet(r); }
   if (act === 'resume' || act === 'open') return openRound(id);
   if (act === 'allrounds') return allRoundsSheet();
+  if (act === 'plan') return planSheet();
   if (act === 'newcourse') return editCourse(null);
   if (act === 'library') return openLibrary({ toast: ctx.toast, onPicked: (c) => openCoursePage(c.id) });
   if (act === 'editcourse') return editCourse(sel);

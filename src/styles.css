@@ -767,3 +767,27 @@ table.t5, table.dk { width: 100%; border-collapse: collapse; font-size: 13px; } 
 .btn.allrounds { width: 100%; margin-top: 4px; }
 .allrounds .arf { gap: 10px; margin-bottom: 10px; } .allrounds .arf select { width: 100%; margin-top: 4px; }
 .allrounds .arlist .hist { margin-bottom: 6px; }
+
+/* ---- Settings: sections ---- */
+.setsec { margin: 22px 0 0; } .setsec > h2 { margin: 0 0 8px; } .setsec .sechint { margin: -2px 0 10px; }
+.hwlist { padding: 4px 0; } .hwrow { display: flex; align-items: flex-start; gap: 12px; padding: 12px 14px; border-bottom: 1px solid var(--line); width: 100%; background: none; border-left: 0; border-right: 0; border-top: 0; text-align: left; color: var(--ink); font: inherit; }
+.hwrow:last-child { border-bottom: 0; } .hwrow.tap { cursor: pointer; align-items: center; }
+.hwtx { flex: 1; min-width: 0; display: grid; gap: 2px; } .hwtx b { font-size: 15px; }
+.hwic { flex: none; width: 38px; height: 38px; border-radius: 10px; background: var(--panel2); display: grid; place-items: center; }
+.hwic svg { width: 21px; height: 21px; fill: none; stroke: var(--ink); stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.hwic img { width: 21px; height: 21px; } :root:not([data-theme="light"]):not([data-theme="hybrid"]) .hwic img, :root:not([data-theme="light"]):not([data-theme="hybrid"]) .soonitem img { filter: invert(1); }
+.hwok { font: 600 12px var(--text); color: var(--acc); background: color-mix(in srgb, var(--acc) 14%, transparent); padding: 3px 9px; border-radius: 999px; align-self: center; }
+.soonlbl { margin: 14px 0 8px; }
+.soongrid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.soonitem { display: flex; gap: 10px; align-items: center; padding: 10px; border: 1px dashed var(--line); border-radius: 12px; opacity: .78; }
+.soonitem > span:last-child { display: grid; gap: 1px; min-width: 0; } .soonitem b { font-size: 13.5px; } .soonitem .hwic { width: 32px; height: 32px; }
+.aigrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.aitile { position: relative; display: grid; justify-items: center; gap: 4px; padding: 14px 6px 12px; border-radius: 14px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); font: inherit; text-align: center; box-shadow: var(--shadow); }
+.aitile b { font: 700 16px var(--display); } .aitile .small { font-size: 11.5px; line-height: 1.25; }
+.aitile .ailogo { width: 46px; height: 46px; border-radius: 12px; display: grid; place-items: center; background: #fff; border: 1px solid var(--line); }
+.aitile .ailogo img { width: 28px; height: 28px; } .aitile .ailogo .mono { font: 700 22px var(--display); color: #101828; }
+.aitile.on { border: 2px solid var(--acc); } .aitile.sel { border-color: var(--ink); }
+.aitile .aitick { position: absolute; top: 8px; right: 10px; color: var(--acc); font-weight: 800; }
+.aigrid.soon .aitile { border-style: dashed; opacity: .72; box-shadow: none; background: transparent; }
+.aibox { margin-top: 10px; }
+.planrow { margin-top: 10px; }

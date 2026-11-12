@@ -53,8 +53,9 @@
         <div id="coachPanel" class="card coachcheck"></div>
 
         <details class="tips rowcard" id="keysCard" hidden>
-          <summary><span class="ic">📓</span><span><b>My swing keys</b><br /><span class="mute small">Your own notes. Edit in Settings.</span></span><span class="chev">⌄</span></summary>
-          <div class="keys" id="keysBody" style="padding:0 16px 14px"></div>
+          <summary><span class="ic">📓</span><span><b>My swing keys</b><br /><span class="mute small">Your own notes, and your swing story for the AI</span></span><span class="chev">⌄</span></summary>
+          <div class="keys" id="keysBody" style="padding:0 16px 6px"></div>
+          <div style="padding:0 16px 14px"><button class="btn" type="button" id="editSwingBtn">Edit my swing keys and story</button></div>
         </details>
         <details class="tips rowcard">
           <summary><span class="ic">💡</span><span><b>For the best results</b><br /><span class="mute small">How to film your swing</span></span><span class="chev">⌄</span></summary>
@@ -188,10 +189,63 @@
 
     <!-- SETTINGS -->
     <section id="tab-settings" class="tab">
-      <form id="settingsForm" class="card form">
-        <div id="accountRow"></div>
-        <div id="installRow"></div>
-        <div id="laserRow"></div>
+      <div id="accountRow"></div>
+      <div id="installRow"></div>
+
+      <section class="setsec" id="setHardware">
+        <h2>Connect hardware</h2>
+        <div class="card hwlist">
+          <div class="hwrow now"><span class="hwic" data-ic="laser"></span><div class="hwtx"><b>Bushnell rangefinder</b><span class="mute small">Every lock-on becomes a shot with the club for that distance. Needs the osolo app on your phone.</span><div id="laserRow"></div></div></div>
+          <div class="hwrow now"><span class="hwic" data-ic="gps"></span><div class="hwtx"><b>Your phone's GPS</b><span class="mute small">Distances on the hole map and where each shot was played from. On whenever a round is open.</span></div><span class="hwok">On</span></div>
+        </div>
+        <div class="lbl soonlbl">Coming soon</div>
+        <div class="soongrid" id="hwSoon"></div>
+      </section>
+
+      <section class="setsec" id="setAi">
+        <h2>Connect AI</h2>
+        <p class="mute small sechint">Swing reviews, round reviews and reading scorecard or launch-monitor photos. Bring your own key; it stays on this phone.</p>
+        <div class="aigrid" id="aiGrid"></div>
+        <form id="aiForm" class="card form aibox" hidden>
+          <input type="hidden" name="aiProvider" />
+          <label data-prov="claude">Claude API key
+            <input name="apiKey" type="password" autocomplete="off" placeholder="sk-ant-…" />
+            <span class="hint">Get one at console.anthropic.com.</span>
+          </label>
+          <label data-prov="openai">OpenAI API key
+            <input name="openaiKey" type="password" autocomplete="off" placeholder="sk-…" />
+            <span class="hint">Get one at platform.openai.com/api-keys. A ChatGPT Plus subscription doesn't include API use; the API is billed separately.</span>
+          </label>
+          <label data-prov="gemini">Gemini API key
+            <input name="geminiKey" type="password" autocomplete="off" placeholder="AIza…" />
+            <span class="hint">Get one free at aistudio.google.com/apikey.</span>
+          </label>
+          <label>Model
+            <div class="row"><select name="aiModel" id="aiModel"></select><button type="button" class="btn" id="aiModels" style="flex:0 0 auto">Refresh</button></div>
+            <span class="hint" id="aiModelHint">Keys are stored only on this phone. Each review costs a few cents at most.</span>
+          </label>
+          <div class="row"><button class="btn primary" type="submit">Use this AI</button><button class="btn" type="button" id="aiCancel">Cancel</button></div>
+        </form>
+        <div class="lbl soonlbl">Coming soon</div>
+        <div class="aigrid soon" id="aiSoon"></div>
+      </section>
+
+      <section class="setsec" id="setImport">
+        <h2>Import data</h2>
+        <div class="card hwlist">
+          <button type="button" class="hwrow now tap" id="garminBtn"><span class="hwic" data-ic="garmin"></span><div class="hwtx"><b>Garmin</b><span class="mute small">Your Garmin data export: every round's scores, putts and tracked shots.</span></div><span class="mute">›</span></button>
+          <button type="button" class="hwrow now tap" id="launchImportBtn"><span class="hwic" data-ic="launch"></span><div class="hwtx"><b>Launch monitor</b><span class="mute small">A photo of the shot table from TrackMan, Garmin R10, Rapsodo, Bushnell Launch Pro or any other. Read by your AI.</span></div><span class="mute">›</span></button>
+          <button type="button" class="hwrow now tap" id="cardImportBtn"><span class="hwic" data-ic="card"></span><div class="hwtx"><b>Scorecard photo</b><span class="mute small">A paper card, hole by hole. Read by your AI.</span></div><span class="mute">›</span></button>
+          <button type="button" class="hwrow now tap" data-pick="importFile"><span class="hwic" data-ic="file"></span><div class="hwtx"><b>osolo backup</b><span class="mute small">A data file from Export below, or one made for you (yardages, notes).</span></div><span class="mute">›</span></button>
+        </div>
+        <div class="lbl soonlbl">Coming soon</div>
+        <div class="soongrid" id="importSoon"></div>
+        <input type="file" id="importFile" accept="application/json,.json" style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none" />
+      </section>
+
+      <section class="setsec" id="setApp">
+        <h2>App</h2>
+        <form id="settingsForm" class="card form">
         <label>Theme
           <select name="theme"><option value="dark">Dark</option><option value="light">Light</option><option value="hybrid">Hybrid (dark page, light cards)</option><option value="system">Match my phone (light or dark)</option></select>
         </label>
@@ -211,59 +265,17 @@
           <select name="quality"><option value="full">Standard (faster)</option><option value="heavy">High (slower, more accurate)</option></select>
         </label>
         <label class="check"><input type="checkbox" name="keepVideos" /> <span>Keep swing videos on this phone<br /><span class="hint">So you can replay past analyses from Practice. Uses phone storage (roughly 10–50 MB per swing).</span></span></label>
-        <hr />
-        <div class="aisum" id="aiSum"></div>
-        <div id="aiBox" hidden>
-        <label>AI coach
-          <select name="aiProvider"><option value="claude">Claude (Anthropic)</option><option value="openai">ChatGPT (OpenAI)</option><option value="gemini">Gemini (Google)</option></select>
-          <span class="hint">Used for swing reviews, round reviews and reading scorecard photos. Pick whichever you have a key for.</span>
-        </label>
-        <label data-prov="claude">Claude API key
-          <input name="apiKey" type="password" autocomplete="off" placeholder="sk-ant-…" />
-          <span class="hint">Get one at console.anthropic.com.</span>
-        </label>
-        <label data-prov="openai">OpenAI API key
-          <input name="openaiKey" type="password" autocomplete="off" placeholder="sk-…" />
-          <span class="hint">Get one at platform.openai.com/api-keys. A ChatGPT Plus subscription doesn't include API use; the API is billed separately.</span>
-        </label>
-        <label data-prov="gemini">Gemini API key
-          <input name="geminiKey" type="password" autocomplete="off" placeholder="AIza…" />
-          <span class="hint">Get one free at aistudio.google.com/apikey.</span>
-        </label>
-        <label>Model
-          <div class="row"><select name="aiModel" id="aiModel"></select><button type="button" class="btn" id="aiModels" style="flex:0 0 auto">Refresh</button></div>
-          <span class="hint" id="aiModelHint">Keys are stored only on this phone. Each review costs a few cents at most.</span>
-        </label>
-        </div>
-        <label>My swing keys
-          <textarea name="keys" rows="10" placeholder="# Set-up&#10;- Hinge hips, not upright&#10;# Swing&#10;- Slow takeaway"></textarea>
-          <span class="hint"># starts a section, - starts a key. Shown in Practice and used by the AI coach.</span>
-        </label>
-        <label>Round rules (checked after every round)
-          <div id="rulesBoxes" class="rulesbox"></div>
-        </label>
-        <label>My swing story (sent with AI reviews)
-          <textarea name="golfer" rows="8" placeholder="e.g. 5 handicap. Used to sway; now working on getting to the left heel. Miss: block right."></textarea>
-        </label>
-        <div class="lbl">My routine</div>
-        <label>Before every shot <span class="hint">One step per line. Shown before a round and a tap away on every hole.</span>
-          <textarea name="routinePre" rows="6" placeholder="Bag behind me&#10;Pick the target, then the club&#10;Commit&#10;Dress rehearsal&#10;Breathe&#10;Play, don't think"></textarea>
-        </label>
-        <label>Between shots <span class="hint">What you say to yourself when it goes wrong, and when it goes right.</span>
-          <textarea name="routineMind" rows="4" placeholder="Forget the bad shot, remember the good one&#10;Head up, above the pin"></textarea>
-        </label>
-        <label>Current swing thought <span class="hint">One. Offered at the start of each round.</span>
-          <input name="swingThought" placeholder="e.g. finish on the left heel" />
-        </label>
         <button class="btn primary" type="submit">Save</button>
-        <hr />
-        <div class="lbl">Your data</div>
-        <p class="mute small">Back up everything (not videos) to a file, or load a data file, e.g. your yardages and notes.</p>
-        <div class="row"><button class="btn" type="button" id="exportBtn2">Export</button><button class="btn" type="button" data-pick="importFile">Import</button><button class="btn" type="button" id="garminBtn">Garmin</button></div>
-        <input type="file" id="importFile" accept="application/json,.json" style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none" />
-        <p class="mute small center" id="buildTag" style="margin-top:14px"></p>
         <p id="savedMsg" class="mute small center" hidden>Saved</p>
-      </form>
+        </form>
+      </section>
+
+      <section class="setsec">
+        <h2>Your data</h2>
+        <div class="card"><p class="mute small" style="margin:0 0 8px">Back up everything (not videos) to a file. Load one with osolo backup above.</p>
+        <button class="btn" type="button" id="exportBtn2">Export a backup</button></div>
+        <p class="mute small center" id="buildTag" style="margin-top:14px"></p>
+      </section>
     </section>
   </main>
 

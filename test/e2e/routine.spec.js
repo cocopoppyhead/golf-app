@@ -1,13 +1,17 @@
 import { test, expect } from '@playwright/test';
 import { boot, addCourse } from './helpers.js';
 
-// My routine: edited in Settings, shown with the swing thought before the round, one tap away on a hole.
-test('the routine is set in Settings, shown at the start and from the hole screen', async ({ page }) => {
+// My routine: edited from Play (My routine and round rules), shown with the swing thought before the round, one tap away on a hole.
+test('the routine is set from Play, shown at the start and from the hole screen', async ({ page }) => {
   await boot(page);
-  await page.click('nav button[data-tab=settings]');
-  await page.fill('#settingsForm [name=routinePre]', 'Bag behind me\nCommit to it');
-  await page.fill('#settingsForm [name=swingThought]', 'left heel');
-  await page.click('#settingsForm button[type=submit]');
+  await page.click('nav button[data-tab=rounds]');
+  await page.click('[data-act=plan]');
+  const plan = page.locator('.gamesheet');
+  await plan.locator('[name=pre]').fill('Bag behind me\nCommit to it');
+  await plan.locator('[name=thought]').fill('left heel');
+  await plan.locator('[data-rule]').first().uncheck();
+  await plan.locator('button[type=submit]').click();
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('golf.settings')).roundRules.length)).toBeGreaterThan(0);
   await addCourse(page, 'Montgomerie');
   await page.click('[data-x=start]');
   // through the tee picker if one shows, to the start sheet
