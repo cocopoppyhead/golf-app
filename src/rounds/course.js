@@ -83,7 +83,7 @@ export function scheduleSheet(group, { toast = () => {}, done = () => {}, existi
   document.body.appendChild(sheet);
 }
 export const eventCalendar = (ev) => calendarSheet({ title: `Golf: ${ev.courseName}`, desc: [ev.who && `With ${ev.who}`, ev.note].filter(Boolean).join('\n'), start: ev.when, end: ev.when + 4.5 * 3600e3, uid: ev.id, file: 'osolo-round.ics' });
-export const fmtWhen = (t) => new Date(t).toLocaleString(undefined, { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+export const fmtWhen = (t) => new Date(t).toLocaleString(undefined, { weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' });
 
 // ---------- course cards for the Play tab ----------
 /** HTML for the course cards; call bindCourseCards(root, api) after inserting. */

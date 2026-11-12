@@ -32,8 +32,8 @@ export function swingSheet({ done = () => {} } = {}) {
 export function planSheet({ done = () => {} } = {}) {
   const s = getSettings(); const R = getRoutine(s); const rt = s.routine || {};
   const on = new Set(s.roundRules || DEFAULT_RULES);
-  sheetShell('My routine and round rules', `
-    <label>Before every shot <span class="hint">One step per line. Shown before a round and a tap away on every hole.</span>
+  sheetShell('Pre-round check-in', `
+    <label>Before every shot <span class="hint">One step per line. On Play before a round, and a tap away on every hole.</span>
       <textarea name="pre" rows="6" placeholder="${esc(R.preshot.join('\n'))}">${esc(rt.preshot || '')}</textarea></label>
     <label>Between shots <span class="hint">What you say to yourself when it goes wrong, and when it goes right.</span>
       <textarea name="mind" rows="4" placeholder="${esc(R.mind.join('\n'))}">${esc(rt.mind || '')}</textarea></label>

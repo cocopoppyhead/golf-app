@@ -34,23 +34,23 @@ export function inviteSheet({ title, link, code, blurb = '' }) {
   document.body.appendChild(sheet);
 }
 
-export async function renderFriendsCard(el, { toast = () => {}, onJoined = () => {} } = {}) {
+export async function renderFriendsCard(el, { toast = () => {}, onJoined = () => {}, invite = true } = {}) {
   if (!el) return;
   const u = await currentUser();
-  if (!u) { el.innerHTML = `<div class="card"><div class="sechead" style="margin:0"><h2 style="margin:0">Friends</h2></div><p class="mute small" style="margin:6px 0 0">Sign in (Settings) to invite friends, schedule rounds together and see each other's scores.</p></div>`; return; }
+  if (!u) { el.innerHTML = `<div class="card"><p class="mute small" style="margin:0">Sign in at the top of Settings to add friends, schedule rounds together and see each other's scores.</p></div>`; return; }
   el.innerHTML = `<div class="card"><div class="sechead" style="margin:0 0 6px"><h2 style="margin:0">Friends</h2><span class="mute small">loading…</span></div></div>`;
   let table;
   try { table = (await friendsTable()) || []; } catch (e) { el.innerHTML = `<div class="card"><h2 style="margin:0 0 6px">Friends</h2><p class="mute small">${esc(e.message)}. Re-run supabase/schema.sql if the tables are missing.</p></div>`; return; }
   const friends = table.filter((p) => !p.me);
   el.innerHTML = `<div class="card friends">
-    <div class="sechead" style="margin:0 0 6px"><h2 style="margin:0">Friends</h2><button class="link acc" data-invite>+ Invite</button></div>
+    <div class="sechead" style="margin:0 0 6px"><h2 style="margin:0">Friends</h2>${invite ? '<button class="link acc" data-invite>+ Invite</button>' : ''}</div>
     ${friends.length ? `<table class="card-t ft"><thead><tr><th style="text-align:left">Player</th><th>Games</th><th>Avg</th><th>Best</th><th>Last</th></tr></thead>
       ${table.map((p) => `<tr class="${p.me ? 'me' : ''}"><td style="text-align:left"><span class="pname">${p.avatar ? `<img src="${esc(p.avatar)}" alt="" />` : ''}<b>${esc(p.name)}</b>${p.handicap_index != null ? `<span class="mute small"> ${p.handicap_index}</span>` : ''}</span></td><td>${p.games}</td><td>${p.avg != null ? `${p.avg.toFixed(1)} <span class="mute small">${toPar(p.avgToPar)}</span>` : '–'}</td><td>${p.best ?? '–'}</td><td class="small">${p.last ? `${p.last.score} <span class="mute">${fmtD(p.last.played_on)}</span>` : '–'}</td></tr>`).join('')}</table>
       <p class="mute small" style="margin:6px 0 0">Scores from everyone's finished rounds, 18-hole averages. Shot detail stays private.</p>`
       : '<p class="mute small">No friends yet. Send your code or scan theirs; scheduling a round and sharing the link does it too.</p>'}
     <div class="row" style="margin-top:8px"><input data-code placeholder="Friend or round code" maxlength="6" style="flex:1;text-transform:uppercase" /><button class="btn" data-join>Join</button></div>
   </div>`;
-  el.querySelector('[data-invite]').onclick = async () => {
+  if (el.querySelector('[data-invite]')) el.querySelector('[data-invite]').onclick = async () => {
     const code = await myFriendCode(); if (!code) return toast('Could not get your code. Check your connection.');
     inviteSheet({ title: 'Add me on osolo', link: inviteLink('friend', code), code, blurb: 'A friend who opens this link (signed in) is added both ways. Then you can see each other\'s scores and invite each other to rounds.' });
   };
@@ -58,7 +58,7 @@ export async function renderFriendsCard(el, { toast = () => {}, onJoined = () =>
     const code = el.querySelector('[data-code]').value.trim().toUpperCase(); if (code.length < 4) return toast('Enter the 6-character code.');
     try {
       const p = await addFriendByCode(code).catch(() => null);
-      if (p) { toast(`You and ${p.nickname || p.name || 'your friend'} are friends now.`); return renderFriendsCard(el, { toast, onJoined }); }
+      if (p) { toast(`You and ${p.nickname || p.name || 'your friend'} are friends now.`); return renderFriendsCard(el, { toast, onJoined, invite }); }
       const ev = await joinEvent(code, '');
       toast(`You're in: ${ev.course_name}, ${new Date(ev.starts_at).toLocaleString(undefined, { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}`);
       onJoined(ev);

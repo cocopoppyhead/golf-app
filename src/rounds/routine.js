@@ -42,7 +42,7 @@ export function routineHtml(R, { swingThought = '', expect = '' } = {}) {
     ${expect ? `<p class="rt-thought"><span class="mute small">A good round today</span><b>${esc(expect)}</b></p>` : ''}
     <ol>${R.preshot.map((s) => `<li>${esc(s)}</li>`).join('')}</ol>
     <ul>${R.mind.map((s) => `<li>${esc(s)}</li>`).join('')}</ul>
-    ${R.custom ? '' : '<p class="mute small">This is the example routine. Make it yours in Settings → My routine.</p>'}
+    ${R.custom ? '' : '<p class="mute small">This is the example routine. Make it yours: Play → Pre-round check-in → Edit.</p>'}
   </div>`;
 }
 

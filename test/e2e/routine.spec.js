@@ -12,6 +12,11 @@ test('the routine is set from Play, shown at the start and from the hole screen'
   await plan.locator('[data-rule]').first().uncheck();
   await plan.locator('button[type=submit]').click();
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem('golf.settings')).roundRules.length)).toBeGreaterThan(0);
+  // the Pre-round check-in on Play shows it straight away
+  const ci = page.locator('.checkin');
+  await expect(ci.locator('.ci-thought')).toContainText('left heel');
+  await expect(ci.locator('.ci-steps li')).toHaveCount(2);
+  await expect(ci).not.toContainText('example routine');
   await addCourse(page, 'Montgomerie');
   await page.click('[data-x=start]');
   // through the tee picker if one shows, to the start sheet
@@ -31,6 +36,8 @@ test('the routine is set from Play, shown at the start and from the hole screen'
   await start.locator('[data-m="5"]').click();
   await start.locator('[data-ok]').click();
   await page.waitForSelector('.holebar');
+  // the weather is read when the check-in is done
+  await expect.poll(() => page.evaluate(() => new Promise((res) => { const o = indexedDB.open('golf-app'); o.onsuccess = () => { const q = o.result.transaction('rounds').objectStore('rounds').getAll(); q.onsuccess = () => res(q.result[0]?.cond?.start?.tempC ?? null); }; }))).toBe(31);
   await page.locator('[data-routine]').first().click();
   const rs = page.locator('.sheet').last();
   await expect(rs).toContainText('Before the shot');

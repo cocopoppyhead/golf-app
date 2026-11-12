@@ -138,6 +138,7 @@ export function fillSettings() {
   renderInstall($('#installRow'), true);
   renderAccount($('#accountRow'), { toast: api.toast, onChange: api.afterAccountChange });
   renderRangefinder($('#laserRow'), { toast: api.toast });
+  import('./rounds/friends.js').then((m) => m.renderFriendsCard($('#friendsCard'), { toast: api.toast, invite: false, onJoined: () => window.dispatchEvent(new Event('golf-synced')) })).catch(() => {});
   f.handedness.value = api.settings.handedness; f.quality.value = api.settings.quality;
   f.keepVideos.checked = api.settings.keepVideos !== false;
   $('#aiForm').hidden = true; drawAi();

@@ -36,7 +36,7 @@ export async function getConditions({ force = false } = {}) {
   if (!force && cache && Date.now() - cache.at < 10 * 60e3) return cache.cond;
   const { lat, lon } = await position();
   const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat.toFixed(4)}&longitude=${lon.toFixed(4)}&current=temperature_2m,relative_humidity_2m,surface_pressure,wind_speed_10m,wind_direction_10m,wind_gusts_10m&wind_speed_unit=mph`;
-  const r = await fetch(url);
+  const r = await fetch(url, { signal: AbortSignal.timeout(10000) });
   if (!r.ok) throw new Error('Weather service unavailable.');
   const c = (await r.json()).current;
   const cond = { tempC: c.temperature_2m, humidity: c.relative_humidity_2m, pressure: c.surface_pressure, windMph: c.wind_speed_10m, windFrom: c.wind_direction_10m, gustMph: c.wind_gusts_10m, at: Date.now(), lat: +lat.toFixed(4), lon: +lon.toFixed(4), source: 'open-meteo' };
@@ -60,7 +60,7 @@ export async function historicConditions(lat, lon, startMs, durationMin = 240) {
   // the archive lags about five days; the forecast service keeps the last three months, so recent rounds use that
   const host = Date.now() - startMs < 80 * 864e5 ? 'https://api.open-meteo.com/v1/forecast' : 'https://archive-api.open-meteo.com/v1/archive';
   const url = `${host}?latitude=${(+lat).toFixed(3)}&longitude=${(+lon).toFixed(3)}&start_date=${day(startMs)}&end_date=${day(end)}&hourly=temperature_2m,relative_humidity_2m,wind_speed_10m&wind_speed_unit=mph&timezone=GMT`;
-  const r = await fetch(url); if (!r.ok) throw new Error(`weather archive ${r.status}`);
+  const r = await fetch(url, { signal: AbortSignal.timeout(10000) }); if (!r.ok) throw new Error(`weather archive ${r.status}`);
   const j = await r.json(); const H = j.hourly || {};
   const idx = (H.time || []).map((t, i) => [Date.parse(`${t}:00Z`), i]).filter(([t]) => t >= startMs - 3600e3 && t <= end).map(([, i]) => i);
   if (!idx.length) return null;

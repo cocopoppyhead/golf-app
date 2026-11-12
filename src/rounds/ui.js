@@ -26,13 +26,13 @@ import { planSheet } from '../mygame.js';
 import { lastBestHere } from './bestshots.js';
 export { MOOD_WORDS, moodLine } from './intentions.js';
 import { weeklyDigest } from '../digest.js';
-import { ART } from '../art.js';
 import { listSessions } from '../store.js';
 import { drillsLoaded } from '../drills.js';
 import { LIE_DETAIL, PENALTY_RES, TROUBLE_OPTIONS, troubleCodes, ensurePutts, syncPutts, asPlanned, autoSwing, autoShotType, blankHole, ensureShots, defaultLie, derive, nextBogeyFrom, holeGaps } from './hole.js';
 import { shotPanel, shotLine, puttPanel, holeDone, routeStrip, zoneOf, usualTeeClub, clubForDistance } from './shotpanel.js';
 export { SWING_TYPES, INTENT, autoShotType } from './hole.js';
-import { renderFriendsCard, inviteSheet } from './friends.js';
+import { inviteSheet } from './friends.js';
+import { checkinHtml, lastNote } from './checkin.js';
 import { inviteLink, remoteEvents, removeSummary, takePendingInvite, joinEvent, addFriendByCode } from '../cloud/social.js';
 import { currentUser } from '../cloud/supabase.js';
 import { groupCourses, courseCardsHtml, bindCourseCards, coursePage, events, fmtWhen, scheduleSheet, eventCalendar } from './course.js';
@@ -86,24 +86,31 @@ export async function roundsHome() {
   const done = rounds.filter((r) => r.finished);
   await aggStats(done); // attaches per-round stats for the list
   const groups = groupCourses(allCourses), upcoming = events().slice(0, 3);
+  const gs = '<div id="gettingStarted"></div>';
   root.innerHTML = `
     ${open ? `<div class="card event-card"><b>Round in progress</b><p class="mute small">${esc(open.courseName)} · ${fmtD(open.date)} · ${played(open).length} holes logged</p><div class="row"><button class="btn primary" data-act="resume" data-id="${open.id}">Resume round</button><button class="btn" data-act="endopen" data-id="${open.id}">End / discard</button></div></div>` : ''}
-    <div id="gettingStarted"></div>
-    ${upcoming.length ? `<div class="card"><div class="lbl">Upcoming</div>${upcoming.map((e) => `<div class="evrow"><div><b>${esc(e.courseName)}</b><div class="mute small">${fmtWhen(e.when)}${e.who ? ` · with ${esc(e.who)}` : ''}${e.note ? ` · ${esc(e.note)}` : ''}</div></div><div class="row" style="gap:6px">${e.code ? `<button class="link" data-act="evinvite" data-id="${e.id}">Invite</button>` : ''}<button class="btn sm" data-act="evstart" data-id="${e.id}">Start</button><button class="link" data-act="evcal" data-id="${e.id}" aria-label="Calendar">${icon('calendar', 16)}</button><button class="link" data-act="evedit" data-id="${e.id}">${e.joined ? 'Leave' : 'Edit'}</button></div></div>`).join('')}</div>` : ''}
+    ${done.length ? '' : gs}
+    ${upcoming.length ? `<div class="sechead"><h2>Upcoming</h2></div><div class="card upcoming">${upcoming.map(upcomingRow).join('')}</div>` : ''}
+    ${checkinHtml(S0(), lastNote(done))}
     <div class="sechead"><h2>Your courses</h2><button class="link acc" data-act="library">+ Find a course</button></div>
     ${groups.length ? courseCardsHtml(groups, rounds) : `<div class="card"><p class="mute">Pick your course from the UAE list and the scorecard, map and tees fill in. Tap a course for its page: start or schedule a round, preview the holes, your record there.</p><button class="btn primary big" data-act="library">${icon('search')} Find a UAE course</button></div>`}
-    <div class="row" style="margin-top:8px"><button class="btn" data-act="post">${icon('plus')} Post a score</button><button class="btn" data-act="import">${icon('camera')} Import a scorecard</button><button class="btn" data-act="newcourse">${icon('edit')} By hand</button></div>
-    <button class="card gotoprog planrow" data-act="plan"><span>${icon('info', 22)}</span><span><b>My routine and round rules</b><small>Before every shot, between shots, and the rules checked after each round</small></span><span class="mute">›</span></button>
-    <div id="friendsCard"></div>
+    <p class="small mute addhand">Course not in the list? <button class="link" data-act="newcourse">Add it by hand</button></p>
+    <div class="row2 playacts"><button class="btn" data-act="post">${icon('plus')} Post a score</button><button class="btn" data-act="import">${icon('camera')} Scan a scorecard</button></div>
     ${await digestCard(done)}
-    ${done.length ? `<button class="card gotoprog" data-act="progress"><span>${ART.putting}</span><span><b>Your game</b><small>Driving to putting, against a golfer at your level — in Progress</small></span><span class="mute">›</span></button>` : ''}
-    ${done.length ? `<h2 style="margin:26px 0 10px">Rounds</h2>${done.slice(0, SHOW_ROUNDS).map(histRow).join('')}${done.length > SHOW_ROUNDS ? `<button class="btn allrounds" data-act="allrounds">All rounds (${done.length})</button>` : ''}` : ''}`;
+    ${done.length ? `<div class="sechead"><h2>Previous rounds</h2>${done.length > SHOW_ROUNDS ? `<button class="link acc" data-act="allrounds">All ${done.length}</button>` : ''}</div>${done.slice(0, SHOW_ROUNDS).map(histRow).join('')}` : ''}
+    ${done.length ? gs : ''}`;
   root.querySelectorAll('[data-act]').forEach((b) => b.addEventListener('click', () => homeAction(b.dataset.act, b.dataset.id)));
   bindCourseCards(root, groups, courseApi());
-  renderFriendsCard(root.querySelector('#friendsCard'), { toast: ctx.toast, onJoined: () => mergeRemoteEvents().then(roundsHome) });
   handlePendingInvite();
-  mergeRemoteEvents().then((changed) => { if (changed && root.querySelector('#friendsCard')) roundsHome(); });
+  mergeRemoteEvents().then((changed) => { if (changed && root?.querySelector('.checkin') && !cur) roundsHome(); });
   renderChecklist(root.querySelector('#gettingStarted'), { onGo: (where) => (where === 'library' ? homeAction('library') : where === 'play' ? (groups.length ? coursePage(groups[0], courseApi()) : homeAction('library')) : ctx.showTab?.(where)) });
+}
+/** One scheduled round: the course, when and who, Start, and the smaller actions underneath. */
+function upcomingRow(e) {
+  const when = new Date(e.when).toLocaleString(undefined, { weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' });
+  return `<div class="evrow"><div class="evtx"><b>${esc(e.courseName)}</b><div class="mute small">${when}${e.who ? `, with ${esc(e.who)}` : ''}${e.note ? `. ${esc(e.note)}` : ''}</div>
+    <div class="evlinks">${e.code ? `<button class="link" data-act="evinvite" data-id="${e.id}">Invite</button>` : ''}<button class="link" data-act="evcal" data-id="${e.id}">Add to calendar</button><button class="link" data-act="evedit" data-id="${e.id}">${e.joined ? 'Leave' : 'Edit'}</button></div></div>
+    <button class="btn primary sm" data-act="evstart" data-id="${e.id}">Start</button></div>`;
 }
 /** Settings → Import data → Scorecard photo. */
 export const openCardImport = () => importCard(null);
@@ -145,7 +152,7 @@ async function digestCard(done) {
     const [sessions, swings] = await Promise.all([listSessions().catch(() => []), listSwings().catch(() => [])]);
     const d = weeklyDigest({ rounds: withCourse, sessions, swings, lib: drillsLoaded() });
     if (!d) return '';
-    return `<div class="card digest"><div class="sechead" style="margin:0 0 6px"><h2 style="margin:0">This week</h2><span class="mute small">vs the week before</span></div>
+    return `<div class="sechead"><h2>This week</h2><span class="mute small">against the week before</span></div><div class="card digest">
       ${d.lines.map((l) => `<p class="dl ${l.key}">${esc(l.text)}</p>`).join('')}
       ${d.carry.length ? `<div class="lbl">Carry into next week</div><ul class="carry">${d.carry.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}</div>`;
   } catch (e) { console.warn('digest', e); return ''; }
@@ -202,7 +209,7 @@ async function homeAction(act, id) {
   if (act === 'endopen') { const r = await getRound(id); const c = await getCourse(r.courseId).catch(() => null); cur = { round: r, course: c, hole: 0, review: false }; return played(r).length && c ? endRoundSheet(r, c) : discardSheet(r); }
   if (act === 'resume' || act === 'open') return openRound(id);
   if (act === 'allrounds') return allRoundsSheet();
-  if (act === 'plan') return planSheet();
+  if (act === 'plan') return planSheet({ done: roundsHome });
   if (act === 'newcourse') return editCourse(null);
   if (act === 'library') return openLibrary({ toast: ctx.toast, onPicked: (c) => openCoursePage(c.id) });
   if (act === 'editcourse') return editCourse(sel);
@@ -257,8 +264,7 @@ async function startRound(c, ev = null) {
   c.lastPlayed = Date.now(); await putCourse(c);
   await putRound(r);
   cur = { round: r, course: c, hole: 0, review: false };
-  getConditions().then((w) => { r.cond = { ...(r.cond || {}), start: w }; save(); }).catch(() => {});
-  return playersSheet(r, () => moodSheet(r, 'start', renderHole));
+  return playersSheet(r, () => moodSheet(r, 'start', renderHole)); // the weather is read when the check-in is done
 }
 
 // ---------------- Course editor ----------------
@@ -515,8 +521,9 @@ function renderHole() {
     }
     if (a === 'save' || a === 'submit') return endRound(round, course, { submit: a === 'submit' });
     if (a === 'finish') {
-      const done = async () => { round.finished = true; await save(); renderSummary(round, course); getConditions().then((w) => { round.cond = { ...(round.cond || {}), finish: w }; save(); }).catch(() => {}); };
-      return round.mood?.finish == null ? moodSheet(round, 'finish', done) : done();
+      const done = async () => { round.finished = true; await save(); renderSummary(round, course); };
+      if (round.mood?.finish == null) return moodSheet(round, 'finish', done);
+      readWeather(round, 'finish'); return done();
     }
     if (a === 'home') return roundsHome();
     if (a === 'endearly') return endRoundSheet(round, course);
@@ -548,9 +555,8 @@ export async function endRound(round, course, { submit = false } = {}) {
     round.finished = true; round.submitted = submitted; round.updatedAt = Date.now();
     if (cur?.round === round) { const h = round.holes[cur.hole]; if (h?.shots) h.shots.forEach((x) => { if (!x.lie && x.lieAuto) x.lie = x.lieAuto; delete x.lieAuto; }); }
     await putRound(round);
-    getConditions().then((w) => { round.cond = { ...(round.cond || {}), finish: w }; putRound(round); }).catch(() => {});
     if (round.mood?.finish == null) return moodSheet(round, 'finish', () => renderSummary(round, course));
-    renderSummary(round, course);
+    readWeather(round, 'finish'); renderSummary(round, course);
   };
   if (!submit) { await finish(false); ctx.toast?.('Saved. Finish the details from the round when you have time.'); return; }
   const gaps = round.holes.map((h, k) => ({ k, g: holeGaps(h, course.holes[k]?.par || 4) })).filter((x) => x.g.length);
@@ -671,6 +677,11 @@ function routineSheet(round) {
 // end of round: how well the process held up, on a four-step scale (4 = always)
 const PROCESS = [['routine', 'Followed my pre-shot routine'], ['commit', 'Committed to every shot'], ['accept', 'Let bad shots go']];
 const FREQ = [[4, 'Always'], [3, 'Mostly'], [2, 'Sometimes'], [1, 'Rarely']];
+/** The weather at the check-in (start) and at the finish. Offline? The startup backfill fills it in later. */
+function readWeather(round, key) {
+  if (key !== 'start' && key !== 'finish') return;
+  getConditions({ force: true }).then((w) => { if (!w) return; round.cond = { ...(round.cond || {}), [key]: w }; putRound(round); }).catch(() => {});
+}
 const moodColor = (n) => `hsl(${n <= 5 ? 200 - (n - 1) * 20 : 120 - (n - 5) * 24}, 75%, 50%)`;
 function moodSheet(round, key, done) {
   round.mood ||= {};
@@ -711,7 +722,7 @@ function moodSheet(round, key, done) {
     sheet.querySelector('[data-kindinfo]')?.addEventListener('click', () => { kindInfo = !kindInfo; draw(); });
     sheet.querySelectorAll('[data-it]').forEach((b) => b.onclick = () => { it = it === b.dataset.it ? null : b.dataset.it; draw(); });
     sheet.querySelectorAll('[data-kept]').forEach((b) => b.onclick = () => { kept = kept === +b.dataset.kept ? null : +b.dataset.kept; draw(); });
-    sheet.querySelector('[data-skip]').onclick = () => { round.mood[key] = round.mood[key] ?? 0; sheet.remove(); save(); done(); };
+    sheet.querySelector('[data-skip]').onclick = () => { round.mood[key] = round.mood[key] ?? 0; sheet.remove(); save(); readWeather(round, key); done(); };
     sheet.querySelector('[data-thought]')?.addEventListener('input', (e) => { thought = e.target.value; });
     sheet.querySelector('[data-expect]')?.addEventListener('input', (e) => { expect = e.target.value; });
     sheet.querySelector('[data-ok]').onclick = () => {
@@ -719,7 +730,7 @@ function moodSheet(round, key, done) {
       if (key === 'finish') round.process = proc;
       if (key === 'start') { round.kind = kind; round.aim = aim; round.warmup = w; round.intention = it; round.swingThought = thought.trim() || null; round.expect = expect.trim() || null; if (round.swingThought && round.swingThought !== R.swingThought) { const st = S0(); st.routine = { ...(st.routine || {}), swingThought: round.swingThought }; S1(st); } }
       if (key === 'finish') round.intentionKept = kept;
-      sheet.remove(); save(); done();
+      sheet.remove(); save(); readWeather(round, key); done();
     };
   };
   draw();

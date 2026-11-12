@@ -4,6 +4,7 @@ export const BAG = [{ club: 'Driver', carry: 255 }, { club: '3 wood', carry: 230
 
 export async function boot(page, { bag = BAG } = {}) {
   await page.route('https://api.open-meteo.com/**', (r) => r.fulfill({ json: WEATHER }));
+  await page.route('https://archive-api.open-meteo.com/**', (r) => r.fulfill({ json: {} })); // no network in tests
   await page.goto('./');
   await page.evaluate((bag) => {
     localStorage.setItem('golf.installDismissed', '1');

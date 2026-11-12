@@ -806,3 +806,38 @@ table.t5, table.dk { width: 100%; border-collapse: collapse; font-size: 13px; } 
 .bodycard h3 { margin: 14px 0 6px; } .bodycard h3:first-child { margin-top: 0; }
 .brow { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--line); }
 .brow:last-of-type { border-bottom: 0; } .brow small { display: block; color: var(--mute); font-size: 12px; } .brow .bv { font: 700 20px var(--display); }
+
+/* ---------- Play page ---------- */
+#roundsRoot > .sechead:first-child { margin-top: 4px; }
+.upcoming { padding-top: 6px; padding-bottom: 6px; }
+.upcoming .evrow { align-items: center; padding: 10px 0; }
+.upcoming .evtx { min-width: 0; } .upcoming .evtx b { display: block; }
+.evlinks { display: flex; flex-wrap: wrap; gap: 4px 16px; margin-top: 6px; } .evlinks .link { font-size: 13px; padding: 0; color: var(--acc); text-decoration: none; }
+.upcoming .btn.sm { flex: none; padding: 8px 18px; font-size: 14px; }
+.checkin { padding-top: 14px; }
+.checkin .ci-k { display: block; font-size: 13px; color: var(--mute); font-weight: 600; margin: 14px 0 6px; }
+.checkin .ci-thought .ci-k { margin-top: 0; margin-bottom: 2px; }
+.checkin .ci-thought b { display: block; font: 600 26px/1.1 var(--display); }
+.checkin .ci-thought .link { padding: 0; font-size: 15px; }
+.checkin .ci-note { margin-top: 12px; padding: 10px 12px; border-radius: 12px; background: var(--panel2); }
+.checkin .ci-note .ci-k { margin: 0 0 2px; } .checkin .ci-note p { margin: 0; font-size: 14.5px; line-height: 1.4; }
+.ci-steps { list-style: none; counter-reset: ci; margin: 0; padding: 0; }
+.ci-steps li { counter-increment: ci; display: grid; grid-template-columns: 22px 1fr; gap: 8px; padding: 3px 0; font-size: 14.5px; line-height: 1.35; }
+.ci-steps li::before { content: counter(ci); font-weight: 700; color: var(--acc); font-variant-numeric: tabular-nums; }
+.ci-more { margin-top: 10px; border-top: 1px solid var(--line); padding-top: 10px; }
+.ci-more summary { font-size: 13px; color: var(--mute); font-weight: 600; cursor: pointer; }
+.ci-more ul { margin: 6px 0 0; padding-left: 30px; font-size: 14.5px; line-height: 1.35; } .ci-more li { margin: 3px 0; }
+.ci-rules { display: flex; flex-wrap: wrap; gap: 6px; }
+.ci-rules span { font-size: 13px; padding: 5px 10px; border-radius: 999px; background: var(--panel2); color: var(--soft); }
+.ci-ex { margin: 12px 0 0; }
+.addhand { margin: 2px 2px 12px; } .addhand .link { padding: 0; font-size: inherit; color: var(--acc); }
+.playacts { margin-bottom: 4px; } .playacts .btn { display: flex; align-items: center; justify-content: center; gap: 8px; white-space: nowrap; font-size: 15px; }
+.gsdone { display: flex; align-items: center; gap: 10px; margin: 10px 0 0; padding-top: 10px; border-top: 1px solid var(--line); }
+.gsc.on { background: var(--acc); border-color: var(--acc); color: var(--acc-ink); flex: none; width: 20px; height: 20px; font-size: 12px; }
+.ci-more + .ci-more { margin-top: 0; }
+.ci-more summary { list-style: none; display: flex; align-items: center; gap: 8px; } .ci-more summary::-webkit-details-marker { display: none; }
+.ci-more summary::after { content: '›'; margin-left: auto; font-size: 18px; transition: transform .15s; } .ci-more[open] summary::after { transform: rotate(90deg); }
+.ci-n { font-size: 12px; font-weight: 700; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 10px; background: var(--panel2); display: inline-grid; place-items: center; color: var(--soft); }
+.ci-more .ci-rules { margin-top: 8px; }
+@media (prefers-reduced-motion: reduce) { .ci-more summary::after { transition: none; } }
+.ci-more ul { list-style: none; padding: 0; } .ci-more ul li { display: grid; grid-template-columns: 22px 1fr; gap: 8px; } .ci-more ul li::before { content: '–'; color: var(--mute); }
