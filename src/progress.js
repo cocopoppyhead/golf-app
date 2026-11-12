@@ -199,7 +199,7 @@ function heroBand(ALL, Hc, hcp, OUT = 0) {
   const basis = (list) => {
     const rows = list.map((x) => radarRound(x.r, x.c)).filter(Boolean);
     const holes = rows.reduce((a, R) => a + R.complete, 0);
-    if (!list.length) return 'No fully tracked rounds yet: the radar only uses rounds where every hole has every shot logged.';
+    if (!list.length) return 'No round yet has every shot logged on every hole, so the radar is empty. Choose rounds shows which ones came close (holes missing shots).';
     const span = `${fmtShort(list[list.length - 1].r.date)} – ${fmtShort(list[0].r.date)}`;
     return `${list.length} fully tracked round${list.length === 1 ? '' : 's'} (${span}), ${holes} holes: every shot logged on every hole.`;
   };
@@ -214,7 +214,7 @@ function heroBand(ALL, Hc, hcp, OUT = 0) {
   return { windows, html: `<section class="hero radarcard" data-radar-views='${esc(JSON.stringify(views))}'><div class="contour" style="--mask:${CONTOUR}"></div>
     <h1>Your game</h1><p class="hsub">Strokes a round against a ${levelLabel(hcp)} golfer. Tap an area to jump to it.</p>
     <p class="hused">Scores from ${ALL.length} round${ALL.length === 1 ? '' : 's'}${OUT ? ` (${OUT} left out)` : ''}, radar from ${L.length} <button class="link" data-pickrounds>Choose rounds</button></p>
-    <div class="rwin" role="group" aria-label="Rounds">${windows.map((w) => `<button data-radar-n="${w.n}" class="${w.n === 10 ? 'on' : ''}" ${L.length < w.n && w.n !== 10 ? 'disabled' : ''}>Last ${w.n}</button>`).join('')}</div>
+    <div class="rwin" role="group" aria-label="Rounds">${windows.map((w, i) => { const prev = i ? windows[i - 1].n : 0; const off = i > 0 && L.length <= prev; return `<button data-radar-n="${w.n}" class="${w.n === 10 ? 'on' : ''}" ${off ? 'disabled' : ''}>${L.length > prev && L.length < w.n && i > 0 ? `All ${L.length}` : `Last ${w.n}`}</button>`; }).join('')}</div>
     <div class="radarbox">${views[10]}</div>
     <div class="legend"><span><i class="lg-you"></i>You</span><span><i class="lg-gh"></i>Rounds before</span><span><i class="lg-scr"></i>Scratch</span></div>
     <div class="hstats">${tile(idx != null ? f1(idx) : '–', Hc?.current ? 'Handicap index' : 'Handicap (yours)')}${tile(avg != null ? f1(avg) : '–', `Average, last ${sc.length || 0}`)}${tile(trend != null ? sgn(trend) : '–', 'Last 5 vs the 5 before')}</div>
