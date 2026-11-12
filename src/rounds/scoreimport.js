@@ -8,6 +8,8 @@ import { readCard, aiFrom, aiReady } from '../coach/ai.js';
 import { icon } from '../icons.js';
 import { removeSummary } from '../cloud/social.js';
 
+// a posted or imported round: look up the weather on that day straight away
+const wxSoon = () => import('../garmin/ui.js').then((m) => m.backfillWeather({ limit: 5 })).catch(() => {});
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const uid = (p) => `${p}_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 const fmtD = (d) => new Date(d).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short', year: new Date(d).getFullYear() === new Date().getFullYear() ? undefined : 'numeric' });
@@ -60,7 +62,7 @@ export async function postScore(courseId, pre = {}) {
     const dv = q('#psDate').value; const when = dv ? new Date(`${dv}T12:00:00`).getTime() : Date.now();
     const r = { id: pre.id || uid('r'), date: when, courseId: c.id, courseName: c.name, tees: c.tees || '', learning: true, finished: true, quick: true, source: 'post', holesPlayed: x.holesPlayed, score, putts, holes: [],
       diff: x.holesPlayed === 18 ? differential(score, c.rating, c.slope) : null };
-    c.lastPlayed = Math.max(c.lastPlayed || 0, when); await putCourse(c); await putRound(r);
+    c.lastPlayed = Math.max(c.lastPlayed || 0, when); await putCourse(c); await putRound(r); wxSoon();
     api.ctx.toast(`Saved: ${score} at ${c.name}${r.diff != null ? ` · diff ${r.diff.toFixed(1)}` : ''}`);
     api.home();
   });
@@ -142,7 +144,7 @@ function confirmCard(c, data, day) {
     const dv = api.root.querySelector('#confDate').value;
     const when = dv ? new Date(`${dv}T12:00:00`).getTime() : Date.now();
     const r = { id: uid('r'), date: when, courseId: c.id, courseName: c.name, tees: c.tees || '', learning: true, finished: false, source: 'photo', holes };
-    c.lastPlayed = when; await putCourse(c); await putRound(r);
+    c.lastPlayed = when; await putCourse(c); await putRound(r); wxSoon();
     const first = holes.findIndex((h, i) => h && h.score > c.holes[i].par);
     if (first < 0) { r.finished = true; await putRound(r); return api.summary(r, c); }
     api.ctx.toast('Now tag what caused each bogey. Add tee shot and miss direction if you remember.', 5000);

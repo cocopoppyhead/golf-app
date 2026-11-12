@@ -889,6 +889,17 @@ $('#exportBtn2').onclick = async () => {
   if (isNative()) return nativeSend({ type: 'share.file', name, mime: 'application/json', b64: await blobToBase64(blob) });
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; a.click();
 };
+// the weather on the day for any finished round that doesn't have it (posted scores, photo imports,
+// rounds logged offline): checked a few seconds after start, at most every 6 hours
+setTimeout(async () => {
+  try {
+    const k = 'golf.wxBackfill'; const last = +localStorage.getItem(k) || 0;
+    if (Date.now() - last < 6 * 3600e3 || !navigator.onLine) return;
+    localStorage.setItem(k, String(Date.now()));
+    const { backfillWeather } = await import('./garmin/ui.js');
+    if (await backfillWeather({ limit: 40 })) window.dispatchEvent(new Event('golf-synced'));
+  } catch { /* offline or storage blocked: next time */ }
+}, 8000);
 $('#launchImportBtn').onclick = () => importLaunchSheet({ toast, onSaved: () => window.dispatchEvent(new Event('golf-synced')) });
 $('#cardImportBtn').onclick = () => { showTab('rounds'); setTimeout(() => openCardImport(), 50); };
 $('#editSwingBtn').onclick = () => swingSheet({ done: renderKeys });

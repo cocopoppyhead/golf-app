@@ -172,7 +172,7 @@ async function attachActivities(acts) {
 
 /** The weather on the day for rounds that don't have it (Garmin rounds, rounds logged without a connection). */
 export async function backfillWeather({ limit = 120 } = {}) {
-  const rounds = (await listRounds().catch(() => [])).filter((r) => r.finished && !r.cond?.start?.tempC && Date.now() - r.date > 5 * 864e5).slice(0, limit);
+  const rounds = (await listRounds().catch(() => [])).filter((r) => r.finished && r.cond?.start?.tempC == null && r.date <= Date.now()).slice(0, limit);
   let n = 0; let q = 0;
   const one = async (r) => {
     let lat = r.garmin?.lat, lon = r.garmin?.lon;
