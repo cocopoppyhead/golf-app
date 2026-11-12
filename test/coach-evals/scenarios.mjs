@@ -131,4 +131,30 @@ export const SCENARIOS = [
     mustNot: [/\?[\s\S]*1 Oct|walking off 9|what (were|was) you|how did you feel/i],
     judge: 'Acknowledges in a line, does NOT ask another question about the 1 Oct round, and moves forward: what to log next time (energy at the start), one thing for the next round, or asks about something new. Forward-looking, brief.',
   },
+
+  {
+    id: 'one-wild-shot', title: 'A double from one wild shot is strategy or swing, not the mind',
+    rounds: [0, 1, 2, 3, 4].map((k) => round(k, par.map((_, i) => (i === 1 ? 2 : 0)), { aim: 'both', debrief: k === 0 ? { notes: '3 wood out of the waste area on 2, into the water. Would not do that in a serious comp.' } : {} })),
+    settings: { goToClub: '3 wood off the tee' },
+    ask: 'That double on 2 again. What is going on?',
+    must: [/decision|strategy|club|safe|lay ?up|target/i],
+    mustNot: [/breath|calm|nerves|anxious|feel(ing)?s? about/i],
+    judge: 'Treats the double as a decision (3 wood from the waste with water in play) rather than a mental issue; holds them to the scoring aim even on a fun day; gives a concrete club or target rule for that shot; no psychology.',
+  },
+  {
+    id: 'three-bogeys', title: 'Three bogeys in a row is where the mind comes in',
+    rounds: [0, 1, 2, 3, 4, 5].map((k) => round(k, par.map((_, i) => (i >= 10 && i <= 12 ? 1 : 0)), { mood: { start: 5, turn: 7, finish: 6 } })),
+    ask: 'Why do I keep running off bogeys after the turn?',
+    must: [/turn|reset|focus|routine|after a bogey|next shot|one shot/i],
+    judge: 'Reads three bogeys in a row after the turn as a mental or energy pattern (cites the 7/10 turn mood), not a single bad shot; gives a reset or routine action for 10-12.',
+  },
+  {
+    id: 'why-not-lower', title: 'Why am I a 6 and not a 2: all four hats, briefly',
+    rounds: [0, 1, 2, 3, 4, 5].map((k) => round(k, par.map((_, i) => ([1, 7, 14].includes(i) ? 1 : i === (k % 2 ? 4 : 11) ? 2 : 0)), { process: { routine: 3, commit: 3, accept: 2 } })),
+    settings: { handicap: 6, goToClub: '3 wood off the tee' },
+    ask: 'Why am I a 6 and not a 2?',
+    maxWords: 180,
+    must: [/double/i],
+    judge: 'Answers with where the strokes go (one double a round is most of the gap), what the logs say about the mind (letting bad shots go rated sometimes), and one discipline for the next round; names the double as the leak; concise, not a lecture.',
+  },
 ];

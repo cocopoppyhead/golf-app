@@ -13,6 +13,7 @@ import { mindContext } from '../../src/coach/mind.js';
 import { systemPrompt } from '../../src/coach/playbook.js';
 import { chatLLM } from '../../src/coach/ai.js';
 import { splitLearning, pictureText } from '../../src/coach/picture.js';
+import { gameText } from '../../src/coach/game.js';
 
 const apiKey = process.env.ANTHROPIC_API_KEY;
 if (!apiKey) { console.error('Set ANTHROPIC_API_KEY first (in your terminal, not in a file).'); process.exit(2); }
@@ -37,7 +38,7 @@ async function judge(sc, reply) {
 let failed = 0;
 for (const sc of SCENARIOS.filter((s) => !only.length || only.includes(s.id))) {
   const t0 = Date.now();
-  const system = `${systemPrompt(sc.mode || 'open')}\n\n${mindContext({ rounds: sc.rounds, settings, focus: sc.mode === 'debrief' ? sc.rounds[0] : null, picture: pictureText({ works: [], unravels: [], cues: [], next: null, notes: [], ...(sc.picture || {}) }) })}`;
+  const system = `${systemPrompt(sc.mode || 'open')}\n\n${mindContext({ rounds: sc.rounds, settings: { ...settings, ...(sc.settings || {}) }, game: gameText({ rcs: sc.rounds, settings: { ...settings, ...(sc.settings || {}) } }), focus: sc.mode === 'debrief' ? sc.rounds[0] : null, picture: pictureText({ works: [], unravels: [], cues: [], next: null, notes: [], ...(sc.picture || {}) }) })}`;
   const messages = [...(sc.history || []), { role: 'user', text: sc.ask }];
   let reply = '', meta = null;
   try { const { text: full } = await chatLLM({ provider: 'claude', apiKey, model, system, messages }); ({ text: reply, meta } = splitLearning(full)); } catch (e) { reply = `ERROR ${e.message}`; }

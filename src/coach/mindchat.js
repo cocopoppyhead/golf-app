@@ -1,4 +1,4 @@
-// The mental coach, as a full-screen conversation. Opened from Play (Pre-round check-in) and from a
+// The coach, as a full-screen conversation. Opened from Play (Pre-round check-in) and from a
 // round's summary (to talk that round through). Uses whichever AI you connected in Settings.
 import { getSettings, listRounds, getCourse } from '../store.js';
 import { aiFrom, aiReady, aiName, chatLLM, md } from './ai.js';
@@ -6,6 +6,8 @@ import { mindContext, loadChat, saveChat, clearChat } from './mind.js';
 import { systemPrompt } from './playbook.js';
 import { counts } from '../rounds/quality.js';
 import { getPicture, pictureText, splitLearning, learn, clearPicture } from './picture.js';
+import { gameText } from './game.js';
+import { listShots, listSwings } from '../store.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 /** Alternate user and coach turns (two of yours in a row after a failed reply are sent as one), starting with yours. */
@@ -25,7 +27,7 @@ function pictureHtml(p) {
     <button class="link" data-forget>Clear this</button>` : '<p class="mute small">It builds a picture of you as you talk: what works, what unravels you, your own cues. You can clear it any time.</p>'}
   </details>`;
 }
-const STARTERS = ['Get my head right before today', 'Talk me through my last round', 'Why do my rounds unravel?', 'First-tee nerves'];
+const STARTERS = ['Get my head right before today', 'Talk me through my last round', 'Where am I losing strokes?', 'Why am I not a lower handicap?'];
 
 /** focus: { r, c } to talk one round through. onSettings: go to Settings → Connect AI. */
 export async function openMindChat({ focus = null, mode = null, onSettings = () => {} } = {}) {
@@ -37,9 +39,9 @@ export async function openMindChat({ focus = null, mode = null, onSettings = () 
   const starters = focus ? [`Talk me through ${focus.r.courseName.split(/\s[–-]\s/)[0]}`, 'What should I take from it?', 'Where did my head go?'] : STARTERS;
   const draw = () => {
     sheet.innerHTML = `<div class="sheet-in mc-in">
-      <div class="sheet-h"><b>Mental coach</b><span class="mc-hact">${msgs.length ? '<button class="link" data-new>New chat</button>' : ''}<button class="link" data-close>Close</button></span></div>
+      <div class="sheet-h"><b>Your coach</b><span class="mc-hact">${msgs.length ? '<button class="link" data-new>New chat</button>' : ''}<button class="link" data-close>Close</button></span></div>
       <div class="mc-log" aria-live="polite">
-        ${msgs.length ? '' : `<p class="mc-intro">${ready ? `Knows your last rounds: how you felt, your process, your debriefs. ${focus ? `Ready to talk about ${esc(focus.r.courseName)}.` : 'Ask anything about the mental side.'}` : `Your coach runs on your own AI. Connect Claude, ChatGPT or Gemini first.`}</p>`}
+        ${msgs.length ? '' : `<p class="mc-intro">${ready ? `Strategy, swing, the mental side and the next round, from your rounds, practice and check-ins. ${focus ? `Ready to talk about ${esc(focus.r.courseName)}.` : 'Ask anything about your game.'}` : `Your coach runs on your own AI. Connect Claude, ChatGPT or Gemini first.`}</p>`}
         ${msgs.map((m) => `<div class="mc-m ${m.role}">${m.role === 'assistant' ? md(m.text) : esc(m.text)}</div>`).join('')}
         ${busy ? (live ? `<div class="mc-m assistant mc-live">${md(live)}</div>` : '<div class="mc-m assistant mc-typing mc-live"><i></i><i></i><i></i></div>') : ''}
         ${err ? `<p class="mc-err">${esc(err)}</p>` : ''}
@@ -69,7 +71,13 @@ export async function openMindChat({ focus = null, mode = null, onSettings = () 
     const pairs = [];
     for (const r of rounds) { const c = await getCourse(r.courseId).catch(() => null); if (counts(r, c)) pairs.push({ r, c }); if (pairs.length >= 60) break; }
     const practice = await import('../practice.js').then((m) => m.practiceContext()).catch(() => '');
-    return mindContext({ rounds: pairs, settings: s, focus, picture: pictureText(getPicture(s)), practice });
+    const [shots, swings] = await Promise.all([listShots().catch(() => []), listSwings().catch(() => [])]);
+    const swing = await import('./profile.js').then((m) => m.coachContext(swings)).catch(() => '');
+    const work = await import('../workingon.js').then((m) => m.workContext()).catch(() => '');
+    const drills = await import('../drills.js').then((m) => m.drillContext()).catch(() => '');
+    const bag = await import('../bag.js').then((m) => m.getBag().map((c) => m.resolveClub(c, shots))).catch(() => []);
+    const game = gameText({ rcs: pairs, settings: s, bag, swing, work, drills });
+    return mindContext({ rounds: pairs, settings: s, focus, picture: pictureText(getPicture(s)), practice, game });
   };
   const send = async (q) => {
     if (busy) return;

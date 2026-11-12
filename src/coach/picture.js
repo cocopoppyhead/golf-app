@@ -1,4 +1,4 @@
-// What the mental coach has learned about you: a picture built up conversation by conversation, in the
+// What the coach has learned about you: a picture built up conversation by conversation, in the
 // style of Vision54's MY54 / NOT54 inventories. What helps you play well, what unravels you, the cues
 // and phrases of yours that worked, the one thing agreed for next round, and a short notebook of what
 // the coach saw each time. Kept in settings (so it's in your osolo backup) and shown to you in the chat,

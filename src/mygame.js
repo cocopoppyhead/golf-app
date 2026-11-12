@@ -24,8 +24,10 @@ export function swingSheet({ done = () => {} } = {}) {
       <textarea name="keys" rows="9" placeholder="# Set-up&#10;- Hinge hips, not upright&#10;# Swing&#10;- Slow takeaway">${esc(s.keys || '')}</textarea>
       <span class="hint"># starts a section, - starts a key. Shown in Practice and used by the AI coach.</span></label>
     <label>Swing story <span class="hint">Sent with every AI review: your handicap, what you're working on, your usual miss.</span>
-      <textarea name="golfer" rows="6" placeholder="e.g. 5 handicap. Used to sway; now working on getting to the left heel. Miss: block right.">${esc(s.golfer || '')}</textarea></label>`, (f) => {
-    const st = getSettings(); st.keys = f.keys.value; st.golfer = f.golfer.value.trim(); saveSettings(st); done();
+      <textarea name="golfer" rows="6" placeholder="e.g. 5 handicap. Used to sway; now working on getting to the left heel. Miss: block right.">${esc(s.golfer || '')}</textarea></label>
+    <label>Go-to club <span class="hint">The one you hit with ease when it matters. The coach offers it for tight tee shots and bad days.</span>
+      <input name="goto" value="${esc(s.goToClub || '')}" placeholder="e.g. 3 wood off the tee" /></label>`, (f) => {
+    const st = getSettings(); st.keys = f.keys.value; st.golfer = f.golfer.value.trim(); st.goToClub = f.goto.value.trim(); saveSettings(st); done();
   });
 }
 

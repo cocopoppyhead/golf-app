@@ -33,3 +33,19 @@ describe('coach eval scenarios carry their story', () => {
     expect(evidence(SCENARIOS.find((s) => s.id === 'heat-fade').rounds).phase).toBe('early');
   });
 });
+
+import { gameText } from '../../src/coach/game.js';
+describe('the game block the coach reads', () => {
+  const g = (id) => { const s = SCENARIOS.find((x) => x.id === id); return gameText({ rcs: s.rounds, settings: s.settings || {} }); };
+  it('has the Tiger 5 and the go-to club', () => {
+    const t = g('why-not-lower');
+    expect(t).toContain('Tiger 5 per round over 6 full rounds');
+    expect(t).toContain('Double bogeys 1.0');
+    expect(t).toContain('go-to club, in their words: 3 wood off the tee');
+    expect(t).not.toContain('[object Object]');
+  });
+  it('playbook has the four hats and the triage', () => {
+    const p = systemPrompt();
+    for (const k of ['The strategist', 'The swing coach', 'The psychologist', 'The caddie', 'WHICH HAT LEADS', 'WHAT YOU STAND FOR']) expect(p).toContain(k);
+  });
+});

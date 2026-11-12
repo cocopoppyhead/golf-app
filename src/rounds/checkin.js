@@ -27,6 +27,6 @@ export function checkinHtml(settings = {}, note = null) {
     <details class="ci-more"><summary>Between shots <span class="ci-n">${R.mind.length}</span></summary><ul>${R.mind.map((s) => `<li>${esc(s)}</li>`).join('')}</ul></details>
     ${rules.length ? `<details class="ci-more"><summary>Round rules <span class="ci-n">${rules.length}</span></summary><div class="ci-rules">${rules.map((id) => `<span>${esc(SHORT[id] || RULES[id].label)}</span>`).join('')}</div></details>` : ''}
     ${R.custom ? '' : '<p class="mute small ci-ex">This is an example routine. Tap Edit to make it yours.</p>'}
-    <button class="btn ci-coach" data-act="mind">Talk it through with your mental coach</button>
+    <button class="btn ci-coach" data-act="mind">Talk it through with your coach</button>
   </div>`;
 }

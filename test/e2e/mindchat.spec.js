@@ -18,6 +18,7 @@ test('the mental coach answers with your routine and rounds in its context', asy
   await chat.locator('.mc-picture summary').click();
   await expect(chat.locator('.mc-picture')).toContainText('long exhale on the first tee');
   expect(sent.system).toContain('LEARNING MODE');
+  expect(sent.system).toContain('WHICH HAT LEADS');
   expect(sent.system).toContain('THEIR ROUTINE');
   expect(sent.system).toContain('left heel');
   expect(sent.stream).toBe(true);

@@ -182,7 +182,7 @@ export async function renderSummary(r, c) {
       <div class="lbl">Notes</div>
       <textarea id="debriefNotes" rows="4" placeholder="e.g. Two driver slices into water on 5 and 14. Went for 9 in two when I should have laid up. Putted well.">${esc(r.debrief?.notes || '')}</textarea>
       <p class="mute small" id="dbSaved"></p>
-      <button class="btn mc-open" data-x="mind">Talk this round through with your mental coach</button>
+      <button class="btn mc-open" data-x="mind">Talk this round through with your coach</button>
     </div>
     <div class="actions" style="grid-template-columns:1fr 1fr">
       <button class="btn primary" data-x="ai">AI round review</button>

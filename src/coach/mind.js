@@ -1,4 +1,4 @@
-// The mental coach: a conversation that knows your rounds. Its context is built from what you already
+// The coach's context: a conversation that knows your rounds. Built from what you already
 // log: how you felt at the start, the turn and the finish; your aim and the kind of round; your process
 // ratings; the one thing you set out to do and whether you kept it; your debrief; your best shots and
 // how they felt; heart rate and heat when the watch had them; your routine and round rules.
@@ -130,7 +130,7 @@ ${rule}`;
 }
 
 /** Everything the coach is told: who they are, how they prepare, and the recent rounds (newest first). */
-export function mindContext({ rounds = [], settings = {}, focus = null, picture = '', practice = '' } = {}) {
+export function mindContext({ rounds = [], settings = {}, focus = null, picture = '', practice = '', game = '' } = {}) {
   const R = getRoutine(settings);
   const rules = (settings.roundRules || DEFAULT_RULES).map((id) => RULES[id]?.label).filter(Boolean);
   const parts = [evidenceText(evidence(rounds))];
@@ -145,6 +145,7 @@ export function mindContext({ rounds = [], settings = {}, focus = null, picture 
   if (pats.length) parts.push(`PATTERNS (worked out by the app from their rounds; trust these numbers)\n${pats.join('\n')}`);
   const rest = rounds.filter((x) => !focus || x.r.id !== focus.r.id).slice(0, 12);
   parts.push(rest.length ? `RECENT ROUNDS (newest first)\n${rest.map(roundLines).join('\n')}` : 'RECENT ROUNDS\nNone logged yet.');
+  if (game) parts.push(game);
   if (practice) parts.push(`PRACTICE\n${practice}`);
   if (picture) parts.push(picture);
   return parts.join('\n\n');
