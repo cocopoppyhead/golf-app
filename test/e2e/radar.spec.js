@@ -24,7 +24,7 @@ test('the skills radar draws six axes from rounds, switches windows and jumps to
   await expect(card).toBeVisible();
   await expect(card.locator('.radar .rax')).toHaveCount(6);
   await expect(card.locator('.radar .ryou')).toHaveCount(1);
-  await expect(card).toContainText('The handicap each part of your game plays like'); await expect(card.locator('.rring.target')).toHaveText('10'); // a 12 aims at 10
+  await expect(card).toContainText('The handicap each part of your game plays like'); await expect(card.locator('.rring.target')).toHaveText('5'); // a 12 aims at 5 (five better, rounded to a step of five)
   await expect(page.locator('.area .ah p').filter({ hasText: /Your (strength|biggest gap)/ }).first()).toBeVisible();
   await expect(card.locator('[data-radar-n="10"]')).toHaveClass(/on/);
   await expect(card.locator('[data-radar-n="50"]')).toHaveText('All 12'); // only 12 fully tracked rounds
