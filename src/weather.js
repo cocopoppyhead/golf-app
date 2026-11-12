@@ -35,12 +35,27 @@ async function position() {
 export async function getConditions({ force = false } = {}) {
   if (!force && cache && Date.now() - cache.at < 10 * 60e3) return cache.cond;
   const { lat, lon } = await position();
-  const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat.toFixed(4)}&longitude=${lon.toFixed(4)}&current=temperature_2m,relative_humidity_2m,surface_pressure,wind_speed_10m,wind_direction_10m,wind_gusts_10m&wind_speed_unit=mph`;
+  const cond = await conditionsAt(lat, lon, { force: true });
+  cache = { at: Date.now(), cond };
+  return cond;
+}
+
+const atCache = new Map(); // 'lat,lon' -> { at, cond }
+/**
+ * Current conditions at a place (a course), no location permission needed. Also the sky: WMO weather
+ * code, day or night, cloud cover — for the Play page's greeting. Cached for 10 minutes per place.
+ */
+export async function conditionsAt(lat, lon, { force = false } = {}) {
+  const key = `${(+lat).toFixed(2)},${(+lon).toFixed(2)}`;
+  const hit = atCache.get(key);
+  if (!force && hit && Date.now() - hit.at < 10 * 60e3) return hit.cond;
+  const url = `https://api.open-meteo.com/v1/forecast?latitude=${(+lat).toFixed(4)}&longitude=${(+lon).toFixed(4)}&current=temperature_2m,relative_humidity_2m,surface_pressure,wind_speed_10m,wind_direction_10m,wind_gusts_10m,weather_code,is_day,cloud_cover&wind_speed_unit=mph`;
   const r = await fetch(url, { signal: AbortSignal.timeout(10000) });
   if (!r.ok) throw new Error('Weather service unavailable.');
   const c = (await r.json()).current;
-  const cond = { tempC: c.temperature_2m, humidity: c.relative_humidity_2m, pressure: c.surface_pressure, windMph: c.wind_speed_10m, windFrom: c.wind_direction_10m, gustMph: c.wind_gusts_10m, at: Date.now(), lat: +lat.toFixed(4), lon: +lon.toFixed(4), source: 'open-meteo' };
-  cache = { at: Date.now(), cond };
+  const cond = { tempC: c.temperature_2m, humidity: c.relative_humidity_2m, pressure: c.surface_pressure, windMph: c.wind_speed_10m, windFrom: c.wind_direction_10m, gustMph: c.wind_gusts_10m,
+    code: c.weather_code ?? null, day: c.is_day == null ? null : !!c.is_day, cloud: c.cloud_cover ?? null, at: Date.now(), lat: +(+lat).toFixed(4), lon: +(+lon).toFixed(4), source: 'open-meteo' };
+  atCache.set(key, { at: Date.now(), cond });
   return cond;
 }
 

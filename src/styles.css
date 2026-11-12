@@ -841,3 +841,28 @@ table.t5, table.dk { width: 100%; border-collapse: collapse; font-size: 13px; } 
 .ci-more .ci-rules { margin-top: 8px; }
 @media (prefers-reduced-motion: reduce) { .ci-more summary::after { transition: none; } }
 .ci-more ul { list-style: none; padding: 0; } .ci-more ul li { display: grid; grid-template-columns: 22px 1fr; gap: 8px; } .ci-more ul li::before { content: '–'; color: var(--mute); }
+
+/* ---------- Play: the invitation at the top ---------- */
+:root { --sun: #ffc531; --rainc: #5aa9ff; }
+:root[data-theme="light"] { --sun: #f2a900; --rainc: #2f7fd8; }
+.hero-play { margin: 2px 0 18px; }
+.hp-top { display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: start; }
+.hp-line { font: 600 34px/1.02 var(--display); letter-spacing: -.2px; margin: 4px 0 0; text-wrap: balance; }
+.hp-wx { display: flex; flex-direction: column; align-items: center; min-width: 76px; }
+.wx-art { width: 72px; height: 64px; overflow: visible; }
+.wx-sun circle { fill: var(--sun); } .wx-sun line { stroke: var(--sun); stroke-width: 3; stroke-linecap: round; }
+.wx-cloud { fill: var(--panel); stroke: var(--soft); stroke-width: 2.2; stroke-linejoin: round; }
+.wx-moon { fill: var(--soft); }
+.wx-rain line, .wx-fog line { stroke: var(--rainc); stroke-width: 3; stroke-linecap: round; } .wx-fog line { stroke: var(--mute); }
+.wx-bolt { fill: var(--sun); }
+.wx-t { font: 600 32px/1 var(--display); font-variant-numeric: tabular-nums; margin-top: 2px; }
+.hp-sub { text-wrap: pretty; margin: 8px 0 0; font-size: 14px; color: var(--mute); line-height: 1.35; }
+.hp-today { margin-top: 16px; }
+.hp-q { font-size: 14px; font-weight: 600; color: var(--soft); margin: 18px 0 8px; }
+.hp-courses { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; } .hp-courses:empty { display: none; }
+.hp-course { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 12px 6px 10px; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; color: var(--ink); font: inherit; font-size: 13px; font-weight: 600; line-height: 1.2; text-align: center; cursor: pointer; box-shadow: var(--shadow); }
+.hp-course .clogo { width: 48px; height: 48px; }
+.hp-course:active { transform: scale(.98); }
+.hp-course:focus-visible { outline: 2px solid var(--acc); outline-offset: 2px; }
+.hp-find { width: 100%; margin-top: 8px; padding: 12px; border: 1px dashed var(--line); border-radius: 14px; background: transparent; color: var(--acc); font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; }
+.hp-find:focus-visible { outline: 2px solid var(--acc); outline-offset: 2px; }

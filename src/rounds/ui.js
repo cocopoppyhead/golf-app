@@ -1,7 +1,8 @@
 // Rounds module UI: courses, hole-by-hole logging (Conor's shot codes), scorecard photo import, summaries.
 import { CODES, roundStats, aggregate, pct, played } from './stats.js';
 import { openLibrary, loadLibrary } from './library.js';
-import { getConditions } from '../weather.js';
+import { getConditions, conditionsAt } from '../weather.js';
+import { heroHtml, fillWeather, clubName } from './hero.js';
 import { getSettings as S0, saveSettings as S1 } from '../store.js';
 
 import { putRound, getRound, deleteRound, listRounds, putCourse, getCourse, listCourses, deleteCourse, listSwings } from '../store.js';
@@ -86,9 +87,15 @@ export async function roundsHome() {
   const done = rounds.filter((r) => r.finished);
   await aggStats(done); // attaches per-round stats for the list
   const groups = groupCourses(allCourses), upcoming = events().slice(0, 3);
+  const lastOf = (g) => Math.max(0, ...g.variants.map((c) => c.lastPlayed || 0));
+  const recent = [...groups].sort((a, b) => lastOf(b) - lastOf(a));
+  const endOfDay = new Date().setHours(23, 59, 59, 999);
+  const today = open ? null : upcoming.find((e) => e.when <= endOfDay && e.when >= Date.now() - 3 * 3600e3) || null;
+  const me = (S0().nickname || S0().name || '').split(' ')[0];
   const gs = '<div id="gettingStarted"></div>';
   root.innerHTML = `
     ${open ? `<div class="card event-card"><b>Round in progress</b><p class="mute small">${esc(open.courseName)} · ${fmtD(open.date)} · ${played(open).length} holes logged</p><div class="row"><button class="btn primary" data-act="resume" data-id="${open.id}">Resume round</button><button class="btn" data-act="endopen" data-id="${open.id}">End / discard</button></div></div>` : ''}
+    ${open ? '' : heroHtml({ name: me, groups: recent, today })}
     ${done.length ? '' : gs}
     ${upcoming.length ? `<div class="sechead"><h2>Upcoming</h2></div><div class="card upcoming">${upcoming.map(upcomingRow).join('')}</div>` : ''}
     ${checkinHtml(S0(), lastNote(done))}
@@ -101,9 +108,23 @@ export async function roundsHome() {
     ${done.length ? gs : ''}`;
   root.querySelectorAll('[data-act]').forEach((b) => b.addEventListener('click', () => homeAction(b.dataset.act, b.dataset.id)));
   bindCourseCards(root, groups, courseApi());
+  if (!open) heroWeather(recent, me);
   handlePendingInvite();
   mergeRemoteEvents().then((changed) => { if (changed && root?.querySelector('.checkin') && !cur) roundsHome(); });
   renderChecklist(root.querySelector('#gettingStarted'), { onGo: (where) => (where === 'library' ? homeAction('library') : where === 'play' ? (groups.length ? coursePage(groups[0], courseApi()) : homeAction('library')) : ctx.showTab?.(where)) });
+}
+/** The live sky at your most recent course (no location prompt), else where you are if already allowed. */
+async function heroWeather(recent, name) {
+  try {
+    const lib = await loadLibrary().catch(() => []);
+    const g = recent.find((x) => x.variants.some((c) => c.lat != null) || lib.find((l) => l.id === x.libId && l.lat != null));
+    let lat, lon, place = '';
+    if (g) { const v = g.variants.find((c) => c.lat != null); const l = lib.find((x) => x.id === g.libId); lat = v?.lat ?? l?.lat; lon = v?.lon ?? l?.lon; place = clubName(g.name); }
+    let cond = null;
+    if (lat != null) cond = await conditionsAt(lat, lon);
+    else if ((await navigator.permissions?.query({ name: 'geolocation' }).catch(() => null))?.state === 'granted') cond = await getConditions();
+    if (root?.isConnected) fillWeather(root, cond, { name, place });
+  } catch { /* the line stays "Fancy a game?" */ }
 }
 /** One scheduled round: the course, when and who, Start, and the smaller actions underneath. */
 function upcomingRow(e) {
