@@ -23,6 +23,8 @@ const ICON = {
   launch: '<svg viewBox="0 0 24 24"><path d="M3 19c4-9 10-13 18-14"/><circle cx="4" cy="19" r="2"/><path d="M15 5h6v6"/></svg>',
   card: '<svg viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg>',
   file: '<svg viewBox="0 0 24 24"><path d="M14 3H6v18h12V7z"/><path d="M14 3v4h4M9 14l3 3 3-3M12 10v7"/></svg>',
+  invite: '<svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.6 3.4-5.5 6.5-5.5s5.7 1.9 6.5 5.5M18 8v6M15 11h6"/></svg>',
+  trash: '<svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6M14 11v6"/></svg>',
   putt: '<svg viewBox="0 0 24 24"><path d="M14 2v14"/><path d="M14 16h-6l-1 3h7"/><circle cx="18" cy="20" r="2"/></svg>',
   glasses: '<svg viewBox="0 0 24 24"><circle cx="6.5" cy="14" r="3.5"/><circle cx="17.5" cy="14" r="3.5"/><path d="M10 14h4M3 13l1-6M21 13l-1-6"/></svg>',
   tmfile: '<svg viewBox="0 0 24 24"><path d="M14 3H6v18h12V7z"/><path d="M14 3v4h4M8 13h8M8 17h5"/></svg>',
@@ -65,6 +67,8 @@ export function initSettingsUi(a) {
   $('#hwSoon').innerHTML = soon(HW_SOON);
   $('#importSoon').innerHTML = soon(IMPORT_SOON);
   $('#aiSoon').innerHTML = AI_SOON.map(([k, name, sub, slug]) => `<div class="aitile soon"><span class="ailogo">${brand(slug, name[0])}</span><b>${esc(name)}</b><span class="mute small">${esc(sub)}</span></div>`).join('');
+  $('#inviteBtn').onclick = inviteFriends;
+  $('#deleteAcctBtn').onclick = deleteAccountSheet;
   document.querySelectorAll('.hwic[data-ic]').forEach((el) => { el.innerHTML = el.dataset.ic === 'garmin' ? brand('garmin') : ICON[el.dataset.ic] || ''; });
 }
 
@@ -87,6 +91,42 @@ function openAi(prov) {
   document.querySelectorAll('[data-ai]').forEach((b) => b.classList.toggle('sel', b.dataset.ai === prov));
   if (g[P.keyField].value.trim() && prov !== 'claude') loadModels();
   g.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+/** A friend link when signed in (adds both ways), else the plain app link. */
+async function inviteFriends() {
+  const { currentUser } = await import('./cloud/supabase.js');
+  const { myFriendCode, inviteLink, APP_URL } = await import('./cloud/social.js');
+  const { inviteSheet } = await import('./rounds/friends.js');
+  const u = await currentUser().catch(() => null);
+  const code = u ? await myFriendCode().catch(() => null) : null;
+  if (code) return inviteSheet({ title: 'Add me on osolo', link: inviteLink('friend', code), code, blurb: "A friend who opens this link (signed in) is added both ways: you see each other's scores and can invite each other to rounds." });
+  inviteSheet({ title: 'Try osolo', link: APP_URL, code: '', blurb: 'Sign in first and the link adds them as your friend too.' });
+}
+/** Delete the account (server) and, if asked, everything on this phone. */
+function deleteAccountSheet() {
+  const sheet = document.createElement('div'); sheet.className = 'sheet';
+  sheet.innerHTML = `<div class="sheet-in"><div class="sheet-h"><b>Delete account</b><button class="link" data-close>Cancel</button></div>
+    <p class="small">This deletes your osolo account and everything synced to it: profile, rounds, swings, friends, league places. It can't be undone.</p>
+    <label class="check small"><input type="checkbox" data-local /> Also wipe this phone (rounds, swings, bag, settings, videos)</label>
+    <label class="small">Type DELETE to confirm<input data-confirm autocomplete="off" /></label>
+    <button class="btn big" data-ok disabled style="color:var(--work);margin-top:10px">Delete my account</button><p class="small" data-out></p></div>`;
+  const q = (x) => sheet.querySelector(x);
+  q('[data-close]').onclick = () => sheet.remove();
+  q('[data-confirm]').oninput = (e) => { q('[data-ok]').disabled = e.target.value.trim() !== 'DELETE'; };
+  q('[data-ok]').onclick = async () => {
+    q('[data-ok]').disabled = true; q('[data-out]').textContent = 'Deleting…';
+    const { sb, currentUser, signOut } = await import('./cloud/supabase.js');
+    try {
+      if (await currentUser().catch(() => null)) { const { error } = await sb.rpc('delete_my_account'); if (error) throw error; await signOut().catch(() => {}); }
+      if (q('[data-local]').checked) {
+        localStorage.clear();
+        for (const db of (await indexedDB.databases?.()) || [{ name: 'golf-app' }]) if (db.name) indexedDB.deleteDatabase(db.name);
+      }
+      q('[data-out]').textContent = 'Done. Restarting…'; setTimeout(() => location.reload(), 1200);
+    } catch (e) { q('[data-out]').textContent = `Couldn't delete the account: ${e.message || e}. Nothing on this phone was touched.`; q('[data-ok]').disabled = false; }
+  };
+  document.body.appendChild(sheet);
 }
 
 export function fillSettings() {

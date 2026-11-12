@@ -16,6 +16,8 @@ import { drillContext } from '../drills.js';
 import { intentionLabel, moodLine } from './intentions.js';
 import { autoShotType, holeGaps } from './hole.js';
 import { removeSummary } from '../cloud/social.js';
+import { bestCandidates } from './bestshots.js';
+import { dist as DU, du } from '../units.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const fmtD = (d) => new Date(d).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short', year: new Date(d).getFullYear() === new Date().getFullYear() ? undefined : 'numeric' });
@@ -112,6 +114,19 @@ export function statsCard(S, title) {
   </div>`;
 }
 
+const FREQ_W = { 4: 'always', 3: 'mostly', 2: 'sometimes', 1: 'rarely' };
+/** The round's mental side for the AI: kind, aim, process ratings, best shots. */
+function mindText(r) {
+  const p = r.process || {};
+  const bits = [
+    r.kind ? `Round type: ${r.kind === 'comp' ? 'competition' : 'casual'}.` : '',
+    r.aim ? `Aim today: ${{ low: 'shoot low', fun: 'have fun', both: 'shoot low and have fun' }[r.aim]}.` : '',
+    p.routine || p.commit || p.accept ? `Process (self-rated): pre-shot routine ${FREQ_W[p.routine] || '?'}, committed ${FREQ_W[p.commit] || '?'}, let bad shots go ${FREQ_W[p.accept] || '?'}${p.fun ? `, enjoyed it ${FREQ_W[p.fun]}` : ''}.` : '',
+    (r.best || []).filter((b) => b.note).length ? `Best shots and how they felt: ${r.best.filter((b) => b.note).map((b) => `hole ${b.h + 1}${b.club ? ` (${b.club})` : ''}: ${b.note}`).join('; ')}.` : '',
+  ].filter(Boolean);
+  return bits.length ? `\nMental side: ${bits.join(' ')}` : '';
+}
+
 export async function renderSummary(r, c) {
   const S = roundStats(r, c);
   api.setCur(r, c);
@@ -144,6 +159,17 @@ export async function renderSummary(r, c) {
       <p class="mute small" style="margin:0 0 6px">${T.total <= 6 ? 'Six or fewer: a round you can win with.' : 'Over six: these cost the round.'}</p>
       ${T.res.map((x) => `<div class="rule"><span class="${x.holes.length ? 'x' : 'ok'}">${x.holes.length || '✓'}</span><div><b>${TIGER5_LABEL[x.id]}</b>${x.holes.length ? `<div class="mute small">Hole${x.holes.length > 1 ? 's' : ''} ${x.holes.join(', ')}</div>` : ''}</div></div>`).join('')}</div>`; })()}
     ${rulesCard(checkRules(r, c, api.ctx.settings().roundRules || DEFAULT_RULES), esc)}
+    ${(() => {
+      const C = bestCandidates(r, c); const picked = r.best || [];
+      const label = (b) => `Hole ${b.h + 1} · ${b.k === 0 ? 'tee shot' : `shot ${b.k + 1}`}${b.club ? ` · ${esc(b.club)}` : ''}${b.dist != null ? ` · ${DU(b.dist)} ${du()}` : ''}${b.stars ? ` · ${'★'.repeat(b.stars)}` : ''}${b.res === 'HO' ? ' · holed' : ''}`;
+      if (!C.length && !picked.length) return '';
+      const isOn = (b) => picked.some((p) => p.h === b.h && p.k === b.k);
+      return `<div class="card bestcard"><h2>Your three best shots</h2>
+        <p class="mute small" style="margin:0 0 8px">Pick up to three. For each: how the swing felt, your process before it, what you saw. Your best shots here come back before your next round on this course.</p>
+        <div class="bestc">${C.map((b) => `<button class="${isOn(b) ? 'on' : ''}" data-best="${b.h}:${b.k}">${label(b)}</button>`).join('')}</div>
+        ${picked.map((p, i) => `<div class="bestnote"><b>${label({ ...(C.find((b) => b.h === p.h && b.k === p.k) || p) })}</b><textarea data-bestnote="${i}" rows="2" placeholder="e.g. smooth tempo, picked a tree behind the flag, saw it start right and hold">${esc(p.note || '')}</textarea></div>`).join('')}
+      </div>`;
+    })()}
     <div class="card debrief"><h2>Debrief</h2>
       <p class="mute small">What really decided this round? The coach reads this alongside the numbers.</p>
       ${c.holes.map((ch, i) => ({ h: r.holes[i], ch, i })).filter(({ h, ch }) => h && h.score - ch.par >= 2).map(({ h, ch, i }) => `<div class="dhole"><b>Hole ${i + 1}: ${h.score} on a par ${ch.par}</b>${(h.tags || []).length ? `<span class="mute small"> · ${esc(h.tags.map((t) => [t.shot, t.cause, t.flight, t.strike, t.result].filter(Boolean).join('/')).join(', '))}</span>` : ''}
@@ -169,6 +195,15 @@ export async function renderSummary(r, c) {
   let dbT = null;
   const saveDb = () => { clearTimeout(dbT); dbT = setTimeout(async () => { await putRound(r); const el = api.root.querySelector('#dbSaved'); if (el) el.textContent = 'Saved'; }, 600); };
   r.debrief ||= { notes: '', tags: [] };
+  api.root.querySelectorAll('[data-best]').forEach((b) => (b.onclick = async () => {
+    const [h, k] = b.dataset.best.split(':').map(Number);
+    const C = bestCandidates(r, c); const cand = C.find((x) => x.h === h && x.k === k);
+    r.best ||= [];
+    const i = r.best.findIndex((p) => p.h === h && p.k === k);
+    if (i >= 0) r.best.splice(i, 1); else if (r.best.length < 3) r.best.push({ h, k, club: cand?.club || null, dist: cand?.dist ?? null, stars: cand?.stars || 0, note: '' });
+    await putRound(r); const y = window.scrollY; await renderSummary(r, c); window.scrollTo(0, y);
+  }));
+  api.root.querySelectorAll('[data-bestnote]').forEach((t) => t.addEventListener('input', (e) => { r.best[+t.dataset.bestnote].note = e.target.value; saveDb(); }));
   api.root.querySelector('#debriefNotes').addEventListener('input', (e) => { r.debrief.notes = e.target.value; saveDb(); });
   api.root.querySelector('#debriefAgain').addEventListener('input', (e) => { r.debrief.again = e.target.value; saveDb(); });
   api.root.querySelectorAll('[data-hn]').forEach((t) => t.addEventListener('input', (e) => { r.holes[+t.dataset.hn].note = e.target.value; saveDb(); }));
@@ -193,7 +228,7 @@ export async function renderSummary(r, c) {
         const A = await api.aggStats(recent);
         const swings = await listSwings().catch(() => []);
         const holeLog = r.holes.map((h, i) => h ? `H${i + 1} par ${c.holes[i].par}: ${h.score} (${h.putts ?? '?'} putts${h.tee ? `, tee ${h.tee}` : ''}${h.miss ? `, missed green ${h.miss}` : ''}${h.bunker ? ', bunker' : ''}${(h.tags || []).length ? `, tags: ${h.tags.map((t) => [t.shot, t.cause, t.flight, t.strike, t.result].filter(Boolean).join('/') + (t.cost ? ` +${t.cost}` : ' saved')).join('; ')}` : ''}${(h.shots || []).some((x) => x.d || x.res || x.dist) ? `, shots: ${h.shots.map((x, k) => `${k + 1}${x.lie && x.lie !== 'tee' ? ` from ${x.lie}` : ''}${x.dist ? ` ${Math.round(x.dist)}y` : ''}${x.sw ? ` ${x.sw}` : ''}${x.intent ? ` (planned ${({ D: 'draw', S: 'straight', F: 'fade' })[x.intent]})` : ''}${x.res ? ` → ${x.res}${x.dir ? ` missed ${x.dir}` : ''}${x.ss ? ' short-sided' : ''}` : ''}${x.d ? ` [${[x.d.club, x.d.flight, x.d.strike, x.d.cause, x.d.result].filter(Boolean).join('/')}]` : ''}`).join('; ')}` : ''}${h.note ? `, golfer's note: "${h.note}"` : ''})` : null).filter(Boolean).join('\n');
-        const roundText = `${c.name}${c.tees ? ` (${c.tees})` : ''}: ${S.score} (${toParStr(S.toPar)}). ${moodLine(r) ? moodLine(r) + ' (1 = lethargic, 5 = calm/focused ideal, 10 = agitated). ' : ''}${roundSummaryText(aggregate([{ round: r, course: c, stats: S }]))}\nRules the golfer plays by: ${checkRules(r, c, api.ctx.settings().roundRules || DEFAULT_RULES).map((x) => `${x.label}: ${x.holes.length ? `broken on ${x.holes.join(',')}` : 'kept'}`).join('; ')}.\nHole by hole:\n${holeLog}${r.debrief?.tags?.length || r.debrief?.notes ? `\nGolfer's debrief: ${[...(r.debrief.tags || []), r.debrief.notes].filter(Boolean).join('; ')}` : ''}${r.debrief?.again ? `\nWhat they'd do differently next time: ${r.debrief.again}` : ''}`;
+        const roundText = `${c.name}${c.tees ? ` (${c.tees})` : ''}: ${S.score} (${toParStr(S.toPar)}). ${moodLine(r) ? moodLine(r) + ' (1 = lethargic, 5 = calm/focused ideal, 10 = agitated). ' : ''}${roundSummaryText(aggregate([{ round: r, course: c, stats: S }]))}\nRules the golfer plays by: ${checkRules(r, c, api.ctx.settings().roundRules || DEFAULT_RULES).map((x) => `${x.label}: ${x.holes.length ? `broken on ${x.holes.join(',')}` : 'kept'}`).join('; ')}.\nHole by hole:\n${holeLog}${r.debrief?.tags?.length || r.debrief?.notes ? `\nGolfer's debrief: ${[...(r.debrief.tags || []), r.debrief.notes].filter(Boolean).join('; ')}` : ''}${r.debrief?.again ? `\nWhat they'd do differently next time: ${r.debrief.again}` : ''}${mindText(r)}`;
         const { text, meta } = await reviewRound({ ...aiFrom(s), roundText: `${wxLine(r) ? `Conditions: ${wxLine(r).replace(/<[^>]+>/g, '').replace('☁ ', '')}\n` : ''}${roundText}`, recentText: A ? roundSummaryText(A) : '', history: coachContext(swings, recent.length ? A : null), golfer: [s.golfer, workContext(), await practiceContext().catch(() => ''), await drillContext().catch(() => '')].filter(Boolean).join(' ') });
         r.ai = text; await putRound(r);
         if (meta?.note && r.learning !== false) addCoachNote(`[round] ${String(meta.note).slice(0, 280)}`);

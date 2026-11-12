@@ -20,8 +20,8 @@ export function inviteSheet({ title, link, code, blurb = '' }) {
   sheet.innerHTML = `<div class="sheet-in"><div class="sheet-h"><b>${esc(title)}</b><button class="link" data-close>Close</button></div>
     ${blurb ? `<p class="small mute" style="margin:0 0 8px">${esc(blurb)}</p>` : ''}
     <div class="qrwrap">${qrSvg(link)}</div>
-    <p class="center" style="margin:6px 0 2px"><b class="code">${esc(code)}</b></p>
-    <p class="mute small center" style="margin:0 0 10px">Scan, or type the code in osolo → Play → Friends.</p>
+    ${code ? `<p class="center" style="margin:6px 0 2px"><b class="code">${esc(code)}</b></p>
+    <p class="mute small center" style="margin:0 0 10px">Scan, or type the code in osolo → Play → Friends.</p>` : '<p class="mute small center" style="margin:6px 0 10px">Scan to open osolo.</p>'}
     <div class="row"><button class="btn primary" data-share style="flex:1">Share link</button><button class="btn" data-copy style="flex:1">Copy</button></div>
     <p class="mute small" style="margin-top:8px;word-break:break-all">${esc(link)}</p></div>`;
   sheet.querySelector('[data-close]').onclick = () => sheet.remove();

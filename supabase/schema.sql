@@ -266,3 +266,18 @@ begin
   return e;
 end $$;
 grant execute on function public.join_event(text, text) to authenticated;
+
+-- Delete my account: removes the auth user; every table above cascades from auth.users, so the
+-- profile, synced data, friendships, summaries and event places go with it. Courses created by the
+-- user stay (shared) with created_by cleared.
+create or replace function public.delete_my_account() returns void language plpgsql security definer set search_path = public as $$
+begin
+  if auth.uid() is null then raise exception 'not signed in'; end if;
+  update public.courses set created_by = null where created_by = auth.uid();
+  delete from public.leagues where created_by = auth.uid();
+  delete from public.league_scores where entered_by = auth.uid();
+  delete from public.league_rounds where created_by = auth.uid();
+  delete from auth.users where id = auth.uid();
+end $$;
+revoke all on function public.delete_my_account() from public;
+grant execute on function public.delete_my_account() to authenticated;
