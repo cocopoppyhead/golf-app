@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { SCENARIOS } from '../coach-evals/scenarios.mjs';
 import { mindContext } from '../../src/coach/mind.js';
 import { systemPrompt } from '../../src/coach/playbook.js';
+import { evidence } from '../../src/coach/mind.js';
 
 // Offline half of the coach evals: each scenario's story must actually be in what the coach is given.
 const ctx = (id) => mindContext({ rounds: SCENARIOS.find((s) => s.id === id).rounds, settings: {} });
@@ -24,5 +25,11 @@ describe('coach eval scenarios carry their story', () => {
     for (const k of ['WHAT TO LOOK AT', 'HOW TO READ IT', 'WHAT TO HAND BACK', 'HOW TO HOLD THE CONVERSATION']) expect(systemPrompt()).toContain(k);
     expect(systemPrompt('pre-round')).toContain('BEFORE A ROUND');
     expect(systemPrompt('debrief')).toContain('DEBRIEF');
+  });
+
+  it('knows how much evidence it has', () => {
+    expect(evidence(SCENARIOS.find((s) => s.id === 'baseline').rounds).phase).toBe('baseline');
+    expect(ctx('baseline')).toContain('PHASE: BASELINE');
+    expect(evidence(SCENARIOS.find((s) => s.id === 'heat-fade').rounds).phase).toBe('early');
   });
 });

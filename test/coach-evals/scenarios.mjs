@@ -107,4 +107,28 @@ export const SCENARIOS = [
     maxWords: 180,
     judge: 'The first thing it says is something specific that went well (e.g. the 7 iron on 7, "saw the window"), before the strokes lost; ends with one thing and one question.',
   },
+
+  {
+    id: 'baseline', title: 'Thin data: acknowledge, watch, log; no theory',
+    rounds: [round(0, flat(1, 5), { debrief: { notes: 'Extremely exhausted this round.' } }), { r: { id: 'q1', finished: true, quick: true, date: day(3), courseId: 'c', courseName: course.name, score: 80, holes: [] }, c: course }, { r: { id: 'q2', finished: true, quick: true, date: day(5), courseId: 'c', courseName: course.name, score: 79, holes: [] }, c: course }],
+    ask: 'What do you make of my game so far?',
+    maxWords: 100,
+    must: [/early|too early|too few|only one|not enough|one round|keep logging|log|check-in/i],
+    mustNot: [/heat|dehydrat|water|drink/i],
+    judge: 'Says plainly it has one hole-by-hole round and two totals, so no conclusions yet; notes the exhaustion; tells them what to log (energy, mood, process, a debrief line); at most one thing to watch; no causes claimed.',
+  },
+  {
+    id: 'close-the-door', title: 'Does not keep digging at the same round',
+    rounds: [round(0, flat(1, 5), { energy: 'low', debrief: { notes: 'Extremely exhausted.' } }), round(1, flat(2, 2)), round(2, flat(1, 2))],
+    history: [
+      { role: 'user', text: 'Talk me through the 1 Oct round.' },
+      { role: 'assistant', text: 'You went +1 out and +5 home and wrote that you were exhausted. What was the week like before it?' },
+      { role: 'user', text: 'Heavy work week, little sleep. It is what it is.' },
+      { role: 'assistant', text: 'Noted: low sleep and a heavy week before 1 Oct. How did you feel walking off 9?' },
+    ],
+    ask: 'Flat, honestly. Anyway.',
+    maxWords: 100,
+    mustNot: [/\?[\s\S]*1 Oct|walking off 9|what (were|was) you|how did you feel/i],
+    judge: 'Acknowledges in a line, does NOT ask another question about the 1 Oct round, and moves forward: what to log next time (energy at the start), one thing for the next round, or asks about something new. Forward-looking, brief.',
+  },
 ];

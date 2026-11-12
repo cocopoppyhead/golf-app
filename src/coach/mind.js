@@ -104,11 +104,36 @@ export function patterns(rcs) {
   return out;
 }
 
+/**
+ * How much the coach has to go on, worked out by the app. Phases:
+ *   baseline    under 5 hole-by-hole rounds: acknowledge, set what to log, no diagnoses
+ *   early       5-9 hole-by-hole rounds: early reads, say what would confirm them
+ *   established 10+: patterns can be trusted
+ */
+export function evidence(rounds = []) {
+  const full = rounds.filter((x) => !x.r.quick && scored(x).length >= 18).length;
+  const checkins = rounds.filter((x) => x.r.mood?.start || x.r.energy || x.r.process?.routine).length;
+  const debriefs = rounds.filter((x) => x.r.debrief?.notes || x.r.debrief?.again || x.r.debrief?.tags?.length).length;
+  const hr = rounds.filter((x) => x.r.hr?.avg).length;
+  const phase = full < 5 ? 'baseline' : full < 10 ? 'early' : 'established';
+  return { total: rounds.length, full, checkins, debriefs, hr, phase };
+}
+export function evidenceText(e) {
+  const line = `EVIDENCE: ${e.total} rounds that count, ${e.full} hole by hole, ${e.checkins} with a start or finish check-in, ${e.debriefs} with a debrief, ${e.hr} with heart rate.`;
+  const rule = {
+    baseline: 'PHASE: BASELINE. Too little to diagnose anything. Acknowledge what they tell you, write it in the notebook, name one thing to keep an eye on, and ask them to log the check-ins (energy, mood, process) and a debrief line each round so the picture builds. No causes, no plans, no patterns claimed. Under 90 words.',
+    early: 'PHASE: EARLY. Reads are provisional: say what the numbers suggest and what would confirm it (which rounds, which logs). One small thing to try, framed as a test.',
+    established: 'PHASE: ESTABLISHED. The patterns can be trusted; coach from them.',
+  }[e.phase];
+  return `${line}
+${rule}`;
+}
+
 /** Everything the coach is told: who they are, how they prepare, and the recent rounds (newest first). */
 export function mindContext({ rounds = [], settings = {}, focus = null, picture = '', practice = '' } = {}) {
   const R = getRoutine(settings);
   const rules = (settings.roundRules || DEFAULT_RULES).map((id) => RULES[id]?.label).filter(Boolean);
-  const parts = [];
+  const parts = [evidenceText(evidence(rounds))];
   if (settings.golfer) parts.push(`ABOUT THE GOLFER\n${settings.golfer}`);
   if (settings.handicap != null) parts.push(`Handicap: ${settings.handicap}.`);
   parts.push(`THEIR ROUTINE\nBefore every shot: ${R.preshot.join(' / ')}.\nBetween shots: ${R.mind.join(' / ')}.${R.swingThought ? `\nSwing thought: ${R.swingThought}.` : ''}${R.custom ? '' : '\n(This is the app\'s example routine; they have not written their own yet.)'}\nRound rules: ${rules.join('; ')}.`);
