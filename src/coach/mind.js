@@ -35,7 +35,8 @@ export function roundLines({ r, c }) {
   const head = r.quick ? `${r.score ?? '?'} (total only, no hole scores)` : holes.length < 18 && holes.length !== 9
     ? `${holes.length} holes played, ${score} strokes, ${tp(holes)} (an incomplete round)`
     : `${score} strokes, ${tp(holes)}${back.length && front.length ? `. Front nine ${tp(front)}, back nine ${tp(back)}` : ''}`;
-  const out = [`${fmtD(r.date)}, teed off ${start.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}, ${r.courseName}: ${head}.`];
+  const noTime = r.quick || r.source === 'ghin' || r.source === 'post' || r.source === 'photo'; // a posted score carries a date, not a tee time
+  const out = [`${fmtD(r.date)}, ${noTime ? 'tee time not recorded' : `teed off ${start.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}`}, ${r.courseName}: ${head}.`];
   if (!r.quick && holes.length) out.push(`Hole by hole to par: ${front.map((x) => signed(x.d)).join(' ')}${back.length ? ` | ${back.map((x) => signed(x.d)).join(' ')}` : ''}.`);
   if (r.kind || r.aim) out.push(`${r.kind ? (r.kind === 'comp' ? 'Competition' : 'Casual') + ' round' : ''}${r.kind && r.aim ? '; ' : ''}${r.aim ? `aim: ${{ low: 'shoot low', fun: 'have fun', both: 'shoot low and have fun' }[r.aim]}` : ''}.`);
   const mood = r.mood && moodLine(r); if (mood) out.push(`${mood}.`);
@@ -51,7 +52,7 @@ export function roundLines({ r, c }) {
   const best = (r.best || []).filter((b) => b.note); if (best.length) out.push(`Best shots, how they felt: ${best.map((b) => `hole ${b.h + 1}${b.club ? ` (${b.club})` : ''}: ${b.note}`).join('; ')}.`);
   const hrF = avg(front.map((x) => x.h.hr?.avg).filter(Boolean)), hrB = avg(back.map((x) => x.h.hr?.avg).filter(Boolean));
   if (r.hr?.avg) out.push(`Heart rate: average ${r.hr.avg}${r.hr.max ? `, peak ${r.hr.max}` : ''} bpm${hrF && hrB ? ` (front ${Math.round(hrF)}, back ${Math.round(hrB)})` : ''}.`);
-  const t = r.cond?.start?.tempC; if (t != null) out.push(`About ${Math.round(t)}°C${r.cond.start.windMph != null ? `, wind ${Math.round(r.cond.start.windMph)} mph` : ''}.`);
+  const t = r.cond?.start?.tempC; if (t != null) out.push(`About ${Math.round(t)}°C${r.cond.start.windMph != null ? `, wind ${Math.round(r.cond.start.windMph)} mph` : ''}${noTime ? ' (midday reading; the tee time isn\'t known)' : ''}.`);
   return out.join(' ');
 }
 
@@ -81,8 +82,10 @@ export function patterns(rcs) {
     const a = rows.filter((x) => test(x) === true), b = rows.filter((x) => test(x) === false);
     if (a.length >= 3 && b.length >= 3) out.push(`${label}: back nine minus front ${one(avg(a.map((x) => x.gap)))} (${a.length} rounds ${yes}) against ${one(avg(b.map((x) => x.gap)))} (${b.length} ${no}).`);
   };
-  split('Heat', (x) => (x.r.cond?.start?.tempC == null ? null : x.r.cond.start.tempC >= 32), 'at 32°C or hotter', 'cooler');
-  split('Tee time', (x) => new Date(x.r.date).getHours() >= 13, 'teeing off 1pm or later', 'earlier');
+  const hasTime = (x) => !(x.r.quick || ['ghin', 'post', 'photo'].includes(x.r.source));
+  split('Heat', (x) => (x.r.cond?.start?.tempC == null || !hasTime(x) ? null : x.r.cond.start.tempC >= 32), 'at 32°C or hotter', 'cooler');
+  split('Tee time', (x) => (hasTime(x) ? new Date(x.r.date).getHours() >= 13 : null), 'teeing off 1pm or later', 'earlier');
+  split('Energy at the start', (x) => (x.r.energy ? x.r.energy === 'low' : null), 'running low', 'fresh or OK');
   const hrs = rows.map((x) => x.r.hr?.avg).filter(Boolean).sort((p, q) => p - q);
   if (hrs.length >= 6) { const mid = hrs[Math.floor(hrs.length / 2)]; split('Heart rate', (x) => (x.r.hr?.avg ? x.r.hr.avg > mid : null), `above ${mid} bpm average`, 'at or below'); }
   split('Feeling at the turn', (x) => (x.r.mood?.turn ? x.r.mood.turn >= 7 : null), 'wound up (7+ of 10)', 'calmer');

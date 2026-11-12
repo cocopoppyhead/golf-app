@@ -51,3 +51,13 @@ describe('chat turns', () => {
       .toEqual([{ role: 'user', text: 'a\n\nb' }, { role: 'assistant', text: 'c' }]);
   });
 });
+
+describe('posted scores carry no tee time', () => {
+  it('says so instead of inventing noon', () => {
+    const g = { ...r, id: 'g', source: 'ghin', quick: false, cond: { start: { tempC: 33 } } };
+    const t = roundLines({ r: g, c });
+    expect(t).toContain('tee time not recorded');
+    expect(t).not.toMatch(/teed off/);
+    expect(t).toContain("midday reading; the tee time isn't known");
+  });
+});

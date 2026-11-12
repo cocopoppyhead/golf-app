@@ -21,7 +21,7 @@ import { loadGeo, geoHole, mountHoleMap, markedHole, markHoleSheet } from './hol
 import { renderChecklist } from '../checklist.js';
 import { icon } from '../icons.js';
 import { approachBands } from './bands.js';
-import { INTENTIONS, intentionLabel, WARMUP, MOOD_WORDS } from './intentions.js';
+import { INTENTIONS, intentionLabel, WARMUP, ENERGY, MOOD_WORDS } from './intentions.js';
 import { getRoutine, routineHtml } from './routine.js';
 import { planSheet } from '../mygame.js';
 import { lastBestHere } from './bestshots.js';
@@ -718,7 +718,7 @@ function readWeather(round, key) {
 const moodColor = (n) => `hsl(${n <= 5 ? 200 - (n - 1) * 20 : 120 - (n - 5) * 24}, 75%, 50%)`;
 function moodSheet(round, key, done) {
   round.mood ||= {};
-  let v = round.mood[key] ?? null, w = round.warmup ?? null, it = round.intention ?? null, kept = round.intentionKept ?? null, kind = round.kind ?? null, kindInfo = false, aim = round.aim ?? null;
+  let v = round.mood[key] ?? null, w = round.warmup ?? null, en = round.energy ?? null, it = round.intention ?? null, kept = round.intentionKept ?? null, kind = round.kind ?? null, kindInfo = false, aim = round.aim ?? null;
   const proc = { ...(round.process || {}) };
   const R = getRoutine(S0());
   let thought = round.swingThought ?? R.swingThought ?? '', expect = round.expect ?? '';
@@ -737,7 +737,8 @@ function moodSheet(round, key, done) {
       <div class="lbl">How do you feel right now?</div>
       <div class="moodscale">${Array.from({ length: 10 }, (_, n) => `<button class="${v === n + 1 ? 'on' : ''}" data-m="${n + 1}" style="--c:${moodColor(n + 1)}">${n + 1}</button>`).join('')}</div>
       <div class="moodlbl">${[['Low', MOOD_WORDS.low, 1], ['Ideal', MOOD_WORDS.mid, 5], ['High', MOOD_WORDS.high, 10]].map(([t, w, n]) => `<span style="color:${moodColor(n)}">${t}${w.split(' · ').map((x) => `<small>${x[0].toUpperCase() + x.slice(1)}</small>`).join('')}</span>`).join('')}</div>
-      ${key === 'start' ? `<div class="lbl">Any practice or warm-up before the round?</div><div class="seg4">${WARMUP.map(([k, l]) => `<button class="${w === k ? 'on' : ''}" data-w="${k}">${l}</button>`).join('')}</div>
+      ${key === 'start' ? `<div class="lbl">Energy today? <span class="mute">(sleep, work, legs)</span></div><div class="seg3">${ENERGY.map(([k, l]) => `<button class="${en === k ? 'on' : ''}" data-en="${k}">${l}</button>`).join('')}</div>
+      <div class="lbl">Any practice or warm-up before the round?</div><div class="seg4">${WARMUP.map(([k, l]) => `<button class="${w === k ? 'on' : ''}" data-w="${k}">${l}</button>`).join('')}</div>
       ${bestHere.length ? `<div class="again best"><b>Your best shots here last time:</b>${bestHere.map((b) => `<div class="small">Hole ${b.h + 1}${b.club ? `, ${esc(b.club)}` : ''}: ${esc(b.note)}</div>`).join('')}</div>` : ''}
       ${lastAgain ? `<div class="again"><b>Last time here you said you'd:</b> ${esc(lastAgain.text)} <span class="mute small">(${fmtD(lastAgain.date)}, ${lastAgain.score})</span></div>` : ''}
       <div class="lbl">One thing for today <span class="mute">(optional — you'll rate it at the end)</span></div><div class="chips3">${INTENTIONS.map(([k, l]) => `<button class="${it === k ? 'on' : ''}" data-it="${k}">${l}</button>`).join('')}</div>
@@ -749,6 +750,7 @@ function moodSheet(round, key, done) {
       <button class="btn primary big" data-ok>${key === 'start' ? 'Start hole 1' : key === 'turn' ? 'On to the back nine' : 'See my round'}</button></div>`;
     sheet.querySelectorAll('[data-m]').forEach((b) => b.onclick = () => { v = +b.dataset.m; draw(); });
     sheet.querySelectorAll('[data-w]').forEach((b) => b.onclick = () => { w = b.dataset.w; draw(); });
+    sheet.querySelectorAll('[data-en]').forEach((b) => b.onclick = () => { en = en === b.dataset.en ? null : b.dataset.en; draw(); });
     sheet.querySelectorAll('[data-aim]').forEach((b) => b.onclick = () => { aim = aim === b.dataset.aim ? null : b.dataset.aim; round.aim = aim; draw(); });
     sheet.querySelectorAll('[data-proc]').forEach((b) => b.onclick = () => { const k = b.dataset.proc, v = +b.dataset.v; proc[k] = proc[k] === v ? null : v; draw(); });
     sheet.querySelectorAll('[data-kind]').forEach((b) => b.onclick = () => { kind = kind === b.dataset.kind ? null : b.dataset.kind; round.kind = kind; draw(); });
@@ -761,7 +763,7 @@ function moodSheet(round, key, done) {
     sheet.querySelector('[data-ok]').onclick = () => {
       round.mood[key] = v;
       if (key === 'finish') round.process = proc;
-      if (key === 'start') { round.kind = kind; round.aim = aim; round.warmup = w; round.intention = it; round.swingThought = thought.trim() || null; round.expect = expect.trim() || null; if (round.swingThought && round.swingThought !== R.swingThought) { const st = S0(); st.routine = { ...(st.routine || {}), swingThought: round.swingThought }; S1(st); } }
+      if (key === 'start') { round.kind = kind; round.aim = aim; round.warmup = w; round.energy = en; round.intention = it; round.swingThought = thought.trim() || null; round.expect = expect.trim() || null; if (round.swingThought && round.swingThought !== R.swingThought) { const st = S0(); st.routine = { ...(st.routine || {}), swingThought: round.swingThought }; S1(st); } }
       if (key === 'finish') round.intentionKept = kept;
       sheet.remove(); save(); readWeather(round, key); done();
     };

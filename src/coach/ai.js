@@ -129,7 +129,7 @@ async function readSSE(res, each) {
  * Streams: onText(soFar) is called as the reply arrives, so the first words show in a second or two.
  * Returns { text, cut } — cut is true when the reply hit the length limit.
  */
-export async function chatLLM({ provider = 'claude', apiKey, model, system, messages, maxTokens = 2000, onText = () => {} }) {
+export async function chatLLM({ provider = 'claude', apiKey, model, system, messages, maxTokens = 3000, onText = () => {} }) {
   const name = PROVIDERS[provider]?.short || 'AI';
   if (!apiKey) throw new Error(`Add your ${name} API key in Settings first.`);
   if (!model) model = (await listModels(provider, apiKey))[0];
