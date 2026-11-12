@@ -63,9 +63,10 @@ async function roundsSheet(onDone) {
   const list = await loadRounds(0, { all: true });
   const sheet = document.createElement('div'); sheet.className = 'sheet itemsheet pickrounds';
   const chip = (r, rad) => {
-    if (!rad || !(rad.complete > 0 || rad.mind)) return '<span class="rchip none">Scores only</span>';
+    if (!rad || !rad.holes || !r.holes?.some((h) => h?.shots?.length)) return '<span class="rchip none">Scores only</span>';
+    if (rad.complete < rad.holes) return `<span class="rchip none">Not in radar: ${rad.holes - rad.complete} hole${rad.holes - rad.complete === 1 ? '' : 's'} missing shots</span>`;
     const on = r.radarPick !== false;
-    return `<button class="rchip ${on ? 'on' : ''}" data-radar-rid="${esc(r.id)}">${on ? `Radar · ${rad.complete} hole${rad.complete === 1 ? '' : 's'}` : 'Not in radar'}</button>`;
+    return `<button class="rchip ${on ? 'on' : ''}" data-radar-rid="${esc(r.id)}">${on ? `In radar · all ${rad.holes} holes tracked` : 'Left out of radar'}</button>`;
   };
   const row = ({ r, c, ok, issues, notes, rad }) => {
     const sc = (r.holes || []).reduce((a, h) => a + (h?.score || 0), 0) || r.score || null;
@@ -79,7 +80,7 @@ async function roundsSheet(onDone) {
   const n = list.filter((x) => x.ok).length;
   sheet.innerHTML = `<div class="sheet-in"><div class="sheet-h"><b>Rounds in your stats</b><button class="link" data-close>Done</button></div>
     <p class="small mute" style="margin:0 0 10px">${n} of ${list.length} count. Rounds that look unfinished (under 9 holes, holes skipped in the middle, impossible scores, or most tracked holes missing shots) are left out until you tick them. A hole missing shots never counts toward strokes gained; its score and putts still do.</p>
-    <p class="small mute" style="margin:0 0 10px">The radar only uses holes where every shot was logged. Tap a round's radar tag to keep it out of the radar but in your scores.</p>
+    <p class="small mute" style="margin:0 0 10px">The radar only uses rounds where every hole's logged shots and putts add up to its score. Tap a round's radar tag to keep it out of the radar but in your scores.</p>
     <div class="plist">${list.map(row).join('') || '<p class="mute">No rounds yet.</p>'}</div>
     <button class="btn" data-auto style="width:100%;margin-top:12px">Back to automatic for every round</button></div>`;
   const byId = new Map(list.map((x) => [x.r.id, x]));
@@ -198,9 +199,9 @@ function heroBand(ALL, Hc, hcp, OUT = 0) {
   const basis = (list) => {
     const rows = list.map((x) => radarRound(x.r, x.c)).filter(Boolean);
     const holes = rows.reduce((a, R) => a + R.complete, 0);
-    if (!list.length) return 'No rounds with shot detail yet: the radar needs holes where every shot was logged.';
+    if (!list.length) return 'No fully tracked rounds yet: the radar only uses rounds where every hole has every shot logged.';
     const span = `${fmtShort(list[list.length - 1].r.date)} – ${fmtShort(list[0].r.date)}`;
-    return `${list.length} round${list.length === 1 ? '' : 's'} with shot detail (${span}): ${holes} hole${holes === 1 ? '' : 's'} with every shot logged.`;
+    return `${list.length} fully tracked round${list.length === 1 ? '' : 's'} (${span}), ${holes} holes: every shot logged on every hole.`;
   };
   const windows = [10, 50, 100].map((n) => ({ n, radar: skillRadar(L.slice(0, n), { hcp }), ghost: L.length > n ? skillRadar(L.slice(n, 2 * n), { hcp }) : null }));
   const views = Object.fromEntries(windows.map((w) => [w.n, `${radarSvg(w.radar, w.ghost)}<p class="hbasis">${esc(basis(L.slice(0, w.n)))}</p>${w.radar.ready ? '' : `<p class="hnote">The shape fills in after 3 rounds with shot distances and first putts.</p>`}`]));

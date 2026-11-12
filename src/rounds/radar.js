@@ -31,9 +31,8 @@ const PLAN_BASE = 0.55; // "shots that came off as planned" that we treat as par
 /** Per-round raw material: strokes gained by axis (tour baseline, 18-hole scaled) plus the head inputs. */
 export function radarRound(round, course) {
   if (!round || round.quick || !course || round.radarPick === false) return null;
-  // Strokes gained only counts holes where every stroke is accounted for (a hole with a missing shot
-  // would credit two shots' worth of distance to one); per-18 scaling for those axes uses that count.
-  // Garmin scorecards say nothing about penalties or tee-shot trouble, so they stay out of Mind.
+  // A hole counts as complete when every stroke is accounted for; skillRadar only takes rounds where
+  // every hole is (see fullyTracked). Garmin scorecards say nothing about penalties or tee-shot trouble, so they stay out of Mind.
   const R = { ott: 0, appL: 0, appW: 0, arg: 0, putt: 0, holes: 0, complete: 0, mind: !(round.source === 'garmin' && (round.garmin?.scorecard || 'durationMin' in (round.garmin || {}))), pen: 0, dirt: 0, firOpp: 0, planN: 0, planned: 0, shots: { ott: 0, appL: 0, appW: 0, arg: 0, putt: 0 } };
   round.holes.forEach((h, i) => {
     const ch = course.holes[i]; if (!h || h.score == null || !ch) return;
@@ -67,11 +66,12 @@ export function radarRound(round, course) {
   return R.holes ? R : null;
 }
 
-/** Does this round give the radar anything: a hole with every shot accounted for, or shot detail for Mind? */
-export function feedsRadar(round, course) {
-  const R = radarRound(round, course);
-  return !!R && (R.complete > 0 || R.mind);
-}
+/**
+ * Only a fully tracked round feeds the radar: on every hole scored, the logged shots (plus penalties)
+ * and putts add up to the score. One missed shot anywhere and the round is left out.
+ */
+export const fullyTracked = (R) => !!R && R.holes > 0 && R.complete === R.holes;
+export function feedsRadar(round, course) { return fullyTracked(radarRound(round, course)); }
 
 export { MIN_SHOTS };
 const clip = (v) => Math.max(-CLIP, Math.min(CLIP, v));
@@ -82,9 +82,9 @@ const clip = (v) => Math.max(-CLIP, Math.min(CLIP, v));
  * value = strokes per round vs your level (clipped ±2); scratch = where scratch sits on the same scale.
  */
 export function skillRadar(list, { hcp = 15 } = {}) {
-  const all = list.map((x) => radarRound(x.r, x.c)).filter(Boolean);
+  const all = list.map((x) => radarRound(x.r, x.c)).filter(fullyTracked);
   const rows = all.filter((R) => R.mind); // rounds that know about penalties and drives in trouble
-  const sgRows = all.filter((R) => R.complete > 0); // rounds with at least one fully tracked hole
+  const sgRows = all;
   const per18 = (R, k) => R[k] * (18 / R.holes);
   const sgHoles = sgRows.reduce((s, R) => s + R.complete, 0);
   // pooled over every fully tracked hole in the window, then scaled to 18 holes

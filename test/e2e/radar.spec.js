@@ -31,11 +31,11 @@ test('the skills radar draws six axes from rounds, switches windows and jumps to
   await expect(card.locator('[data-radar-n="100"]')).toBeDisabled();
   await expect(card).toContainText('Mind');
   await expect(card).toContainText('Short game');
-  await expect(card.locator('.hbasis')).toContainText('10 rounds with shot detail');
+  await expect(card.locator('.hbasis')).toContainText('10 fully tracked rounds');
   // keep one round out of the radar but in the scores
   await card.locator('[data-pickrounds]').click();
   await page.locator('.pickrounds [data-radar-rid="r11"]').click();
-  await expect(page.locator('.pickrounds [data-radar-rid="r11"]')).toHaveText('Not in radar');
+  await expect(page.locator('.pickrounds [data-radar-rid="r11"]')).toHaveText('Left out of radar');
   await page.locator('.pickrounds [data-close]').click();
   await expect(page.locator('.radarcard .hused')).toContainText('Scores from 12 rounds, radar from 11');
   await page.locator('.radarcard .hexplain summary').click();

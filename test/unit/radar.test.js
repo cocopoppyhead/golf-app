@@ -55,6 +55,9 @@ describe('skills radar', () => {
     r.holes[5] = { ...r.holes[5], shots: [r.holes[5].shots[0]] }; // a hole with a missing shot
     const R = radarRound(r, course);
     expect(R.holes).toBe(18); expect(R.complete).toBe(17); expect(R.mind).toBe(true);
+    // one hole short of a shot keeps the whole round out of the radar
+    expect(skillRadar([{ r, c: course }], { hcp: 15 }).n).toBe(0);
+    expect(skillRadar([{ r: round(0), c: course }], { hcp: 15 }).n).toBe(1);
     const g = radarRound({ ...round(1), source: 'garmin', garmin: { durationMin: 240 } }, course);
     expect(g.mind).toBe(false);
     const S = skillRadar(list(5).map((x) => ({ ...x, r: { ...x.r, source: 'garmin', garmin: { scorecard: true } } })), { hcp: 15 });
