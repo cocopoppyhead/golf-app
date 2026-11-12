@@ -3,14 +3,22 @@
 import { getSettings, listRounds, getCourse } from '../store.js';
 import { aiFrom, aiReady, aiName, chatLLM, md } from './ai.js';
 import { SYSTEM, mindContext, loadChat, saveChat, clearChat } from './mind.js';
+import { counts } from '../rounds/quality.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+/** Alternate user and coach turns (two of yours in a row after a failed reply are sent as one), starting with yours. */
+export function turns(list) {
+  const out = [];
+  for (const { role, text } of list) { if (out.length && out[out.length - 1].role === role) out[out.length - 1].text += `\n\n${text}`; else out.push({ role, text }); }
+  while (out.length && out[0].role !== 'user') out.shift();
+  return out;
+}
 const STARTERS = ['Get my head right before today', 'Talk me through my last round', 'Why do my rounds unravel?', 'First-tee nerves'];
 
 /** focus: { r, c } to talk one round through. onSettings: go to Settings → Connect AI. */
 export async function openMindChat({ focus = null, onSettings = () => {} } = {}) {
   const s = getSettings();
-  let msgs = loadChat(), busy = false, err = '';
+  let msgs = loadChat().filter((m) => m.text && m.text !== '…'), busy = false, err = '', live = '';
   const sheet = document.createElement('div'); sheet.className = 'sheet mindchat';
   const ready = aiReady(s);
   const starters = focus ? [`Talk me through ${focus.r.courseName.split(/\s[–-]\s/)[0]}`, 'What should I take from it?', 'Where did my head go?'] : STARTERS;
@@ -20,7 +28,7 @@ export async function openMindChat({ focus = null, onSettings = () => {} } = {})
       <div class="mc-log" aria-live="polite">
         ${msgs.length ? '' : `<p class="mc-intro">${ready ? `Knows your last rounds: how you felt, your process, your debriefs. ${focus ? `Ready to talk about ${esc(focus.r.courseName)}.` : 'Ask anything about the mental side.'}` : `Your coach runs on your own AI. Connect Claude, ChatGPT or Gemini first.`}</p>`}
         ${msgs.map((m) => `<div class="mc-m ${m.role}">${m.role === 'assistant' ? md(m.text) : esc(m.text)}</div>`).join('')}
-        ${busy ? '<div class="mc-m assistant mc-typing"><i></i><i></i><i></i></div>' : ''}
+        ${busy ? (live ? `<div class="mc-m assistant mc-live">${md(live)}</div>` : '<div class="mc-m assistant mc-typing mc-live"><i></i><i></i><i></i></div>') : ''}
         ${err ? `<p class="mc-err">${esc(err)}</p>` : ''}
       </div>
       ${ready ? `${msgs.length ? '' : `<div class="mc-starters">${starters.map((t) => `<button data-start="${esc(t)}">${esc(t)}</button>`).join('')}</div>`}
@@ -41,18 +49,26 @@ export async function openMindChat({ focus = null, onSettings = () => {} } = {})
     }
   };
   const context = async () => {
-    const rounds = (await listRounds().catch(() => [])).filter((r) => r.finished).sort((a, b) => b.date - a.date).slice(0, 12);
-    const pairs = []; for (const r of rounds) pairs.push({ r, c: await getCourse(r.courseId).catch(() => null) });
+    // only rounds that count (finished, whole, not marked "don't count"): broken or half-logged rounds mislead the coach
+    const rounds = (await listRounds().catch(() => [])).filter((r) => r.finished).sort((a, b) => b.date - a.date).slice(0, 80);
+    const pairs = [];
+    for (const r of rounds) { const c = await getCourse(r.courseId).catch(() => null); if (counts(r, c)) pairs.push({ r, c }); if (pairs.length >= 60) break; }
     return mindContext({ rounds: pairs, settings: s, focus });
   };
   const send = async (q) => {
     if (busy) return;
     msgs = [...msgs, { role: 'user', text: q, at: Date.now() }]; busy = true; err = ''; draw();
     try {
-      const text = await chatLLM({ ...aiFrom(s), system: `${SYSTEM}\n\n${await context()}`, messages: msgs.slice(-20).map(({ role, text }) => ({ role, text })) });
-      msgs = [...msgs, { role: 'assistant', text: text.trim() || '…', at: Date.now() }]; saveChat(msgs);
+      const onText = (t) => {
+        live = t; const el = sheet.querySelector('.mc-live'); if (!el) return;
+        el.classList.remove('mc-typing'); el.innerHTML = md(t);
+        const log = sheet.querySelector('.mc-log'); if (log.scrollHeight - log.scrollTop - log.clientHeight < 120) log.scrollTop = log.scrollHeight;
+      };
+      const { text, cut } = await chatLLM({ ...aiFrom(s), system: `${SYSTEM}\n\n${await context()}`, messages: turns(msgs.slice(-20)), onText });
+      if (!text.trim()) throw new Error('No reply came back.');
+      msgs = [...msgs, { role: 'assistant', text: text.trim() + (cut ? '\n\n_(Cut short. Say "go on" for the rest.)_' : ''), at: Date.now() }]; saveChat(msgs);
     } catch (e) { err = `${e.message || 'That didn\'t go through.'} Try again.`; msgs = msgs.slice(0, -1); }
-    busy = false; draw();
+    busy = false; live = ''; draw();
     if (err) { const ta = sheet.querySelector('textarea'); if (ta) ta.value = q; }
   };
   draw();

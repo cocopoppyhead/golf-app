@@ -106,31 +106,62 @@ async function callLLM({ provider = 'claude', apiKey, model, system, content, ma
   return data.content.filter((b) => b.type === 'text').map((b) => b.text).join('\n');
 }
 
-/** A conversation: messages [{ role: 'user' | 'assistant', text }], text only. Same three providers. */
-export async function chatLLM({ provider = 'claude', apiKey, model, system, messages, maxTokens = 700 }) {
+/** Server-sent events from a fetch response: calls each(json) for every `data:` line. */
+async function readSSE(res, each) {
+  const reader = res.body.getReader(); const dec = new TextDecoder(); let buf = '';
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buf += dec.decode(value, { stream: true });
+    let k;
+    while ((k = buf.indexOf('\n')) >= 0) {
+      const line = buf.slice(0, k).trim(); buf = buf.slice(k + 1);
+      if (!line.startsWith('data:')) continue;
+      const data = line.slice(5).trim();
+      if (!data || data === '[DONE]') continue;
+      try { each(JSON.parse(data)); } catch { /* a partial or keep-alive line */ }
+    }
+  }
+}
+
+/**
+ * A conversation: messages [{ role: 'user' | 'assistant', text }], text only. Same three providers.
+ * Streams: onText(soFar) is called as the reply arrives, so the first words show in a second or two.
+ * Returns { text, cut } — cut is true when the reply hit the length limit.
+ */
+export async function chatLLM({ provider = 'claude', apiKey, model, system, messages, maxTokens = 2000, onText = () => {} }) {
   const name = PROVIDERS[provider]?.short || 'AI';
   if (!apiKey) throw new Error(`Add your ${name} API key in Settings first.`);
   if (!model) model = (await listModels(provider, apiKey))[0];
+  let text = '', cut = false;
+  const add = (t) => { if (t) { text += t; onText(text); } };
+  const fail = async (res, who) => { const d = await res.json().catch(() => ({})); throw new Error(d?.error?.message || `${who} error ${res.status}`); };
   if (provider === 'openai') {
     const res = await fetch('https://api.openai.com/v1/chat/completions', { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${apiKey}` },
-      body: JSON.stringify({ model, max_completion_tokens: maxTokens * 3, messages: [{ role: 'system', content: system }, ...messages.map((m) => ({ role: m.role, content: m.text }))] }) });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(data?.error?.message || `ChatGPT API error ${res.status}`);
-    return data.choices?.[0]?.message?.content || '';
+      body: JSON.stringify({ model, stream: true, max_completion_tokens: maxTokens * 3, messages: [{ role: 'system', content: system }, ...messages.map((m) => ({ role: m.role, content: m.text }))] }) });
+    if (!res.ok) await fail(res, 'ChatGPT API');
+    await readSSE(res, (j) => { const c = j.choices?.[0]; add(c?.delta?.content); if (c?.finish_reason === 'length') cut = true; });
+    return { text, cut };
   }
   if (provider === 'gemini') {
-    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, { method: 'POST', headers: { 'content-type': 'application/json', 'x-goog-api-key': apiKey },
+    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:streamGenerateContent?alt=sse`, { method: 'POST', headers: { 'content-type': 'application/json', 'x-goog-api-key': apiKey },
       body: JSON.stringify({ systemInstruction: { parts: [{ text: system }] }, contents: messages.map((m) => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: m.text }] })), generationConfig: { maxOutputTokens: maxTokens * 4 } }) });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(data?.error?.message || `Gemini API error ${res.status}`);
-    return (data.candidates?.[0]?.content?.parts || []).filter((p) => p.text && !p.thought).map((p) => p.text).join('\n');
+    if (!res.ok) await fail(res, 'Gemini API');
+    await readSSE(res, (j) => { const c = j.candidates?.[0]; (c?.content?.parts || []).filter((p) => p.text && !p.thought).forEach((p) => add(p.text)); if (c?.finishReason === 'MAX_TOKENS') cut = true; });
+    return { text, cut };
   }
   const res = await fetch('https://api.anthropic.com/v1/messages', { method: 'POST',
     headers: { 'content-type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
-    body: JSON.stringify({ model, max_tokens: maxTokens, system, messages: messages.map((m) => ({ role: m.role, content: m.text })) }) });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data?.error?.message || `Claude API error ${res.status}`);
-  return data.content.filter((b) => b.type === 'text').map((b) => b.text).join('\n');
+    body: JSON.stringify({ model, max_tokens: maxTokens, stream: true, system, messages: messages.map((m) => ({ role: m.role, content: m.text })) }) });
+  if (!res.ok) await fail(res, 'Claude API');
+  let err = null;
+  await readSSE(res, (j) => {
+    if (j.type === 'content_block_delta' && j.delta?.type === 'text_delta') add(j.delta.text);
+    if (j.type === 'message_delta' && j.delta?.stop_reason === 'max_tokens') cut = true;
+    if (j.type === 'error') err = j.error?.message || 'Claude stopped with an error';
+  });
+  if (err && !text) throw new Error(err);
+  return { text, cut };
 }
 
 const img = (d) => ({ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: d.split(',')[1] } });
