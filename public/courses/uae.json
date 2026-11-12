@@ -2800,14 +2800,14 @@
   "unit": "yards",
   "tees": [],
   "logo": "logos/emaar-south-fill.png",
-  "lat": null,
-  "lon": null,
+  "lat": 24.8649,
+  "lon": 55.1438,
   "noCard": true,
   "sources": [
    "https://www.timeoutdubai.com/news/emaar-south-golf-club",
    "https://gulfnews.com/sport/emaars-luxury-golf-course-finally-opens-in-dubai-south-1.500720758"
   ],
-  "notes": "Opened late 2026 in Emaar South (Dubai South), European Golf Design, 7,278 yd from the black tees. No hole-by-hole scorecard published yet: pars default to 4 until set."
+  "notes": "Opened late 2026 in Emaar South (Dubai South), European Golf Design, 7,278 yd from the black tees. No hole-by-hole scorecard published yet: pars default to 4 until set. Location approximate (Emaar South Village, OpenStreetMap): the course itself is not mapped yet."
  },
  {
   "id": "discovery-dunes",
@@ -2827,7 +2827,7 @@
    "https://www.golfdigest.com/courses/uae/discovery-dunes",
    "https://discoverydunes.com/"
   ],
-  "notes": "Private (Discovery Land), Tom Fazio, Dubai South, opened 2025. No public scorecard: pars default to 4 until set."
+  "notes": "Private (Discovery Land), Tom Fazio, Dubai South, opened 2025. No public scorecard: pars default to 4 until set. Not on OpenStreetMap yet; no location set."
  },
  {
   "id": "abu-dhabi-city-golf-club",

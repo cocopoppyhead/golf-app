@@ -3,6 +3,7 @@
 // playing?" with your courses, most recent first, one tap from each course's page.
 import { badgeHtml } from './badge.js';
 import { compass } from '../weather.js';
+import { metres } from '../geo.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
@@ -64,7 +65,7 @@ export function weatherHtml(c) {
 /** Under the line: where the reading is from, the sky and the wind. */
 export function weatherSub(c, place = '') {
   if (!c) return '';
-  return `${place ? `Live at ${esc(place)}. ` : 'Live. '}${SKY_WORD[skyOf(c)]}, wind ${Math.round(c.windMph)} mph${c.windFrom != null ? ` ${compass(c.windFrom)}` : ''}.`;
+  return `${place ? `Live at ${esc(place)}. ` : 'Live where you are. '}${SKY_WORD[skyOf(c)]}, wind ${Math.round(c.windMph)} mph${c.windFrom != null ? ` ${compass(c.windFrom)}` : ''}.`;
 }
 
 /** "Emirates Golf Club – Majlis" → "Emirates – Majlis"; "Dubai Creek Golf & Yacht Club – Championship" → "Dubai Creek". */
@@ -84,11 +85,45 @@ export function heroHtml({ name = '', groups = [], today = null, cond = null, pl
   return `<section class="hero-play">
     <div class="hp-top"><div><h1 class="hp-line" data-hpline>${esc(greeting(cond, name))}</h1><p class="hp-sub" data-hpsub>${weatherSub(cond, place)}</p></div><div class="hp-wx" data-hpwx>${weatherHtml(cond)}</div></div>
     ${today ? `<button class="btn primary big hp-today" data-act="evstart" data-id="${today.id}">Start your ${esc(new Date(today.when).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' }))} at ${esc(shortCourse(today.courseName))}</button>` : ''}
-    <div class="hp-q">${today ? 'Or somewhere else?' : 'Where are you playing?'}</div>
-    <div class="hp-courses">${picks.map((g) => `<button class="hp-course" data-course="${esc(g.key)}">${badgeHtml(g.name, null, { attrs: `data-thumb="${esc(g.key)}"` })}<span>${esc(shortCourse(g.name))}</span></button>`).join('')}
+    <div class="hp-q" data-hpq>${today ? 'Or somewhere else?' : 'Where are we playing?'}</div>
+    <div class="hp-courses" data-hpcourses>${tilesHtml(picks)}
 </div>
     <button class="hp-find" data-act="library">+ ${picks.length ? 'Another course' : 'Find your course'}</button>
   </section>`;
+}
+
+const tilesHtml = (picks) => picks.map((g) => `<button class="hp-course" data-course="${esc(g.key)}">${badgeHtml(g.name, null, { attrs: `data-thumb="${esc(g.key)}"` })}<span>${esc(shortCourse(g.name))}</span></button>`).join('');
+
+export const AWAY_KM = 150; // further than this from every course you've played: you're travelling
+export const AT_KM = 2; // this close to one of your courses: you're there
+
+/**
+ * Where you are against your courses. here: [lat, lon] or null (only when location is already allowed —
+ * never asked for from Play). courses: [{ group, lat, lon }]. Returns { mode: 'home' | 'at' | 'away', at }.
+ */
+export function whereAmI(here, courses) {
+  if (!here) return { mode: 'home', at: null };
+  const d = courses.filter((c) => c.lat != null).map((c) => ({ ...c, km: metres(here, [c.lat, c.lon]) / 1000 })).sort((a, b) => a.km - b.km);
+  if (!d.length) return { mode: 'home', at: null };
+  if (d[0].km > AWAY_KM) return { mode: 'away', at: null };
+  return { mode: d[0].km <= AT_KM ? 'at' : 'home', at: d[0].km <= AT_KM ? d[0].group : null };
+}
+
+/** Travelling: your usual courses step aside for the ones near you. At a course: it goes first. */
+export function placeHero(root, where, groups) {
+  const q = root.querySelector('[data-hpq]'), tiles = root.querySelector('[data-hpcourses]'), find = root.querySelector('.hp-find');
+  if (!q || !tiles) return false;
+  if (where.mode === 'away') {
+    q.textContent = 'Away from home? Where are we playing?';
+    tiles.innerHTML = '';
+    if (find) find.textContent = '+ Find a course near you';
+    return true;
+  }
+  if (where.mode === 'at' && where.at) {
+    tiles.innerHTML = tilesHtml([where.at, ...groups.filter((g) => g !== where.at)].slice(0, 3));
+    return true;
+  }
+  return false;
 }
 
 /** Fill in the weather once it arrives (or leave the friendly fallback line if it doesn't). */

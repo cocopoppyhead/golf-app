@@ -2,7 +2,7 @@
 import { CODES, roundStats, aggregate, pct, played } from './stats.js';
 import { openLibrary, loadLibrary } from './library.js';
 import { getConditions, conditionsAt } from '../weather.js';
-import { heroHtml, fillWeather, clubName } from './hero.js';
+import { heroHtml, fillWeather, clubName, whereAmI, placeHero } from './hero.js';
 import { getSettings as S0, saveSettings as S1 } from '../store.js';
 
 import { putRound, getRound, deleteRound, listRounds, putCourse, getCourse, listCourses, deleteCourse, listSwings } from '../store.js';
@@ -113,16 +113,27 @@ export async function roundsHome() {
   mergeRemoteEvents().then((changed) => { if (changed && root?.querySelector('.checkin') && !cur) roundsHome(); });
   renderChecklist(root.querySelector('#gettingStarted'), { onGo: (where) => (where === 'library' ? homeAction('library') : where === 'play' ? (groups.length ? coursePage(groups[0], courseApi()) : homeAction('library')) : ctx.showTab?.(where)) });
 }
-/** The live sky at your most recent course (no location prompt), else where you are if already allowed. */
+/**
+ * The live sky and where you are. Location is only read when it's already allowed (never asked for from
+ * Play): travelling, the tiles make way for "Find a course near you" and the weather is where you are;
+ * at one of your courses, it goes first. Otherwise the weather is at your most recent course.
+ */
 async function heroWeather(recent, name) {
   try {
     const lib = await loadLibrary().catch(() => []);
-    const g = recent.find((x) => x.variants.some((c) => c.lat != null) || lib.find((l) => l.id === x.libId && l.lat != null));
-    let lat, lon, place = '';
-    if (g) { const v = g.variants.find((c) => c.lat != null); const l = lib.find((x) => x.id === g.libId); lat = v?.lat ?? l?.lat; lon = v?.lon ?? l?.lon; place = clubName(g.name); }
-    let cond = null;
-    if (lat != null) cond = await conditionsAt(lat, lon);
-    else if ((await navigator.permissions?.query({ name: 'geolocation' }).catch(() => null))?.state === 'granted') cond = await getConditions();
+    const coords = (g) => { const v = g.variants.find((c) => c.lat != null); const l = lib.find((x) => x.id === g.libId); return { group: g, lat: v?.lat ?? l?.lat ?? null, lon: v?.lon ?? l?.lon ?? null }; };
+    const all = recent.map(coords);
+    let here = null;
+    if ((await navigator.permissions?.query({ name: 'geolocation' }).catch(() => null))?.state === 'granted') {
+      here = await new Promise((res) => navigator.geolocation.getCurrentPosition((p) => res([p.coords.latitude, p.coords.longitude]), () => res(null), { timeout: 6000, maximumAge: 10 * 60e3 }));
+    }
+    const where = whereAmI(here, all);
+    if (!root?.isConnected) return;
+    if (placeHero(root, where, recent)) bindCourseCards(root, recent, courseApi());
+    const spot = where.mode === 'home' ? all.find((c) => c.lat != null) : where.mode === 'at' ? all.find((c) => c.group === where.at) : null;
+    let cond = null, place = '';
+    if (spot) { cond = await conditionsAt(spot.lat, spot.lon); place = clubName(spot.group.name); }
+    else if (here) cond = await conditionsAt(here[0], here[1]);
     if (root?.isConnected) fillWeather(root, cond, { name, place });
   } catch { /* the line stays "Fancy a game?" */ }
 }
@@ -231,6 +242,7 @@ async function homeAction(act, id) {
   if (act === 'resume' || act === 'open') return openRound(id);
   if (act === 'allrounds') return allRoundsSheet();
   if (act === 'plan') return planSheet({ done: roundsHome });
+  if (act === 'mind') return import('../coach/mindchat.js').then((m) => m.openMindChat({ onSettings: () => ctx.showTab?.('settings') }));
   if (act === 'newcourse') return editCourse(null);
   if (act === 'library') return openLibrary({ toast: ctx.toast, onPicked: (c) => openCoursePage(c.id) });
   if (act === 'editcourse') return editCourse(sel);

@@ -182,6 +182,7 @@ export async function renderSummary(r, c) {
       <div class="lbl">Notes</div>
       <textarea id="debriefNotes" rows="4" placeholder="e.g. Two driver slices into water on 5 and 14. Went for 9 in two when I should have laid up. Putted well.">${esc(r.debrief?.notes || '')}</textarea>
       <p class="mute small" id="dbSaved"></p>
+      <button class="btn mc-open" data-x="mind">Talk this round through with your mental coach</button>
     </div>
     <div class="actions" style="grid-template-columns:1fr 1fr">
       <button class="btn primary" data-x="ai">AI round review</button>
@@ -215,6 +216,7 @@ export async function renderSummary(r, c) {
   api.root.querySelectorAll('[data-x]').forEach((b) => b.onclick = async () => {
     const x = b.dataset.x;
     if (x === 'back') return api.home();
+    if (x === 'mind') return import('../coach/mindchat.js').then((m) => m.openMindChat({ focus: { r, c }, onSettings: () => api.ctx.showTab?.('settings') }));
     if (x === 'edit') { r.finished = false; await putRound(r); return api.reopen(r, c); }
     if (x === 'fix') { r.finished = false; await putRound(r); return api.reopen(r, c, +b.dataset.k); }
     if (x === 'submit') return api.submit(r, c);

@@ -106,6 +106,33 @@ async function callLLM({ provider = 'claude', apiKey, model, system, content, ma
   return data.content.filter((b) => b.type === 'text').map((b) => b.text).join('\n');
 }
 
+/** A conversation: messages [{ role: 'user' | 'assistant', text }], text only. Same three providers. */
+export async function chatLLM({ provider = 'claude', apiKey, model, system, messages, maxTokens = 700 }) {
+  const name = PROVIDERS[provider]?.short || 'AI';
+  if (!apiKey) throw new Error(`Add your ${name} API key in Settings first.`);
+  if (!model) model = (await listModels(provider, apiKey))[0];
+  if (provider === 'openai') {
+    const res = await fetch('https://api.openai.com/v1/chat/completions', { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${apiKey}` },
+      body: JSON.stringify({ model, max_completion_tokens: maxTokens * 3, messages: [{ role: 'system', content: system }, ...messages.map((m) => ({ role: m.role, content: m.text }))] }) });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data?.error?.message || `ChatGPT API error ${res.status}`);
+    return data.choices?.[0]?.message?.content || '';
+  }
+  if (provider === 'gemini') {
+    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, { method: 'POST', headers: { 'content-type': 'application/json', 'x-goog-api-key': apiKey },
+      body: JSON.stringify({ systemInstruction: { parts: [{ text: system }] }, contents: messages.map((m) => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: m.text }] })), generationConfig: { maxOutputTokens: maxTokens * 4 } }) });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data?.error?.message || `Gemini API error ${res.status}`);
+    return (data.candidates?.[0]?.content?.parts || []).filter((p) => p.text && !p.thought).map((p) => p.text).join('\n');
+  }
+  const res = await fetch('https://api.anthropic.com/v1/messages', { method: 'POST',
+    headers: { 'content-type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
+    body: JSON.stringify({ model, max_tokens: maxTokens, system, messages: messages.map((m) => ({ role: m.role, content: m.text })) }) });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data?.error?.message || `Claude API error ${res.status}`);
+  return data.content.filter((b) => b.type === 'text').map((b) => b.text).join('\n');
+}
+
 const img = (d) => ({ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: d.split(',')[1] } });
 
 /** Read a scorecard photo into JSON. kind: 'course' (par/SI/yards) or 'scores' (one player's row). */

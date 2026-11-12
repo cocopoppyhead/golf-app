@@ -866,3 +866,24 @@ table.t5, table.dk { width: 100%; border-collapse: collapse; font-size: 13px; } 
 .hp-course:focus-visible { outline: 2px solid var(--acc); outline-offset: 2px; }
 .hp-find { width: 100%; margin-top: 8px; padding: 12px; border: 1px dashed var(--line); border-radius: 14px; background: transparent; color: var(--acc); font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; }
 .hp-find:focus-visible { outline: 2px solid var(--acc); outline-offset: 2px; }
+
+/* ---------- Mental coach chat ---------- */
+.ci-coach, .mc-open { width: 100%; margin-top: 14px; }
+.sheet.mindchat { align-items: stretch; }
+.sheet-in.mc-in { overflow: hidden; display: flex; flex-direction: column; height: min(100dvh, 100%); max-height: 100dvh; border-radius: 0; padding-bottom: calc(12px + env(safe-area-inset-bottom)); }
+.mc-hact { display: flex; gap: 16px; }
+.mc-log { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; padding: 4px 0 12px; overscroll-behavior: contain; }
+.mc-intro { color: var(--mute); font-size: 15px; line-height: 1.45; margin: 8px 0; max-width: 34ch; }
+.mc-m { max-width: 86%; padding: 10px 13px; border-radius: 16px; font-size: 15px; line-height: 1.45; white-space: pre-wrap; }
+.mc-m.user { align-self: flex-end; background: var(--acc); color: var(--acc-ink); border-bottom-right-radius: 6px; }
+.mc-m.assistant { align-self: flex-start; background: var(--panel2); border-bottom-left-radius: 6px; white-space: normal; }
+.mc-m.assistant p { margin: 0 0 8px; } .mc-m.assistant p:last-child { margin: 0; }
+.mc-typing { display: flex; gap: 5px; padding: 14px; } .mc-typing i { width: 7px; height: 7px; border-radius: 50%; background: var(--mute); animation: mcdot 1s infinite ease-in-out; } .mc-typing i:nth-child(2) { animation-delay: .15s; } .mc-typing i:nth-child(3) { animation-delay: .3s; }
+@keyframes mcdot { 0%, 80%, 100% { opacity: .3; } 40% { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .mc-typing i { animation: none; opacity: .6; } }
+.mc-err { color: var(--work); font-size: 14px; margin: 0; }
+.mc-starters { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+.mc-starters button { font: inherit; font-size: 14px; padding: 8px 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); cursor: pointer; }
+.mc-form { display: flex; gap: 8px; align-items: flex-end; }
+.mc-form textarea { flex: 1; resize: none; font: inherit; font-size: 16px; padding: 10px 12px; border-radius: 14px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); min-height: 44px; }
+.mc-foot { margin: 6px 0 0; text-align: center; }

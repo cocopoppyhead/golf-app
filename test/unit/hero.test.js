@@ -24,3 +24,12 @@ describe('Play greeting', () => {
     expect(clubName('The Els Club Dubai')).toBe('Els Club Dubai');
   });
 });
+
+import { whereAmI } from '../../src/rounds/hero.js';
+describe('where am I', () => {
+  const courses = [{ group: 'majlis', lat: 25.086, lon: 55.164 }, { group: 'creek', lat: 25.243, lon: 55.333 }];
+  it('never guesses without a location', () => expect(whereAmI(null, courses).mode).toBe('home'));
+  it('at the course', () => expect(whereAmI([25.087, 55.165], courses)).toEqual({ mode: 'at', at: 'majlis' }));
+  it('in town', () => expect(whereAmI([25.2, 55.27], courses).mode).toBe('home'));
+  it('travelling', () => expect(whereAmI([51.5, -0.12], courses).mode).toBe('away'));
+});

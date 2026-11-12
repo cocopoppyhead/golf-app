@@ -13,7 +13,7 @@ const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<
 let api = null;
 const BASE = import.meta.env?.BASE_URL || '/';
 // what's in the AI grid: the three that work today, then the ones on the way
-const AI_SOON = [['grok', 'Grok', 'xAI', null], ['deepseek', 'DeepSeek', 'text only, no photos', 'deepseek'], ['mistral', 'Mistral', 'Le Chat', 'mistralai'], ['qwen', 'Qwen', 'Alibaba', 'qwen'], ['kimi', 'Kimi', 'Moonshot AI', 'kimi']];
+const AI_SOON = [['grok', 'Grok', 'xAI', 'grok'], ['deepseek', 'DeepSeek', 'text only, no photos', 'deepseek'], ['mistral', 'Mistral', 'Le Chat', 'mistralai'], ['qwen', 'Qwen', 'Alibaba', 'qwen'], ['kimi', 'Kimi', 'Moonshot AI', 'kimi']];
 const AI_NOW = { claude: ['Claude', 'Anthropic', 'claude'], openai: ['ChatGPT', 'OpenAI', 'openai'], gemini: ['Gemini', 'Google', 'googlegemini'] };
 const HW_SOON = [['apple', 'Apple Watch', 'Score and shots from your wrist', 'apple'], ['wearos', 'Galaxy Watch & Wear OS', 'Samsung, Pixel Watch', 'wearos'], ['garmin', 'Garmin watch, live', 'Rounds sync as you play, no export', 'garmin'], ['putt', 'osolo putter sensor', 'Every putt stroke, in the grip', null], ['glasses', 'osolo glasses', 'Chips and putts that finish close', null], ['launch', 'Launch monitors, live', 'TrackMan, Garmin R10, Rapsodo', null]];
 const IMPORT_SOON = [['tmfile', 'TrackMan files', 'The CSV / report download'], ['arccos', 'Arccos', 'Rounds and shots'], ['shotscope', 'Shot Scope', 'Rounds and shots'], ['apps', '18Birdies, Hole19, Golfshot', 'Scorecards']];
