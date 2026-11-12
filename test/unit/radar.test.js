@@ -98,9 +98,15 @@ describe('the radar scores shots one by one', () => {
     expect(S.shots.length).toBe(1); // the drive (finish known: the next shot); the approach's finish isn't known
     expect(S.shots[0]).toMatchObject({ cat: 'ott', src: 'chain' });
   });
-  it('leaves out a hole with a shot missing in the middle', () => {
+  it('leaves out a hole with a shot missing, putting included: it has to match the score', () => {
     const r = { holes: [{ score: 5, putts: 2, firstPutt: 12, shots: [{ lie: 'tee', dist: 400 }, { lie: 'fw', dist: 150 }] }, null, null] };
     expect(radarShots(r, c).shots.length).toBe(0);
-    expect(radarShots(r, c).putts.length).toBe(1); // putting is still known
+    expect(radarShots(r, c).putts.length).toBe(0);
+  });
+  it('never scores assumed putts', () => {
+    const r = { holes: [{ score: 4, putts: 2, puttsAuto: true, firstPutt: 20, shots: [{ lie: 'tee', dist: 400 }, { lie: 'fw', dist: 150 }] }, null, null] };
+    expect(radarShots(r, c).putts.length).toBe(0);
+    const ok = { holes: [{ score: 4, putts: 2, firstPutt: 20, shots: [{ lie: 'tee', dist: 400 }, { lie: 'fw', dist: 150 }] }, null, null] };
+    expect(radarShots(ok, c).putts.length).toBe(1);
   });
 });

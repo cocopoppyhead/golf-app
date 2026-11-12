@@ -534,6 +534,7 @@ function renderHole() {
     // Anywhere else we can't know (a chip and a putt? a chip-in?), so the hole stays unfinished.
     if (h.putts == null && h.shots[h.shots.length - 1]?.res === 'G') { const n = Math.max(2, h.puttList?.length || 0); h.putts = n; h.puttsAuto = true; }
     h.shots.forEach((x, k) => { if (!x.lie && x.lieAuto) x.lie = x.lieAuto; if (!x.sw) x.sw = autoSwing(x, k); delete x.lieAuto; });
+    if (!review && h.score != null && !h.at) h.at = Date.now(); // when it was played, for the heat through the round
     derive(h, par);
   };
   root.querySelectorAll('[data-go]').forEach((b) => b.onclick = () => { commit(); save(); cur.hole = +b.dataset.go; renderHole(); });

@@ -11,6 +11,7 @@ import { autoShotType } from './rounds/hole.js';
 import { CODES } from './rounds/stats.js';
 import { differential, adjustedGross, indexFrom, indexHistory } from './rounds/handicap.js';
 import { getSettings, saveSettings } from './store.js';
+import { heatByHole } from './heat.js';
 import { skillRadar, radarSvg, radarRead, radarRound, radarUses, radarShots, LONG_FROM } from './rounds/radar.js';
 import { levelLabel } from './benchmarks.js';
 import { ART, CONTOUR } from './art.js';
@@ -333,9 +334,12 @@ export async function renderScoring(el) {
   })();
   // --- body: heart rate and heat ---
   const B = bodyStats(ALL);
+  const HB = heatByHole(ALL).filter((b) => b.n >= 18); // at least a round's worth of holes in a band
+  const tpH = (v) => (v == null ? '–' : `${v >= 0 ? '+' : '−'}${Math.abs(v).toFixed(2)}`);
   const tp = (v) => (v == null ? '–' : `${v >= 0 ? '+' : '−'}${Math.abs(v).toFixed(1)}`);
   const row = (label, sub, v) => `<div class="brow"><span><b>${label}</b>${sub ? `<small>${sub}</small>` : ''}</span><span class="bv">${tp(v)}</span></div>`;
-  const body = B.hr || B.heat || B.years || B.closing ? `<div class="card bodycard">
+  const body = B.hr || B.heat || B.years || B.closing || HB.length >= 2 ? `<div class="card bodycard">
+      ${HB.length >= 2 ? `<h3>Heat stress, hole by hole</h3>${HB.map((b) => `<div class="brow"><span><b>${b.label}</b><small>${b.n} holes${b.key === 'extreme' ? ' · WBGT 30+' : b.key === 'high' ? ' · WBGT 26–29' : b.key === 'moderate' ? ' · WBGT 21–25' : ' · under 21'}</small></span><span class="bv">${tpH(b.toPar)}</span></div>`).join('')}<p class="note">Average to par on each hole, by the heat stress in the hour you played it (estimated WBGT: temperature and humidity together). Rounds with a real start time only.</p>` : ''}
       ${B.hr ? `<h3>Heart rate</h3>${row(`Calmer rounds`, `${B.hr.low.n} rounds · ${Math.round(B.hr.low.bpm)} bpm average`, B.hr.low.toPar)}${row(`Higher heart rate`, `${B.hr.high.n} rounds · ${Math.round(B.hr.high.bpm)} bpm average`, B.hr.high.toPar)}` : ''}
       ${B.heat ? `<h3>Heat</h3>${B.heat.map((b) => row(b.label, `${b.n} rounds`, b.toPar)).join('')}` : ''}
       ${B.closing ? `<h3>Closing holes</h3>${row('Holes 1–14', `${Math.round(B.closing.early.bpm)} bpm at your shots`, B.closing.early.toPar)}${row('Holes 15–18', `${Math.round(B.closing.late.bpm)} bpm at your shots`, B.closing.late.toPar)}<p class="note">Per hole to par, ${B.closing.n} rounds with heart rate on every hole.</p>` : ''}

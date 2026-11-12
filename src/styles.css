@@ -902,3 +902,16 @@ table.t5, table.dk { width: 100%; border-collapse: collapse; font-size: 13px; } 
 .mc-picture ul { margin: 0; padding-left: 18px; } .mc-picture li { margin: 2px 0; } .mc-picture p { margin: 0; }
 .mc-picture .mcp-notes { list-style: none; padding: 0; } .mc-picture .mcp-notes li { margin: 4px 0; }
 .mc-picture .link { padding: 0; margin-top: 8px; color: var(--work); font-size: 13px; }
+
+/* ---------- Heat through the round ---------- */
+.heatsvg { width: 100%; height: auto; display: block; margin-top: 4px; }
+.heatsvg .hz { opacity: .16; } .heatsvg .hz.low { fill: var(--good); } .heatsvg .hz.moderate { fill: #e3b341; } .heatsvg .hz.high { fill: #f08a24; } .heatsvg .hz.extreme { fill: var(--work); }
+.heatsvg .hl { fill: none; stroke: var(--ink); stroke-width: 2; stroke-linejoin: round; }
+.heatsvg .hd { stroke: var(--panel); stroke-width: 1.2; } .heatsvg .hd.low { fill: var(--good); } .heatsvg .hd.moderate { fill: #e3b341; } .heatsvg .hd.high { fill: #f08a24; } .heatsvg .hd.extreme { fill: var(--work); }
+.heatsvg .hhr { fill: none; stroke: var(--pro); stroke-width: 1.4; stroke-dasharray: 3 3; opacity: .8; }
+.heatsvg .hbase { stroke: var(--line); }
+.heatsvg .hs.b { fill: var(--birdie); } .heatsvg .hs.p { fill: var(--mute); } .heatsvg .hs.o { fill: var(--bogey); } .heatsvg .hs.oo { fill: var(--double); }
+.heatsvg .ht, .heatsvg .hy { font-size: 9px; fill: var(--mute); text-anchor: middle; } .heatsvg .hy { text-anchor: end; }
+.heatcard .hleg { margin: 4px 0 6px; } .heatcard .sw { display: inline-block; width: 10px; height: 3px; border-radius: 2px; background: var(--ink); vertical-align: middle; margin-right: 4px; } .heatcard .sw.hrsw { background: var(--pro); }
+.heatcard .heatwarn { color: var(--work); }
+.heatcard .hleg { display: flex; flex-wrap: wrap; gap: 4px 14px; } .heatcard .sw.bar { width: 8px; height: 8px; background: var(--bogey); }

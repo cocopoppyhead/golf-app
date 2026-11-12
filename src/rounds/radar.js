@@ -82,7 +82,7 @@ export { MIN_SHOTS };
 //   - every shot on a hole that adds up (as before)
 //   - on a hole that doesn't, the shots whose finish is known: the next logged shot when the off-green
 //     strokes match the score less the putts (so none is missing in between), or Garmin's own finish point
-//   - putting from any hole with putts and a first-putt distance
+//   - putting only from a hole that adds up, with entered (not assumed) putts and a first-putt distance
 // Nothing is guessed: a shot whose finish isn't known is left out.
 const PER18 = { ott: 14, appL: 7, appW: 7, arg: 5 }; // shots a round in each category when the golfer's own holes can't say
 const catOf = (lie, from, par) => (lie === 'tee' && par >= 4 ? 'ott' : from > 30 ? (from < LONG_FROM ? 'appW' : 'appL') : 'arg');
@@ -93,9 +93,12 @@ export function radarShots(round, course) {
   if (!round || round.quick || !course || round.radarPick === false) return out;
   round.holes.forEach((h, i) => {
     const ch = course.holes[i]; if (!h || h.score == null || !ch) return;
-    if (h.putts != null && h.putts > 0 && h.firstPutt != null) out.putts.push({ sg: expected('grn', h.firstPutt) - h.putts });
     const sg = holeSG(h, ch.par, ch.yds);
-    const chain = h.shots?.length && h.putts != null && h.shots.length + h.shots.filter((s) => s.pen).length === h.score - h.putts;
+    // the hole adds up: every stroke before the green logged, and those plus the putts make the score
+    const chain = h.shots?.length && h.putts != null && !h.puttsAuto && h.shots.length + h.shots.filter((s) => s.pen).length === h.score - h.putts;
+    // putting only from a hole that adds up, with putts actually entered (not assumed) and a first-putt distance:
+    // a missing putt would otherwise look like a good day on the greens
+    if (chain && h.putts > 0 && h.firstPutt != null) out.putts.push({ sg: expected('grn', h.firstPutt) - h.putts });
     if (sg && (sg.complete || chain)) {
       sg.shots.forEach((s, k) => {
         if (!s) return;

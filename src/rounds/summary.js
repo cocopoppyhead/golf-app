@@ -17,6 +17,7 @@ import { intentionLabel, moodLine } from './intentions.js';
 import { autoShotType, holeGaps } from './hole.js';
 import { removeSummary } from '../cloud/social.js';
 import { bestCandidates } from './bestshots.js';
+import { heatCardHtml } from './heatcard.js';
 import { dist as DU, du } from '../units.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -152,6 +153,7 @@ export async function renderSummary(r, c) {
     </div>
     ${r.submitted === false ? (() => { const g = r.holes.map((h, k) => (holeGaps(h, c.holes[k]?.par || 4).length ? k + 1 : null)).filter(Boolean); return `<div class="card savedcard"><b>Saved, not submitted</b><p class="small mute" style="margin:4px 0 8px">${g.length ? `Hole${g.length > 1 ? 's' : ''} ${g.join(', ')} ${g.length > 1 ? 'are' : 'is'} missing details for strokes gained.` : 'Every hole has its details.'} Scores already count.</p><div class="row">${g.length ? `<button class="btn" data-x="fix" data-k="${g[0] - 1}">Finish details</button>` : ''}<button class="btn primary" data-x="submit">Submit</button></div></div>`; })() : ''}
     ${moodLine(r) ? `<p class="mute small center">${esc(moodLine(r))}</p>` : ''}
+    ${heatCardHtml(r, c)}
     ${statsCard(S, `${S.score} (${toParStr(S.toPar)})`)}
     ${practiceCard(r, c)}
     ${(() => { const G = roundSG(r, c); return G && G.complete >= Math.min(9, G.holes) ? sgCard(G, 'This round', G.complete < G.holes ? `${G.complete} of ${G.holes} holes have full shot data` : '') : '<div class="card"><h2>Strokes gained</h2><p class="mute small">Log shot distances and lies (they fill in from the rangefinder) plus the first-putt distance, and strokes gained shows here.</p></div>'; })()}

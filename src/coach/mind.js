@@ -7,6 +7,7 @@ import { getRoutine } from '../rounds/routine.js';
 import { RULES, DEFAULT_RULES, checkRules } from '../rounds/tiger.js';
 import { moodLine, intentionLabel } from '../rounds/intentions.js';
 import { systemPrompt } from './playbook.js';
+import { heatByHole, roundPeak } from '../heat.js';
 
 /** The default prompt: the playbook in its open-question mode (coach/playbook.js). */
 export const SYSTEM = systemPrompt('open');
@@ -52,6 +53,7 @@ export function roundLines({ r, c }) {
   const best = (r.best || []).filter((b) => b.note); if (best.length) out.push(`Best shots, how they felt: ${best.map((b) => `hole ${b.h + 1}${b.club ? ` (${b.club})` : ''}: ${b.note}`).join('; ')}.`);
   const hrF = avg(front.map((x) => x.h.hr?.avg).filter(Boolean)), hrB = avg(back.map((x) => x.h.hr?.avg).filter(Boolean));
   if (r.hr?.avg) out.push(`Heart rate: average ${r.hr.avg}${r.hr.max ? `, peak ${r.hr.max}` : ''} bpm${hrF && hrB ? ` (front ${Math.round(hrF)}, back ${Math.round(hrB)})` : ''}.`);
+  const pk = roundPeak(r); if (pk) out.push(`Heat stress peaked at ${pk.wbgt.toFixed(0)} (${pk.band.label.toLowerCase()}) around the ${pk.i + 1}${pk.i === 0 ? 'st' : pk.i === 1 ? 'nd' : pk.i === 2 ? 'rd' : 'th'} (${Math.round(pk.tempC)}°C, ${Math.round(pk.rh)}% humidity).`);
   const t = r.cond?.start?.tempC; if (t != null) out.push(`About ${Math.round(t)}°C${r.cond.start.windMph != null ? `, wind ${Math.round(r.cond.start.windMph)} mph` : ''}${noTime ? ' (midday reading; the tee time isn\'t known)' : ''}.`);
   return out.join(' ');
 }
@@ -90,6 +92,9 @@ export function patterns(rcs) {
   if (hrs.length >= 6) { const mid = hrs[Math.floor(hrs.length / 2)]; split('Heart rate', (x) => (x.r.hr?.avg ? x.r.hr.avg > mid : null), `above ${mid} bpm average`, 'at or below'); }
   split('Feeling at the turn', (x) => (x.r.mood?.turn ? x.r.mood.turn >= 7 : null), 'wound up (7+ of 10)', 'calmer');
   split('Kind of round', (x) => (x.r.kind ? x.r.kind === 'comp' : null), 'competition', 'casual');
+  // heat stress hole by hole (the hour each hole was played in), across every round with a real start time
+  const HB = heatByHole(rcs.filter((x) => !x.r.quick)).filter((b) => b.n >= 18);
+  if (HB.length >= 2) out.push(`Score per hole by heat stress (estimated WBGT, the hour each hole was played): ${HB.map((b) => `${b.label.toLowerCase()} ${one(b.toPar)} (${b.n} holes)`).join(', ')}.`);
   // heart rate through the round: front against back, where the watch logged it per hole
   const hrRows = rows.map((x) => ({ f: avg(x.hs.filter((h) => h.i < 9).map((h) => h.h.hr?.avg).filter(Boolean)), b: avg(x.hs.filter((h) => h.i >= 9).map((h) => h.h.hr?.avg).filter(Boolean)) })).filter((x) => x.f && x.b);
   if (hrRows.length >= 3) out.push(`Heart rate by nine (${hrRows.length} rounds): front ${Math.round(avg(hrRows.map((x) => x.f)))}, back ${Math.round(avg(hrRows.map((x) => x.b)))} bpm on average.`);

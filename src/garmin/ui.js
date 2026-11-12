@@ -172,15 +172,25 @@ async function attachActivities(acts) {
 
 /** The weather on the day for rounds that don't have it (Garmin rounds, rounds logged without a connection). */
 export async function backfillWeather({ limit = 120 } = {}) {
-  const rounds = (await listRounds().catch(() => [])).filter((r) => r.finished && r.cond?.start?.tempC == null && r.date <= Date.now()).slice(0, limit);
+  const { heatTrace, realStart, roundEnd } = await import('../heat.js');
+  // rounds without the day's weather, and rounds with a real start time that don't yet have the hour-by-hour heat
+  const needsHeat = (r) => !r.heat && realStart(r) && roundEnd(r) && Date.now() - roundEnd(r) > 2 * 3600e3;
+  const rounds = (await listRounds().catch(() => [])).filter((r) => r.finished && r.date <= Date.now() && (r.cond?.start?.tempC == null || needsHeat(r))).slice(0, limit);
   let n = 0; let q = 0;
   const one = async (r) => {
     let lat = r.garmin?.lat, lon = r.garmin?.lon;
     if (lat == null) { const c = await getCourse(r.courseId).catch(() => null); lat = c?.lat; lon = c?.lon; }
     if (lat == null) return;
-    const w = await historicConditions(lat, lon, r.date, r.garmin?.durationMin || 240).catch(() => null);
-    if (!w) return;
-    r.cond = { ...(r.cond || {}), start: w, historic: true }; r.updatedAt = Date.now(); await putRound(r); n++;
+    let changed = false;
+    if (r.cond?.start?.tempC == null) {
+      const w = await historicConditions(lat, lon, r.date, r.garmin?.durationMin || 240).catch(() => null);
+      if (w) { r.cond = { ...(r.cond || {}), start: w, historic: true }; changed = true; }
+    }
+    if (needsHeat(r)) {
+      const trace = await heatTrace(lat, lon, r.date, roundEnd(r)).catch(() => null);
+      if (trace) { r.heat = { trace, source: 'open-meteo' }; changed = true; }
+    }
+    if (changed) { r.updatedAt = Date.now(); await putRound(r); n++; }
   };
   const pool = Array.from({ length: 4 }, async () => { while (q < rounds.length) await one(rounds[q++]); });
   await Promise.all(pool);
