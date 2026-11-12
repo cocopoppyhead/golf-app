@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { usualTeeClub, clubForDistance, clubChoices, zoneOf, shotPanel, greenPanel } from '../../src/rounds/shotpanel.js';
-import { holeGaps, troubleFor, isGreenside, defaultLie } from '../../src/rounds/hole.js';
+import { usualTeeClub, clubForDistance, clubChoices, zoneOf, shotPanel, puttPanel, holeDone } from '../../src/rounds/shotpanel.js';
+import { holeGaps, troubleFor, isGreenside, defaultLie, ensurePutts, syncPutts } from '../../src/rounds/hole.js';
 import { puttBand, puttLabel } from '../../src/units.js';
 import { expected } from '../../src/rounds/sg.js';
 
@@ -35,9 +35,10 @@ describe('hole flow helpers', () => {
     expect(defaultLie(h, 2)).toBe('bnk');
   });
   it('gives desert courses Waste and Desert, elsewhere Fescue and Heather', () => {
-    expect(troubleFor({ lat: 25.1, lon: 55.2 }).map((x) => x[1])).toEqual(['Waste', 'Desert']);
+    expect(troubleFor({ lat: 25.1, lon: 55.2 }).map((x) => x[1])).toEqual(['Waste', 'Trees']);
+    expect(troubleFor({ name: 'Dubai Creek Golf & Yacht Club', lat: 25.2, lon: 55.3 }).map((x) => x[1])).toEqual(['Trees', 'Bushes']);
     expect(troubleFor({ lat: 53.3, lon: -6.2 }).map((x) => x[1])).toEqual(['Fescue', 'Heather']);
-    expect(troubleFor({ trouble: [['x', 'Gorse'], ['y', 'Ice plant']] }).map((x) => x[1])).toEqual(['Gorse', 'Ice plant']);
+    expect(troubleFor({ trouble: ['grs', 'des'] }).map((x) => x[1])).toEqual(['Gorse', 'Desert']);
     expect(expected('hea', 100)).toBe(expected('rec', 100));
   });
   it('lists what a hole still needs for strokes gained', () => {
@@ -54,10 +55,18 @@ describe('hole flow helpers', () => {
   it('draws the panels for each part of the hole', () => {
     const h = { shots: [{ lie: 'tee', res: 'RR', d: { club: 'Driver' } }, { lieAuto: 'rgh', dist: 146 }] };
     const fw = shotPanel({ h, k: 1, par: 4, course: { lat: 25, lon: 55 }, bag, dist: (x) => x, du: () => 'yd', holeYds: 400 });
-    expect(fw).toContain('z-fairway'); expect(fw).toContain('Desert'); expect(fw).toContain('from your tee shot'); expect(fw).toContain('is your 7 iron');
+    expect(fw).toContain('z-fairway'); expect(fw).toContain('Waste'); expect(fw).toContain('from your tee shot');
     const t = shotPanel({ h, k: 0, par: 4, course: {}, bag, dist: (x) => x, du: () => 'yd', holeYds: 400 });
     expect(t).toContain('f.Bunker'); expect(t).toContain('Water'); expect(t).toContain('>OB<');
-    const g = greenPanel({ putts: 2, firstPutt: 10 });
-    expect(g).toContain('data-fpb="12"'); expect(g).toMatch(/class="on\s*" data-fpb="12"/);
+    const hp = { putts: 2, firstPutt: 10, pBreak: 'RL', pSlope: 'up' };
+    ensurePutts(hp);
+    expect(hp.puttList).toEqual([{ ft: 10, brk: 'RL', sl: 'up', holed: false }, { ft: null, holed: true }]);
+    const g = puttPanel(hp, 0, { open: true });
+    expect(puttPanel(hp, 0)).toContain('10–15 ft · uphill, breaks left · missed');
+    expect(g).toMatch(/class="on\s*" data-pft="0" data-v="12"/); expect(g).toContain('Breaks left');
+    expect(puttPanel(hp, 1)).not.toContain('40+');
+    hp.puttList[1].holed = false; hp.puttList.push({ ft: 2, holed: true }); syncPutts(hp);
+    expect(hp.putts).toBe(3); expect(hp.firstPutt).toBe(10);
+    expect(holeDone({ score: 5, putts: 3 }, 4)).toContain('Bogey');
   });
 });

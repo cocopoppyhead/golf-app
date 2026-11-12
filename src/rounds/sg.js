@@ -27,7 +27,7 @@ export function expected(lie, d) {
   // the newer surfaces onto Broadie's tables: fescue and wet lies play like rough, heather and gorse like
   // a recovery, desert like waste, a divot or hardpan like the fairway (the ball is still clean-ish)
   if (lie === 'fes' || lie === 'mud') lie = 'rgh';
-  else if (lie === 'hea') lie = 'rec';
+  else if (lie === 'hea' || lie === 'bsh' || lie === 'grs') lie = 'rec';
   else if (lie === 'des') return WASTE(d);
   else if (lie === 'div' || lie === 'hp') lie = 'fw';
   if (lie === 'frg') lie = 'fw';

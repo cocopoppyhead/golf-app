@@ -2,6 +2,7 @@
 // shot up: distance, what it plays (slope from the laser, wind and temperature from the weather),
 // the club, and ✓. One tap (or none: it accepts itself after a few seconds). Every read also
 // takes a GPS fix, which is how the app knows you've walked to the next tee.
+import { carryOf, clubForDistance } from './shotpanel.js';
 import { onLaser } from '../laser.js';
 import { isNative, nativeSend } from '../native.js';
 import { isMetric } from '../units.js';
@@ -123,8 +124,9 @@ function shotCard({ round, course, i, k, x, pl, pick, bag, cond, target }) {
   pop?.remove();
   const el = document.createElement('div'); el.className = 'sheet laserpop'; pop = el;
   const unit = du();
-  const clubs = bag.filter((c) => c.carry > 0).sort((a, b) => b.carry - a.carry);
-  const best = pick?.best, second = pick?.second;
+  // your carries, or typical ones for clubs you haven't set yet, longest first
+  const clubs = bag.filter((c) => !/putter/i.test(c.club) && carryOf(c)).map((c) => ({ ...c, carry: carryOf(c) })).sort((a, b) => b.carry - a.carry);
+  const best = pick?.best || (() => { const c = clubForDistance(bag, pl.plays ?? read); return c ? { club: c, swing: 'full' } : null; })();
   const windTxt = pl.wind && Math.abs(pl.wind.head) >= 2 ? `${Math.round(Math.abs(pl.wind.head))} mph ${pl.wind.head > 0 ? 'into' : 'behind'}` : null;
   const why = [pl.slope !== Math.round(read) ? `slope ${pl.slope}` : null, windTxt, cond && Math.abs(cond.tempC - 25) >= 6 ? `${Math.round(cond.tempC)}°C` : null].filter(Boolean).join(' · ');
   let left = AUTO_ACCEPT_S, timer = null;
@@ -132,10 +134,9 @@ function shotCard({ round, course, i, k, x, pl, pick, bag, cond, target }) {
     <div class="lp-top"><span class="mute small">Hole ${i + 1} · ${target ? 'target from the tee' : `shot ${k + 1}`}${x.gps ? ' · position saved' : ''}</span><button class="link" data-x="no">Not a shot</button></div>
     <div class="lp-num"><b>${D(read)}</b><span>${unit}</span>${pl.plays !== Math.round(read) ? `<em>plays ${D(pl.plays)}</em>` : ''}</div>
     ${why ? `<div class="mute small">${esc(why)}</div>` : ''}
-    ${best ? `<button class="btn primary big lp-ok" data-x="ok">✓ ${esc(best.club)}${best.swing !== 'full' ? ` ${best.swing}` : ''} <span class="lp-cd">${left}</span></button>
-      ${second ? `<button class="btn big" data-club="${esc(second.club)}" data-sw="${esc(second.swing)}">${esc(second.club)}${second.swing !== 'full' ? ` ${second.swing}` : ''} <span class="mute small">${D(second.carry)}</span></button>` : ''}` : '<p class="mute small">Add carries in Bag and the club comes up here.</p>'}
-    <div class="lbl">Other club</div><div class="clubchips">${clubs.map((c) => `<button data-club="${esc(c.club)}" data-sw="full" class="${best?.club === c.club ? 'on' : ''}">${esc(c.club)}<small>${D(c.carry)}</small></button>`).join('')}</div>
-    <p class="mute small" style="margin:8px 0 0">Change it later in the shot's Details. ${x.gps ? 'Position saved with the read.' : 'No GPS fix for this read.'}</p></div>`;
+    ${best ? `<div class="lpstrip" role="listbox" aria-label="Club">${clubs.map((c) => `<button role="option" data-pick="${esc(c.club)}" class="${c.club === best.club ? 'on' : ''}"><b>${esc(c.club)}</b><small>${D(c.carry)}</small></button>`).join('')}</div>
+      <button class="btn primary big lp-ok" data-x="ok">✓ <span class="lp-club">${esc(best.club)}</span> <span class="lp-cd">${left}</span></button>` : '<p class="mute small">Add carries in Bag and the club comes up here.</p>'}
+    <p class="mute small" style="margin:8px 0 0">Swipe for another club; you can change it later on the shot. ${x.gps ? 'Position saved with the read.' : 'No GPS fix for this read.'}</p></div>`;
   const finish = async (club, swing) => {
     clearInterval(timer); el.remove(); if (pop === el) pop = null;
     if (club) { x.d = { ...(x.d || {}), club, swing, suggested: false }; }
@@ -144,8 +145,22 @@ function shotCard({ round, course, i, k, x, pl, pick, bag, cond, target }) {
     api.toast(club ? `${club} · ${D(read)} ${unit}` : `${D(read)} ${unit} logged`);
     if (api.getCur()?.round === round && document.querySelector('#holeMap, .holebar')) api.renderHole();
   };
-  el.querySelector('[data-x=ok]')?.addEventListener('click', () => finish(best.club, best.swing));
-  el.querySelectorAll('[data-club]').forEach((b) => b.onclick = () => finish(b.dataset.club, b.dataset.sw));
+  // the club strip: the suggestion in the middle, a club either side; scroll or tap to change, and
+  // whatever is picked when the countdown ends (or on ✓) is the club you played
+  let sel = best?.club || null;
+  const strip = el.querySelector('.lpstrip');
+  const mark = (club) => { sel = club; strip.querySelectorAll('[data-pick]').forEach((b) => b.classList.toggle('on', b.dataset.pick === club)); el.querySelector('.lp-club').textContent = club; left = AUTO_ACCEPT_S; const cd = el.querySelector('.lp-cd'); if (cd) cd.textContent = left; };
+  if (strip) {
+    requestAnimationFrame(() => { const on = strip.querySelector('.on'); if (on) strip.scrollLeft = on.offsetLeft - (strip.clientWidth - on.offsetWidth) / 2; });
+    let st = null;
+    strip.addEventListener('scroll', () => { clearTimeout(st); st = setTimeout(() => {
+      const mid = strip.scrollLeft + strip.clientWidth / 2;
+      const b = [...strip.querySelectorAll('[data-pick]')].reduce((a, x) => (Math.abs(x.offsetLeft + x.offsetWidth / 2 - mid) < Math.abs(a.offsetLeft + a.offsetWidth / 2 - mid) ? x : a));
+      if (b.dataset.pick !== sel) mark(b.dataset.pick);
+    }, 120); }, { passive: true });
+    strip.querySelectorAll('[data-pick]').forEach((b) => b.onclick = () => { mark(b.dataset.pick); b.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' }); });
+  }
+  el.querySelector('[data-x=ok]')?.addEventListener('click', () => finish(sel, 'full'));
   el.querySelector('[data-x=no]').onclick = async () => {
     clearInterval(timer); el.remove(); if (pop === el) pop = null;
     const h = round.holes[i]; const idx = h.shots.indexOf(x);
@@ -154,7 +169,7 @@ function shotCard({ round, course, i, k, x, pl, pick, bag, cond, target }) {
     await putRound(round).catch(() => {});
     if (api.getCur()?.round === round && document.querySelector('#holeMap, .holebar')) api.renderHole();
   };
-  if (best) timer = setInterval(() => { left -= 1; const cd = el.querySelector('.lp-cd'); if (cd) cd.textContent = left; if (left <= 0) finish(best.club, best.swing); }, 1000);
+  if (best) timer = setInterval(() => { left -= 1; const cd = el.querySelector('.lp-cd'); if (cd) cd.textContent = left; if (left <= 0) finish(sel, sel === best.club ? best.swing : 'full'); }, 1000);
   document.body.appendChild(el);
   try { navigator.vibrate?.(30); } catch {}
 }

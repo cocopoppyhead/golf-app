@@ -745,3 +745,21 @@ table.t5, table.dk { width: 100%; border-collapse: collapse; font-size: 13px; } 
 .kindf button.on { background: var(--chrome-ink); color: var(--hero); border-color: var(--chrome-ink); }
 .savedcard { border-left: 5px solid var(--acc); }
 .hist .acc { color: var(--acc); }
+/* rangefinder card: club strip, suggestion centred, a club either side in view */
+.lpstrip { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; gap: 6px; padding: 4px 0; margin: 10px -4px 8px; scrollbar-width: none; mask-image: linear-gradient(90deg, transparent, #000 18%, #000 82%, transparent); }
+.lpstrip::-webkit-scrollbar { display: none; }
+.lpstrip::before, .lpstrip::after { content: ''; flex: 0 0 calc(33.33% - 4px); }
+.lpstrip button { flex: 0 0 calc(33.33% - 4px); scroll-snap-align: center; border: 1px solid var(--line); background: var(--panel2); color: var(--ink); border-radius: 12px; padding: 10px 4px; display: grid; gap: 2px; }
+.lpstrip button b { font: 700 17px var(--display); } .lpstrip button small { font-size: 11px; color: var(--mute); }
+.lpstrip button.on { background: var(--acc); border-color: var(--acc); color: var(--acc-ink); } .lpstrip button.on small { color: inherit; opacity: .8; }
+/* putts and the end of the hole */
+.slopepad.putt .pad button { font-size: 16px; }
+.shotpanel button.wide { width: 100%; margin-top: 6px; }
+.shotpanel.later { padding-top: 10px; } .shotpanel.later .bands button { min-height: 38px; }
+.shotpanel .presult { margin-top: 12px; }
+.shotpanel .trow { margin: 6px 0 0; } .shotpanel .trow .link { font-size: 12.5px; }
+.holedone { display: flex; align-items: center; gap: 14px; border-left: 5px solid var(--z-grn); }
+.holedone > b { font: 700 34px/1 var(--display); } .holedone span { display: grid; } .holedone span b { font-size: 16px; }
+.holedone.under > b { color: var(--birdie); } .holedone.over > b { color: var(--double); }
+.shotpanel button.wide { background: var(--panel2); color: var(--ink); border: 1px solid var(--line); border-radius: 10px; padding: 10px; font: 500 13.5px var(--text); }
+.shotpanel button.wide.on { background: var(--acc); color: var(--acc-ink); border-color: var(--acc); }

@@ -19,20 +19,43 @@ export const SLOPE_HILL = [['up', 'Uphill'], [null, ''], ['dn', 'Downhill']];
 export const SURFACES = [['fw', 'Fairway'], ['rgh', 'Rough']];
 export const SURFACES2 = [['div', 'Divot'], ['bnk', 'Bunker'], ['hp', 'Hardpan'], ['mud', 'Wet / mud']];
 export const GREENSIDE_LIES = [['frg', 'Fringe'], ['rgh', 'Rough'], ['bnk', 'Bunker'], ['hp', 'Hardpan']];
-const TROUBLE = { links: [['fes', 'Fescue'], ['hea', 'Heather']], desert: [['wst', 'Waste'], ['des', 'Desert']] };
-/** The two trouble surfaces a course has: desert courses (the Gulf) get Waste and Desert; elsewhere Fescue and Heather. A course can set its own (course.trouble). */
-export function troubleFor(course) {
-  if (Array.isArray(course?.trouble) && course.trouble.length === 2) return course.trouble;
+/** Trouble a ball can sit in, beyond rough and sand. A course shows two of these in its lie row. */
+export const TROUBLE_OPTIONS = [['wst', 'Waste'], ['des', 'Desert'], ['rec', 'Trees'], ['bsh', 'Bushes'], ['fes', 'Fescue'], ['hea', 'Heather'], ['grs', 'Gorse']];
+const T_NAME = Object.fromEntries(TROUBLE_OPTIONS);
+// courses we know: the rest of the Gulf gets Waste and Trees, everywhere else Fescue and Heather
+const KNOWN = [[/creek/i, ['rec', 'bsh']], [/\bels\b/i, ['wst', 'rec']]];
+/** The two trouble surfaces for a course: the golfer's own pick for it (course.trouble), a course we know, or the region's usual. */
+export function troubleCodes(course) {
+  if (Array.isArray(course?.trouble) && course.trouble.length) return course.trouble.slice(0, 2);
+  const known = KNOWN.find(([re]) => re.test(course?.name || ''));
+  if (known) return known[1];
   const lat = course?.lat, lon = course?.lon;
-  const desert = (lat != null && lon != null && lat > 12 && lat < 32 && lon > 34 && lon < 60) || /^(uae|ae)[-:]/i.test(course?.libId || '') || course?.region === 'uae';
-  return desert ? TROUBLE.desert : TROUBLE.links;
+  const gulf = (lat != null && lon != null && lat > 12 && lat < 32 && lon > 34 && lon < 60) || course?.region === 'uae';
+  return gulf ? ['wst', 'rec'] : ['fes', 'hea'];
 }
-export const LIE_NAMES = Object.fromEntries([['tee', 'Tee'], ['fw', 'Fairway'], ['rgh', 'Rough'], ['frg', 'Fringe'], ['fbk', 'Fwy bunker'], ['bnk', 'Bunker'], ['wst', 'Waste'], ['des', 'Desert'], ['rec', 'Trees'], ['fes', 'Fescue'], ['hea', 'Heather'], ['div', 'Divot'], ['hp', 'Hardpan'], ['mud', 'Wet / mud']]);
+export const troubleFor = (course) => troubleCodes(course).map((c) => [c, T_NAME[c] || c]);
+export const LIE_NAMES = Object.fromEntries([['bsh', 'Bushes'], ['grs', 'Gorse'], ['tee', 'Tee'], ['fw', 'Fairway'], ['rgh', 'Rough'], ['frg', 'Fringe'], ['fbk', 'Fwy bunker'], ['bnk', 'Bunker'], ['wst', 'Waste'], ['des', 'Desert'], ['rec', 'Trees'], ['fes', 'Fescue'], ['hea', 'Heather'], ['div', 'Divot'], ['hp', 'Hardpan'], ['mud', 'Wet / mud']]);
 /** A shot played from just off the green: the previous one finished greenside, or this one starts on the fringe or within 30 yards. */
 export function isGreenside(h, k) {
   if (k === 0) return false;
   const p = h.shots[k - 1] || {}, x = h.shots[k] || {};
   return p.res === 'GS' || p.res === 'FR' || x.lie === 'frg' || (x.dist != null && x.dist <= 30);
+}
+/**
+ * Putts one by one: h.puttList = [{ ft, brk, sl, holed }]. The count, the first putt's length and its
+ * read are kept in step on the hole (h.putts, h.firstPutt, h.pBreak, h.pSlope) for the stats.
+ */
+export function ensurePutts(h) {
+  if (Array.isArray(h.puttList)) return h.puttList;
+  h.puttList = [];
+  if (h.putts > 0) for (let j = 0; j < h.putts; j++) h.puttList.push(j === 0 ? { ft: h.firstPutt ?? null, brk: h.pBreak ?? null, sl: h.pSlope ?? null, holed: h.putts === 1 } : { ft: null, holed: j === h.putts - 1 });
+  return h.puttList;
+}
+export function syncPutts(h) {
+  const L = h.puttList || [];
+  const holedAt = L.findIndex((p) => p.holed);
+  if (holedAt >= 0) { L.splice(holedAt + 1); h.putts = holedAt + 1; delete h.puttsAuto; } else if (!h.puttsAuto) h.putts = null;
+  h.firstPutt = L[0]?.ft ?? null; h.pBreak = L[0]?.brk ?? null; h.pSlope = L[0]?.sl ?? null;
 }
 /** A hole is "on the green" once a shot finished there (or the last one was holed). */
 export const onGreen = (h) => !!h.shots?.length && h.shots[h.shots.length - 1].res === 'G';
@@ -101,7 +124,7 @@ export function holeGaps(h, par) {
   if (!h || h.score == null) return [];
   const out = [];
   if (h.putts == null || h.puttsAuto) out.push('putts');
-  else if (h.putts > 0 && h.firstPutt == null) out.push('putt length');
+  if (h.putts > 0 && h.firstPutt == null) out.push('putt length');
   const shots = h.shots || [];
   if (!shots.length) return out.length ? out : ['shots'];
   if (par >= 4 && !shots[0].res) out.push('where the tee shot went');

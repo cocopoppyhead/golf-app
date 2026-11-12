@@ -12,8 +12,6 @@ import { TEE_ZONES } from './stats.js';
 import { PUTT_BANDS, puttBand, puttLabel } from '../units.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-export const BREAKS = [['LR', 'Left to right'], ['S', 'Straight'], ['RL', 'Right to left'], ['X', "It's complicated"]];
-export const PSLOPES = [['up', 'Uphill'], ['flat', 'Flat'], ['dn', 'Downhill']];
 const LONG_CLUB = /driver|wood|hybrid|^[1-5] ?iron/i;
 const SHORT_CLUB = /^(pw|gw|aw|sw|lw|putter)$|wedge|^\d{2}°?$/i;
 
@@ -37,7 +35,7 @@ export function usualTeeClub(rounds, courseId, holeIdx, { exclude = null, last =
 
 // a typical club golfer's full carries (yards), for bags without numbers yet
 const TYPICAL = [[/driver/i, 230], [/^3 ?w/i, 210], [/^5 ?w/i, 195], [/^7 ?w/i, 185], [/^[2-3] ?h/i, 185], [/^4 ?h/i, 178], [/^5 ?h/i, 170], [/^[1-3] ?i/i, 185], [/^4 ?i/i, 175], [/^5 ?i/i, 165], [/^6 ?i/i, 155], [/^7 ?i/i, 145], [/^8 ?i/i, 135], [/^9 ?i/i, 125], [/^pw|pitching/i, 115], [/^(gw|aw)|gap/i, 100], [/^sw|sand/i, 85], [/^lw|lob/i, 70]];
-const carryOf = (c) => (c.carry > 0 ? c.carry : (TYPICAL.find(([re]) => re.test(c.club)) || [])[1] || null);
+export const carryOf = (c) => (c.carry > 0 ? c.carry : (TYPICAL.find(([re]) => re.test(c.club)) || [])[1] || null);
 /** The bag club whose full carry (yours, or a typical one until you've set it) is closest to `yds`, or null. */
 export function clubForDistance(bag, yds) {
   if (yds == null) return null;
@@ -90,7 +88,7 @@ export function shotPanel(o) {
   const clubs = clubChoices(bag, clubZone, { chosen: x.d?.club, suggest, open: clubOpen });
   const clubHint = x.d?.club && x.src === 'laser' ? 'from the rangefinder'
     : tee && par >= 4 && x.d?.clubAuto && usual ? `you hit ${usual.club} here ${usual.n} of the last ${usual.of} times`
-      : suggest ? `${dist(target)} ${du()} is your ${suggest}` : '';
+      : x.d?.clubAuto && !tee && target != null ? `${dist(target)} ${du()}: tap another if you hit something else` : '';
   const clubRow = `<div class="lbl">Club${clubHint ? ` <em>· ${esc(clubHint)}</em>` : ''}</div>
     <div class="clubrow">${clubs.map((c) => btn(x.d?.club === c, `data-club="${k}" data-v="${esc(c)}"`, esc(c), !x.d?.club && suggest === c ? 'sug' : '')).join('')}${clubOpen ? '' : `<button data-clubmore="${k}">${zone === 'greenside' ? 'Other…' : '…'}</button>`}</div>`;
 
@@ -98,12 +96,14 @@ export function shotPanel(o) {
   if (zone === 'fairway') {
     const from = x.lie ? '' : x.lieAuto && k > 0 && h.shots[k - 1]?.res ? ` <em>· ${esc((LIE_NAMES[x.lieAuto] || x.lieAuto).toLowerCase())}, from your ${k === 1 ? 'tee shot' : `shot ${k}`}</em>` : '';
     const cell = (feet, hill, label) => btn((x.feet || null) === feet && (x.hill || null) === hill, `data-slope="${k}" data-feet="${feet || ''}" data-hill="${hill || ''}"`, label, !feet && !hill ? 'flat' : '');
-    const surf = [...SURFACES, ...troubleFor(course), ...SURFACES2];
+    const trouble = troubleFor(course);
+    const surf = [...SURFACES, ...trouble, ...(trouble.length < 2 ? [['rec', 'Trees']] : []), ...SURFACES2];
     lieHtml = `<div class="lbl">Lie${from}</div>
       <div class="slopepad"><span class="st">Ball above feet</span><span class="sl">Uphill</span>
         <div class="pad">${cell('abv', 'up', '↖')}${cell('abv', null, '↑')}${cell('abv', 'dn', '↗')}${cell(null, 'up', '←')}${cell(null, null, 'Flat')}${cell(null, 'dn', '→')}${cell('blw', 'up', '↙')}${cell('blw', null, '↓')}${cell('blw', 'dn', '↘')}</div>
         <span class="sr">Downhill</span><span class="sb">Ball below feet</span></div>
-      <div class="g4 surf">${surf.map(([v, l]) => btn(lie === v || (v === 'bnk' && lie === 'fbk'), `data-lie="${k}" data-v="${v}"`, l, !x.lie && (lie === v || (v === 'bnk' && lie === 'fbk')) ? 'auto' : '')).join('')}</div>`;
+      <div class="g4 surf">${surf.map(([v, l]) => btn(lie === v || (v === 'bnk' && lie === 'fbk'), `data-lie="${k}" data-v="${v}"`, l, !x.lie && (lie === v || (v === 'bnk' && lie === 'fbk')) ? 'auto' : '')).join('')}</div>
+      <p class="small mute trow">Trouble on this course: ${trouble.map((t) => t[1]).join(' and ')} <button class="link" data-trouble>change</button></p>`;
   } else if (zone === 'greenside') {
     lieHtml = `<div class="lbl">Lie</div><div class="g4">${GREENSIDE_LIES.map(([v, l]) => btn(lie === v, `data-lie="${k}" data-v="${v}"`, l, !x.lie && lie === v ? 'auto' : '')).join('')}</div>`;
   }
@@ -136,19 +136,49 @@ export function shotPanel(o) {
   </div>`;
 }
 
-/** The green: first-putt length (once), putts, and the optional read of the first putt. */
-export function greenPanel(h) {
-  const band = puttBand(h.firstPutt);
-  return `<div class="card shotpanel z-green" id="greenPanel">
-    <div class="sp-h"><span class="sn">⛳</span><b>On the green</b><span class="ztag">Green</span></div>
+// The read of a putt on a 3×3 pad, like the stance one: across = which way it breaks, down = up or downhill.
+const PREAD_BRK = [['RL', 'Breaks left'], ['S', ''], ['LR', 'Breaks right']];
+const PREAD_SL = [['up', 'Uphill'], ['flat', ''], ['dn', 'Downhill']];
+const PCELL = { 'up|RL': '↰', 'up|S': '↑', 'up|LR': '↱', 'flat|RL': '⤺', 'flat|S': 'Straight', 'flat|LR': '⤻', 'dn|RL': '↲', 'dn|S': '↓', 'dn|LR': '↳' };
+
+/**
+ * One putt. The first gets every length band and the full read pad; later putts are shorter, so fewer
+ * bands and a one-line read. Then: in the hole, or missed (which opens the next putt).
+ */
+export function puttPanel(h, j, { open = false } = {}) {
+  const p = h.puttList[j];
+  // a missed putt that has a putt after it folds to one line, like a logged shot
+  if (!open && j < h.puttList.length - 1) {
+    const rd = [p.sl && p.sl !== 'flat' ? (p.sl === 'up' ? 'uphill' : 'downhill') : null, p.brk === 'X' ? 'double break' : p.brk === 'RL' ? 'breaks left' : p.brk === 'LR' ? 'breaks right' : p.brk === 'S' ? 'straight' : null].filter(Boolean).join(', ');
+    return `<button class="card shotline z-greenside" data-pexp="${j}"><span class="sn">${j + 1}</span><span><b>Putt ${j + 1}</b><span class="mute small">${esc([p.ft != null ? puttLabel(p.ft) : null, rd || null, 'missed'].filter(Boolean).join(' · '))}</span></span><span class="mute">✎</span></button>`;
+  }
+  const first = j === 0;
+  const band = puttBand(p.ft);
+  const bands = first ? PUTT_BANDS : PUTT_BANDS.slice(0, 5);
+  const cell = (sl, brk) => btn((p.sl || 'flat') === sl && (p.brk || 'S') === brk && (p.sl || p.brk), `data-pread="${j}" data-sl="${sl}" data-brk="${brk}"`, PCELL[`${sl}|${brk}`], sl === 'flat' && brk === 'S' ? 'flat' : '');
+  const read = first
+    ? `<div class="lbl">Read <span class="mute">(optional)</span></div>
+      <div class="slopepad putt"><span class="st">Uphill</span><span class="sl">Breaks left</span>
+        <div class="pad">${PREAD_SL.flatMap(([sl]) => PREAD_BRK.map(([brk]) => cell(sl, brk))).join('')}</div>
+        <span class="sr">Breaks right</span><span class="sb">Downhill</span></div>
+      ${btn(p.brk === 'X', `data-pread="${j}" data-brk="X" data-sl=""`, "It's complicated (double break)", 'wide')}`
+    : `<div class="lbl">Read <span class="mute">(optional)</span></div><div class="g3">${[['RL', 'Breaks left'], ['S', 'Straight'], ['LR', 'Breaks right']].map(([v, l]) => btn(p.brk === v, `data-pread="${j}" data-brk="${v}" data-sl=""`, l)).join('')}</div>`;
+  const last = j === h.puttList.length - 1;
+  return `<div class="card shotpanel z-green ${first ? '' : 'later'}" ${last ? 'id="greenPanel"' : ''}>
+    <div class="sp-h"><span class="sn">${j + 1}</span><b>Putt ${j + 1}</b><span class="ztag">Green</span></div>
     <div class="lbl">How far from the hole?</div>
-    <div class="g4 bands">${PUTT_BANDS.map(([v]) => btn(band === v, `data-fpb="${v}"`, puttLabel(v).replace(/^(Tap-in)$/, 'Tap-in<small>≤2 ft</small>'))).join('')}</div>
-    <div class="lbl">Putts</div>
-    <div class="g4">${[1, 2, 3, 4].map((n) => btn(h.putts === n || (n === 4 && h.putts > 4), `data-pt="${n}"`, n === 4 ? '4+' : n)).join('')}</div>
-    <div class="lbl">First putt <span class="mute">(optional)</span></div>
-    <div class="g4">${BREAKS.map(([v, l]) => btn(h.pBreak === v, `data-brk="${v}"`, l)).join('')}</div>
-    <div class="g3" style="margin-top:6px">${PSLOPES.map(([v, l]) => btn(h.pSlope === v, `data-pslope="${v}"`, l)).join('')}</div>
+    <div class="g4 bands">${bands.map(([v]) => btn(band === v, `data-pft="${j}" data-v="${v}"`, puttLabel(v).replace(/^(Tap-in)$/, 'Tap-in<small>≤2 ft</small>'))).join('')}</div>
+    ${read}
+    <div class="g2 presult">${btn(p.holed, `data-pholed="${j}"`, 'In the hole')}${btn(!p.holed && !last, `data-pmiss="${j}"`, 'Missed')}</div>
   </div>`;
+}
+
+/** Closure before moving on: how many putts, and the hole's score against par. */
+export function holeDone(h, par) {
+  if (h.score == null) return '';
+  const d = h.score - par;
+  const word = d <= -2 ? 'Eagle' : d === -1 ? 'Birdie' : d === 0 ? 'Par' : d === 1 ? 'Bogey' : d === 2 ? 'Double bogey' : `+${d}`;
+  return `<div class="card holedone ${d < 0 ? 'under' : d > 0 ? 'over' : ''}"><b>${h.score}</b><span><b>${word}</b><span class="mute small">${h.putts === 0 ? 'holed from off the green' : `${h.putts} putt${h.putts === 1 ? '' : 's'}${h.puttsAuto ? ' (assumed)' : ''}`}</span></span></div>`;
 }
 
 /** The strip from tee to green with a dot where each shot was played from. */

@@ -27,8 +27,8 @@ import { weeklyDigest } from '../digest.js';
 import { ART } from '../art.js';
 import { listSessions } from '../store.js';
 import { drillsLoaded } from '../drills.js';
-import { LIE_DETAIL, PENALTY_RES, asPlanned, autoSwing, autoShotType, blankHole, ensureShots, defaultLie, derive, nextBogeyFrom, holeGaps } from './hole.js';
-import { shotPanel, shotLine, greenPanel, routeStrip, zoneOf, usualTeeClub } from './shotpanel.js';
+import { LIE_DETAIL, PENALTY_RES, TROUBLE_OPTIONS, troubleCodes, ensurePutts, syncPutts, asPlanned, autoSwing, autoShotType, blankHole, ensureShots, defaultLie, derive, nextBogeyFrom, holeGaps } from './hole.js';
+import { shotPanel, shotLine, puttPanel, holeDone, routeStrip, zoneOf, usualTeeClub, clubForDistance } from './shotpanel.js';
 export { SWING_TYPES, INTENT, autoShotType } from './hole.js';
 import { renderFriendsCard, inviteSheet } from './friends.js';
 import { inviteLink, remoteEvents, removeSummary, takePendingInvite, joinEvent, addFriendByCode } from '../cloud/social.js';
@@ -334,6 +334,14 @@ function renderHole() {
   // a par 4/5 tee shot starts with the Driver (or the club you usually hit here) already picked
   const t0 = h.shots[0];
   if (par >= 4 && !t0.d?.club && !t0.res) { t0.d = { ...(t0.d || {}), club: usual?.club || bag.find((c) => /driver/i.test(c.club))?.club || null, clubAuto: true }; if (!t0.d.club) delete t0.d; }
+  // every other shot with a distance gets the club for that distance, recorded unless you pick another
+  h.shots.forEach((x, k) => {
+    const yd = k === 0 ? (par >= 4 ? null : x.dist ?? ch.yds) : (x.plays ?? x.dist);
+    if (yd == null || (x.d?.club && !x.d.clubAuto)) return;
+    const c = clubForDistance(bag, yd);
+    if (c && x.d?.club !== c) x.d = { ...(x.d || {}), club: c, clubAuto: true };
+  });
+  ensurePutts(h);
   const panel = (x, k) => {
     // a shot that's been logged folds to one line; tap it to edit. The shot in hand stays open.
     const done = x.res === 'G' || x.res === 'HO';
@@ -343,6 +351,7 @@ function renderHole() {
   };
   const last = h.shots[h.shots.length - 1];
   const greenNow = last?.res === 'G' || (h.putts > 0 && !h.shots.some((x) => x.res));
+  if (greenNow && !h.puttList.length) h.puttList.push({ ft: null });
 
   root.innerHTML = `
     <div class="holebar">
@@ -360,7 +369,8 @@ function renderHole() {
 
     ${round.quick ? '' : routeStrip(h, ch.yds, ch.yds ? `${dist(ch.yds)} ${du()}` : '')}
     ${h.shots.map(panel).join('')}
-    ${greenNow ? greenPanel(h) : last?.res === 'HO' ? '<p class="mute small center">Holed. Nice.</p>' : `<button class="btn addshot" data-add="1">+ Shot ${h.shots.length + 1}</button>`}
+    ${greenNow ? h.puttList.map((_, j) => puttPanel(h, j, { open: expandedShots.has(`${i}:p${j}`) })).join('') : last?.res === 'HO' ? '' : `<button class="btn addshot" data-add="1">+ Shot ${h.shots.length + 1}</button>`}
+    ${holeDone(h, par)}
 
     ${(round.players || []).length ? `<div class="card partners"><div class="lbl">Playing partners <span class="mute">score · putts</span></div>
       ${round.players.map((p, pi) => { const sc = p.scores[i], pt = p.putts[i]; return `<div class="prow"><b>${esc(p.name)}</b>
@@ -399,11 +409,11 @@ function renderHole() {
     const k = +b.dataset.res, x = h.shots[k]; const was = x.res; x.res = x.res === b.dataset.v ? null : b.dataset.v;
     if (PENALTY_RES.includes(was) && !PENALTY_RES.includes(x.res) && !PENALTY_RES.includes(x.res2)) x.pen = false;
     penOn(x);
-    if (x.res === 'HO') { h.putts = 0; h.firstPutt = null; h.shots.splice(k + 1); }
+    if (x.res === 'HO') { h.putts = 0; h.firstPutt = null; h.puttList = []; h.shots.splice(k + 1); }
     else if (was === 'HO') h.putts = null;
     if (!x.res || !['GS', 'BK'].includes(x.res)) { x.dir = null; x.ss = false; }
     if (x.res === 'G') { h.shots.splice(k + 1); expandedShots.delete(`${i}:${k}`); setTimeout(() => root.querySelector('#greenPanel')?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 60); }
-    else if (was === 'G' && k === h.shots.length - 1) { h.putts = null; h.firstPutt = null; }
+    else if (was === 'G' && k === h.shots.length - 1) { h.puttList = []; h.putts = null; h.firstPutt = null; delete h.puttsAuto; }
     redo();
   });
   root.querySelectorAll('[data-res2]').forEach((b) => b.onclick = () => { const x = h.shots[+b.dataset.res2]; const was = x.res2; x.res2 = x.res2 === b.dataset.v ? null : b.dataset.v; if (PENALTY_RES.includes(was) && !PENALTY_RES.includes(x.res2)) x.pen = false; penOn(x); redo(); });
@@ -424,10 +434,22 @@ function renderHole() {
   root.querySelectorAll('[data-det]').forEach((b) => b.onclick = () => shotDetails(h, +b.dataset.det, par, i, redo));
   root.querySelector('[data-cue-off]')?.addEventListener('click', () => { round.cuesOff = true; redo(); });
   root.querySelector('[data-routine]')?.addEventListener('click', () => routineSheet(round));
-  root.querySelectorAll('[data-pt]').forEach((b) => b.onclick = () => { h.putts = h.putts === +b.dataset.pt && !h.puttsAuto ? null : +b.dataset.pt; delete h.puttsAuto; redo(); });
-  root.querySelectorAll('[data-fpb]').forEach((b) => b.onclick = () => { h.firstPutt = h.firstPutt != null && puttBand(h.firstPutt) === +b.dataset.fpb ? null : +b.dataset.fpb; if (h.firstPutt === 2 && h.putts == null) h.putts = 1; redo(); });
-  root.querySelectorAll('[data-brk]').forEach((b) => b.onclick = () => { h.pBreak = h.pBreak === b.dataset.brk ? null : b.dataset.brk; redo(); });
-  root.querySelectorAll('[data-pslope]').forEach((b) => b.onclick = () => { h.pSlope = h.pSlope === b.dataset.pslope ? null : b.dataset.pslope; redo(); });
+  // putts, one at a time
+  const putt = (j) => h.puttList[j];
+  const reputt = () => { syncPutts(h); redo(); };
+  root.querySelectorAll('[data-pft]').forEach((b) => b.onclick = () => { const p = putt(+b.dataset.pft); p.ft = p.ft != null && puttBand(p.ft) === +b.dataset.v ? null : +b.dataset.v; reputt(); });
+  root.querySelectorAll('[data-pread]').forEach((b) => b.onclick = () => {
+    const p = putt(+b.dataset.pread); const brk = b.dataset.brk || null, sl = b.dataset.sl || null;
+    const same = p.brk === brk && (p.sl || null) === sl; p.brk = same ? null : brk; p.sl = same ? null : sl; reputt();
+  });
+  root.querySelectorAll('[data-pholed]').forEach((b) => b.onclick = () => { const j = +b.dataset.pholed; h.puttList.forEach((p, n) => { p.holed = n === j ? !p.holed : false; }); h.puttList.splice(j + 1); delete h.puttsAuto; reputt(); });
+  root.querySelectorAll('[data-pmiss]').forEach((b) => b.onclick = () => {
+    const j = +b.dataset.pmiss; putt(j).holed = false; delete h.puttsAuto;
+    if (j === h.puttList.length - 1) h.puttList.push({ ft: null });
+    reputt(); setTimeout(() => root.querySelector('#greenPanel')?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 60);
+  });
+  root.querySelectorAll('[data-pexp]').forEach((b) => b.onclick = () => { expandedShots.add(`${i}:p${b.dataset.pexp}`); renderHole(); });
+  root.querySelector('[data-trouble]')?.addEventListener('click', () => troubleSheet(course, renderHole));
   root.querySelector('[data-learn]')?.addEventListener('change', (e) => { round.learning = e.target.checked; save(); });
   root.querySelectorAll('[data-pp]').forEach((b) => b.onclick = () => { const p = round.players[+b.dataset.pp]; const v = p.scores[i]; p.scores[i] = v == null ? par : Math.max(1, v + +b.dataset.d); save(); renderHole(); });
   root.querySelectorAll('[data-pq]').forEach((b) => b.onclick = () => { const p = round.players[+b.dataset.pq]; const v = p.putts[i]; p.putts[i] = v == null ? 2 : Math.max(0, v + +b.dataset.d); save(); renderHole(); });
@@ -435,7 +457,9 @@ function renderHole() {
   root.querySelector('[data-note]')?.addEventListener('input', (e) => { h.note = e.target.value; clearTimeout(window.__noteT); window.__noteT = setTimeout(save, 500); });
   // leaving a hole counts it as played: unpicked putts are taken as 2, unpicked lies as the suggested ones
   const commit = () => {
-    if (h.putts == null && h.shots.some((x) => x.res)) { h.putts = 2; h.puttsAuto = true; } // assumed, and flagged so Submit asks
+    // on the green and walked off without finishing the putts: two is the likely number, flagged so Submit asks.
+    // Anywhere else we can't know (a chip and a putt? a chip-in?), so the hole stays unfinished.
+    if (h.putts == null && h.shots[h.shots.length - 1]?.res === 'G') { const n = Math.max(2, h.puttList?.length || 0); h.putts = n; h.puttsAuto = true; }
     h.shots.forEach((x, k) => { if (!x.lie && x.lieAuto) x.lie = x.lieAuto; if (!x.sw) x.sw = autoSwing(x, k); delete x.lieAuto; });
     derive(h, par);
   };
@@ -507,6 +531,22 @@ export async function endRound(round, course, { submit = false } = {}) {
   sheet.querySelectorAll('[data-fix]').forEach((b) => b.onclick = () => { sheet.remove(); cur = { round, course, hole: +b.dataset.fix, review: false }; root.scrollIntoView?.(); renderHole(); });
   sheet.querySelector('[data-anyway]').onclick = () => { sheet.remove(); finish(true); };
   document.body.appendChild(sheet);
+}
+
+/** Which trouble this course has (two, shown in the lie row): saved on the course. */
+function troubleSheet(course, done) {
+  let pick = [...troubleCodes(course)];
+  const sheet = document.createElement('div'); sheet.className = 'sheet';
+  const draw = () => {
+    sheet.innerHTML = `<div class="sheet-in"><div class="sheet-h"><b>Trouble at ${esc(course.name)}</b><button class="link" data-close>Cancel</button></div>
+      <p class="small mute" style="margin:0 0 8px">Pick the two you end up in most here. Water is always under "Ended up".</p>
+      <div class="chips3">${TROUBLE_OPTIONS.map(([v, l]) => `<button class="${pick.includes(v) ? 'on' : ''}" data-t="${v}">${l}</button>`).join('')}</div>
+      <button class="btn primary big" data-ok ${pick.length ? '' : 'disabled'} style="margin-top:12px">Save</button></div>`;
+    sheet.querySelectorAll('[data-t]').forEach((b) => b.onclick = () => { const v = b.dataset.t; pick = pick.includes(v) ? pick.filter((x) => x !== v) : [...pick, v].slice(-2); draw(); });
+    sheet.querySelector('[data-close]').onclick = () => sheet.remove();
+    sheet.querySelector('[data-ok]').onclick = async () => { course.trouble = pick; await putCourse(course); sheet.remove(); done(); };
+  };
+  draw(); document.body.appendChild(sheet);
 }
 
 /** Throw the round away. */
