@@ -161,9 +161,9 @@ export async function renderSummary(r, c) {
       <button class="btn" data-x="edit">Edit holes</button>
     </div>
     <div id="roundAi" class="card ai" ${r.ai ? '' : 'hidden'}>${r.ai ? md(r.ai) : ''}</div>
-    <label class="card check"><input type="checkbox" data-learn ${r.learning !== false ? 'checked' : ''}/> Count toward my coach profile (untick for scrambles, fun rounds)</label>
+    <label class="card check"><input type="checkbox" data-learn ${r.countPick ?? r.learning !== false ? 'checked' : ''}/> Count toward my stats and coach (untick for scrambles, fun or unfinished rounds)</label>
     <button class="btn" data-x="del" style="width:100%;color:var(--work)">Delete round</button>`;
-  api.root.querySelector('[data-learn]').onchange = (e) => { r.learning = e.target.checked; putRound(r); };
+  api.root.querySelector('[data-learn]').onchange = (e) => { r.learning = e.target.checked; r.countPick = e.target.checked; putRound(r); };
   // debrief autosave
   let dbT = null;
   const saveDb = () => { clearTimeout(dbT); dbT = setTimeout(async () => { await putRound(r); const el = api.root.querySelector('#dbSaved'); if (el) el.textContent = 'Saved'; }, 600); };

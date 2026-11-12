@@ -37,3 +37,24 @@ test('the skills radar draws six axes from rounds, switches windows and jumps to
   await page.waitForTimeout(600);
   expect(await page.evaluate(() => window.scrollY)).toBeGreaterThan(200);
 });
+
+// Unfinished rounds stay out of Progress until you tick them in "Choose rounds".
+test('rounds that look unfinished are left out, and you can pick them back in', async ({ page }) => {
+  await boot(page);
+  await page.evaluate(async () => {
+    const course = { id: 'c', name: 'Test Links', tees: 'Blue', holes: Array.from({ length: 18 }, () => ({ par: 4, yds: 400 })) };
+    const round = (k, gap) => ({ id: `r${k}`, finished: true, learning: true, date: Date.parse('2026-06-01') + k * 864e5, courseId: 'c', courseName: 'Test Links', holes: course.holes.map((_, i) => (gap && i === 4 ? null : { score: 5, putts: 2, tags: [] })) });
+    await new Promise((res, rej) => { const r = indexedDB.open('golf-app', 6); r.onsuccess = () => { const t = r.result.transaction(['courses', 'rounds'], 'readwrite'); t.objectStore('courses').put(course); [round(1), round(2), round(3, true)].forEach((x) => t.objectStore('rounds').put(x)); t.oncomplete = res; t.onerror = rej; }; r.onerror = rej; });
+  });
+  await page.reload();
+  await page.click('nav button[data-tab=history]');
+  const card = page.locator('.radarcard');
+  await expect(card.locator('.hused')).toContainText('From 2 rounds, 1 left out');
+  await card.locator('[data-pickrounds]').click();
+  const row = page.locator('.pickrounds .prow.off');
+  await expect(row).toHaveCount(1);
+  await expect(row).toContainText('hole 5 not scored');
+  await row.locator('input').check();
+  await page.locator('.pickrounds [data-close]').click();
+  await expect(page.locator('.radarcard .hused')).toContainText('From 3 rounds');
+});

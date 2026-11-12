@@ -14,6 +14,8 @@ import { getSettings } from './store.js';
 import { skillRadar, radarSvg, radarRead, LONG_FROM } from './rounds/radar.js';
 import { levelLabel } from './benchmarks.js';
 import { ART, CONTOUR } from './art.js';
+import { counts, roundIssues } from './rounds/quality.js';
+import { putRound } from './store.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const f1 = (v) => (v == null || !Number.isFinite(v) ? '–' : v.toFixed(1));
@@ -38,15 +40,56 @@ function band(metric, v) {
   return Math.min(best, BANDS.length - 1);
 }
 
-export async function loadRounds(n = 20) {
-  const rounds = (await listRounds().catch(() => [])).filter((r) => r.finished && r.learning !== false).slice(0, n);
+/** The rounds that feed Progress (see rounds/quality.js), newest first. `all: true` returns every candidate with its verdict. */
+export async function loadRounds(n = 20, { all = false } = {}) {
+  const rounds = await listRounds().catch(() => []);
   const out = [];
   for (const r of rounds) {
+    if (!all && out.length >= n) break;
+    if (!r.finished && r.countPick !== true && !all) continue;
     const c = await getCourse(r.courseId).catch(() => null);
     if (!c) continue;
-    out.push({ r, c, S: roundStats(r, c), G: roundSG(r, c), T: tiger5(r, c) });
+    const ok = counts(r, c);
+    if (!ok && !all) continue;
+    out.push(all ? { r, c, ok, issues: roundIssues(r, c) } : { r, c, S: roundStats(r, c), G: roundSG(r, c), T: tiger5(r, c) });
   }
   return out;
+}
+
+/** Choose which rounds count: every round, a tick each, with what looks wrong spelled out. */
+async function roundsSheet(onDone) {
+  const list = await loadRounds(0, { all: true });
+  const sheet = document.createElement('div'); sheet.className = 'sheet itemsheet pickrounds';
+  const row = ({ r, c, ok, issues }) => {
+    const sc = (r.holes || []).reduce((a, h) => a + (h?.score || 0), 0) || r.score || null;
+    const played = (r.holes || []).filter((h) => h?.score != null).length;
+    const shots = r.shotsTracked || (r.holes || []).reduce((a, h) => a + (h?.shots?.length || 0), 0);
+    const why = r.countPick != null ? (r.countPick ? 'counted by you' : 'left out by you') : issues.length ? issues.join(' · ') : '';
+    return `<label class="prow ${ok ? '' : 'off'}"><input type="checkbox" data-rid="${esc(r.id)}" ${ok ? 'checked' : ''}/>
+      <span class="pmain"><b>${esc(r.courseName || c.name)}</b><span class="mute small">${new Date(r.date).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })} · ${r.quick ? 'score only' : `${played}/${c.holes.length} holes`}${shots ? ` · ${shots} shots` : ''}${r.source === 'garmin' ? ' · Garmin' : ''}</span>
+      ${why ? `<span class="pwhy ${r.countPick == null && issues.length ? 'warn' : ''}">${esc(why)}</span>` : ''}</span><span class="psc">${sc ?? '–'}</span></label>`;
+  };
+  const n = list.filter((x) => x.ok).length;
+  sheet.innerHTML = `<div class="sheet-in"><div class="sheet-h"><b>Rounds in your stats</b><button class="link" data-close>Done</button></div>
+    <p class="small mute" style="margin:0 0 10px">${n} of ${list.length} count. Rounds that look unfinished (under 9 holes, holes skipped in the middle, impossible scores) are left out until you tick them. Holes without every shot tracked never count toward strokes gained either way.</p>
+    <div class="plist">${list.map(row).join('') || '<p class="mute">No rounds yet.</p>'}</div>
+    <button class="btn" data-auto style="width:100%;margin-top:12px">Back to automatic for every round</button></div>`;
+  const byId = new Map(list.map((x) => [x.r.id, x]));
+  let changed = false;
+  sheet.addEventListener('change', async (e) => {
+    const x = byId.get(e.target.dataset.rid); if (!x) return;
+    x.r.countPick = e.target.checked; x.r.updatedAt = Date.now(); changed = true;
+    await putRound(x.r);
+    e.target.closest('.prow').classList.toggle('off', !e.target.checked);
+    const w = e.target.closest('.prow').querySelector('.pwhy') || e.target.closest('.prow').querySelector('.pmain').appendChild(Object.assign(document.createElement('span'), { className: 'pwhy' }));
+    w.className = 'pwhy'; w.textContent = e.target.checked ? 'counted by you' : 'left out by you';
+  });
+  sheet.querySelector('[data-auto]').onclick = async () => {
+    for (const x of list) if (x.r.countPick != null) { delete x.r.countPick; x.r.updatedAt = Date.now(); await putRound(x.r); }
+    sheet.remove(); onDone(); roundsSheet(onDone);
+  };
+  sheet.querySelector('[data-close]').onclick = () => { sheet.remove(); if (changed) onDone(); };
+  document.body.appendChild(sheet);
 }
 
 function spark(vals, { good = 'down' } = {}) {
@@ -133,7 +176,7 @@ function hero0Detail(ALL, hcp) {
   return r.axes.map((a) => `<div><b>${esc(a.label)}</b><span>${a.detail ? esc(a.detail) : 'Not enough rounds yet.'}</span></div>`).join('');
 }
 
-function heroBand(ALL, Hc, hcp) {
+function heroBand(ALL, Hc, hcp, OUT = 0) {
   const L = ALL.filter((x) => !x.S.quick);
   const windows = [10, 50, 100].map((n) => ({ n, radar: skillRadar(L.slice(0, n), { hcp }), ghost: L.length > n ? skillRadar(L.slice(n, 2 * n), { hcp }) : null }));
   const views = Object.fromEntries(windows.map((w) => [w.n, `${radarSvg(w.radar, w.ghost)}${w.radar.ready ? '' : `<p class="hnote">The shape fills in after 3 hole-by-hole rounds with shot distances and first putts (${w.radar.nSg} so far).</p>`}`]));
@@ -145,6 +188,7 @@ function heroBand(ALL, Hc, hcp) {
   const idx = Hc?.current ? Hc.current.index : getSettings().handicap;
   return { windows, html: `<section class="hero radarcard" data-radar-views='${esc(JSON.stringify(views))}'><div class="contour" style="--mask:${CONTOUR}"></div>
     <h1>Your game</h1><p class="hsub">Strokes a round against a ${levelLabel(hcp)} golfer. Tap an area to jump to it.</p>
+    <p class="hused">From ${ALL.length} round${ALL.length === 1 ? '' : 's'}${OUT ? `, ${OUT} left out` : ''} <button class="link" data-pickrounds>Choose rounds</button></p>
     <div class="rwin" role="group" aria-label="Rounds">${windows.map((w) => `<button data-radar-n="${w.n}" class="${w.n === 10 ? 'on' : ''}" ${L.length < w.n && w.n !== 10 ? 'disabled' : ''}>Last ${w.n}</button>`).join('')}</div>
     <div class="radarbox">${views[10]}</div>
     <div class="legend"><span><i class="lg-you"></i>You</span><span><i class="lg-gh"></i>Rounds before</span><span><i class="lg-scr"></i>Scratch</span></div>
@@ -156,15 +200,20 @@ function heroBand(ALL, Hc, hcp) {
 
 export async function renderScoring(el) {
   const ALL = await loadRounds(200);
+  const OUT = (await loadRounds(0, { all: true })).filter((x) => !x.ok).length;
   const R = ALL.slice(0, 20);
-  if (!R.length) { el.innerHTML = '<section class="hero empty"><h1>Your game</h1><p class="hsub">Play or post a round and your game takes shape here: driving, approach, short game, putting and the mental side, against golfers at your level.</p></section>'; return; }
+  if (!R.length) {
+    el.innerHTML = `<section class="hero empty"><h1>Your game</h1><p class="hsub">${OUT ? `None of your ${OUT} rounds count yet: they look unfinished. Choose the ones that should.` : 'Play or post a round and your game takes shape here: driving, approach, short game, putting and the mental side, against golfers at your level.'}</p>${OUT ? '<button class="btn" data-pickrounds>Choose rounds</button>' : ''}</section>`;
+    el.onclick = (e) => { if (e.target.closest('[data-pickrounds]')) roundsSheet(() => renderScoring(el)); };
+    return;
+  }
   const L = R.filter((x) => !x.S.quick);
   const T = (k) => L.reduce((a, x) => a + (x.S[k] || 0), 0);
   const holesL = T('holes'); const p18 = holesL ? 18 / holesL : 0;
   const auto = getSettings().handicapMode !== 'manual' && !(!getSettings().handicapMode && getSettings().handicap != null);
   const Hc = auto ? handicap(ALL) : null;
   const hcp = (auto ? Hc?.current?.index : getSettings().handicap) ?? 15;
-  const hero = heroBand(ALL, Hc, hcp);
+  const hero = heroBand(ALL, Hc, hcp, OUT);
   const radar = hero.windows[0].radar, read = radarRead(radar);
   const G = R.filter((x) => x.G && x.G.complete >= Math.min(9, x.G.holes));
   const sg = G.length ? Object.fromEntries(['ott', 'app', 'arg', 'putt', 'total'].map((k) => [k, G.reduce((a, x) => a + x.G[k] * (18 / x.G.holes), 0) / G.length])) : null;
@@ -255,6 +304,7 @@ export async function renderScoring(el) {
     year,
   ].join('');
   el.onclick = (e) => {
+    if (e.target.closest('[data-pickrounds]')) { roundsSheet(() => renderScoring(el)); return; }
     const b = e.target.closest('[data-radar-n]');
     if (b) {
       const card = b.closest('.radarcard'); const views = JSON.parse(card.dataset.radarViews);
