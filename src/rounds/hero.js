@@ -32,7 +32,7 @@ export function greeting(c, name = '') {
   if (t >= 40) return 'A scorcher. Twilight nine?';
   if (w >= 18) return 'Breezy one. Keep it low today.';
   if (t <= 12) return `Fresh out${you}. Keep the ball warm.`;
-  if (sky === 'cloud') return `Grey, but grand for golf${you}.`;
+  if (sky === 'cloud') return `Grey skies, a grand day for golf${you}.`;
   return `Lovely day for a game of golf${you}.`;
 }
 
@@ -92,7 +92,9 @@ export function heroHtml({ name = '', groups = [], today = null, cond = null, pl
   </section>`;
 }
 
-const tilesHtml = (picks) => picks.map((g) => `<button class="hp-course" data-course="${esc(g.key)}">${badgeHtml(g.name, null, { attrs: `data-thumb="${esc(g.key)}"` })}<span>${esc(shortCourse(g.name))}</span></button>`).join('');
+const lastPlayed = (g) => Math.max(0, ...(g.variants || []).map((c) => c.lastPlayed || 0));
+const when = (t) => { if (!t) return 'Not played yet'; const days = Math.floor((Date.now() - t) / 864e5); return days < 1 ? 'Played today' : days === 1 ? 'Yesterday' : days < 7 ? `${days} days ago` : new Date(t).toLocaleDateString(undefined, { day: 'numeric', month: 'short' }); };
+const tilesHtml = (picks) => picks.map((g) => `<button class="hp-course" data-course="${esc(g.key)}">${badgeHtml(g.name, null, { attrs: `data-thumb="${esc(g.key)}"` })}<b>${esc(shortCourse(g.name))}</b><small>${when(lastPlayed(g))}</small></button>`).join('');
 
 export const AWAY_KM = 150; // further than this from every course you've played: you're travelling
 export const AT_KM = 2; // this close to one of your courses: you're there

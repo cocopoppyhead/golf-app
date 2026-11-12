@@ -860,11 +860,19 @@ table.t5, table.dk { width: 100%; border-collapse: collapse; font-size: 13px; } 
 .hp-today { margin-top: 16px; }
 .hp-q { font-size: 14px; font-weight: 600; color: var(--soft); margin: 18px 0 8px; }
 .hp-courses { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; } .hp-courses:empty { display: none; }
-.hp-course { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 12px 6px 10px; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; color: var(--ink); font: inherit; font-size: 13px; font-weight: 600; line-height: 1.2; text-align: center; cursor: pointer; box-shadow: var(--shadow); }
-.hp-course .clogo { width: 48px; height: 48px; }
-.hp-course:active { transform: scale(.98); }
+.hp-course { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 14px 6px 12px; background: var(--panel); border: 1px solid var(--line); border-radius: 16px; color: var(--ink); font: inherit; text-align: center; cursor: pointer; box-shadow: 0 1px 2px rgba(16,24,40,.06), 0 6px 16px rgba(16,24,40,.10); transition: transform .12s ease, box-shadow .12s ease; }
+.hp-course .clogo { width: 56px; height: 56px; margin-bottom: 8px; border-radius: 14px; }
+.hp-course .clogo.haslogo { border-color: transparent; background: #fff; box-shadow: inset 0 0 0 1px rgba(16,24,40,.08); }
+.hp-course b { font-size: 14px; font-weight: 700; line-height: 1.2; color: var(--ink); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.hp-course small { font-size: 12px; color: var(--mute); }
+.hp-course:active { transform: scale(.97); box-shadow: 0 1px 2px rgba(16,24,40,.08); }
 .hp-course:focus-visible { outline: 2px solid var(--acc); outline-offset: 2px; }
-.hp-find { width: 100%; margin-top: 8px; padding: 12px; border: 1px dashed var(--line); border-radius: 14px; background: transparent; color: var(--acc); font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; }
+:root:not([data-theme="light"]):not([data-theme="hybrid"]) .hp-course { box-shadow: 0 1px 2px rgba(0,0,0,.3), 0 6px 18px rgba(0,0,0,.35); }
+:root[data-theme="hybrid"] :is(.hp-course, .hp-find) { --ink: #101828; --mute: #5d6b86; --soft: #344054; color: var(--ink); }
+/* hybrid: green links sitting on the slate page need a lighter green to read */
+:root[data-theme="hybrid"] :is(.sechead .link.acc, .addhand .link) { color: #8ee6b2; }
+@media (prefers-reduced-motion: reduce) { .hp-course { transition: none; } }
+.hp-find { width: 100%; margin-top: 10px; padding: 13px; border: 0; border-radius: 14px; background: var(--panel); color: var(--acc); font: inherit; font-size: 15px; font-weight: 700; cursor: pointer; box-shadow: 0 1px 2px rgba(16,24,40,.06), 0 6px 16px rgba(16,24,40,.10); }
 .hp-find:focus-visible { outline: 2px solid var(--acc); outline-offset: 2px; }
 
 /* ---------- Mental coach chat ---------- */
@@ -887,3 +895,4 @@ table.t5, table.dk { width: 100%; border-collapse: collapse; font-size: 13px; } 
 .mc-form { display: flex; gap: 8px; align-items: flex-end; }
 .mc-form textarea { flex: 1; resize: none; font: inherit; font-size: 16px; padding: 10px 12px; border-radius: 14px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); min-height: 44px; }
 .mc-foot { margin: 6px 0 0; text-align: center; }
+:root[data-theme="hybrid"] .hp-find { color: var(--acc); }
