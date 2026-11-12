@@ -142,13 +142,31 @@ async function storeRounds(convert) {
   const have = new Set(rounds.map((r) => r.id));
   const newCourses = []; const cache = new Map(); const snaps = new Map();
   const resolve = (snapshot) => { const key = snapshot?.name || '?'; if (!snaps.has(key) && snapshot) snaps.set(key, snapshot); if (cache.has(key)) return cache.get(key); const m = matchCourse(snapshot, { courses, library }); cache.set(key, m); return m; };
-  const converted = convert((snap) => { const m = resolve(snap); return m.kind === 'course' ? m.course : m.kind === 'library' ? { id: `lib:${m.lib.id}`, name: m.lib.name, holes: m.lib.par.map((p, i) => ({ par: p || 4, si: m.lib.si?.[i] ?? null })) } : { id: `new:${m.spec.name}`, name: m.spec.name, holes: m.spec.holes }; });
+  const pending = new Map(); // placeholder course id → what to create (library course or one described by the card)
+  const converted = convert((snap) => {
+    const m = resolve(snap);
+    if (m.kind === 'course') return m.course;
+    if (m.kind === 'library') { const id = `lib:${m.lib.id}`; pending.set(id, m); return { id, name: m.lib.name, holes: m.lib.par.map((p, i) => ({ par: p || 4, si: m.lib.si?.[i] ?? null })) }; }
+    const id = `new:${m.spec.name}`; pending.set(id, m); return { id, name: m.spec.name, holes: m.spec.holes };
+  });
+  const made = new Map(); // placeholder (+ tee for library courses) → the course created for it
   let added = 0, skipped = 0, shots = 0;
   for (const r of converted) {
     if (have.has(r.id)) { skipped++; continue; }
-    // materialise library / new courses on first use
-    if (r.courseId.startsWith('lib:')) { const m = resolve({ name: r.courseName }); const tee = m.lib.tees?.find((t) => r.tees && t.name.toLowerCase() === r.tees.toLowerCase()) || m.lib.tees?.[0] || null; const c = await importCourse(m.lib, tee); r.courseId = c.id; r.tees = c.tees || ''; courses.push(c); cache.set(r.courseName, { kind: 'course', course: c }); if (!newCourses.includes(c.name)) newCourses.push(c.name); }
-    else if (r.courseId.startsWith('new:')) { const m = resolve({ name: r.courseName }); const c = { id: `c_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`, name: m.spec.name, tees: m.spec.tees || r.tees || '', rating: null, slope: null, holes: m.spec.holes }; await putCourse(c); r.courseId = c.id; courses.push(c); cache.set(r.courseName, { kind: 'course', course: c }); newCourses.push(c.name); }
+    const m = pending.get(r.courseId);
+    if (m) { // materialise library / new courses on first use, once each
+      const key = m.kind === 'library' ? `${r.courseId}|${(r.tees || '').toLowerCase()}` : r.courseId;
+      let c = made.get(key);
+      if (!c && m.kind === 'library') {
+        const tee = m.lib.tees?.find((t) => r.tees && t?.name?.toLowerCase() === r.tees.toLowerCase()) || m.lib.tees?.[0] || null;
+        c = await importCourse(m.lib, tee);
+      } else if (!c) {
+        c = { id: `c_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`, name: m.spec.name, tees: m.spec.tees || r.tees || '', rating: null, slope: null, holes: m.spec.holes };
+        await putCourse(c);
+      }
+      if (!made.has(key)) { made.set(key, c); courses.push(c); if (!newCourses.includes(c.name)) newCourses.push(c.name); }
+      r.courseId = c.id; r.courseName = c.name; if (m.kind === 'library') r.tees = c.tees || r.tees;
+    }
     r.updatedAt = Date.now();
     await putRound(r); added++; shots += r.shotsTracked || 0;
   }

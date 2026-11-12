@@ -4,29 +4,8 @@ import { readScorecard, scorecardId, convertScorecards } from '../../src/garmin/
 import { readZipEntries } from '../../src/garmin/zip.js';
 import { matchCourse } from '../../src/garmin/import.js';
 
-// A tiny FIT writer for tests: messages as [globalNum, [[fieldNum, type, value], ...]]; types: 'u8','u16','u32','s32','f32','str'.
-const SIZE = { u8: 1, u16: 2, u32: 4, s32: 4, s8: 1, f32: 4 };
-const BASE = { u8: 0x02, u16: 0x84, u32: 0x86, s32: 0x85, s8: 0x01, f32: 0x88, str: 0x07 };
-function fit(messages) {
-  const body = []; const push = (...b) => body.push(...b);
-  messages.forEach(([num, fields], k) => {
-    const local = k % 16;
-    push(0x40 | local, 0, 0, num & 0xff, num >> 8, fields.length);
-    const sizes = fields.map(([, t, v]) => (t === 'str' ? new TextEncoder().encode(v).length + 1 : SIZE[t]));
-    fields.forEach(([fn, t], i) => push(fn, sizes[i], BASE[t]));
-    push(local);
-    fields.forEach(([, t, v], i) => {
-      const dv = new DataView(new ArrayBuffer(sizes[i]));
-      if (t === 'str') new TextEncoder().encode(v).forEach((c, j) => dv.setUint8(j, c));
-      else if (t === 'u8') dv.setUint8(0, v); else if (t === 's8') dv.setInt8(0, v); else if (t === 'u16') dv.setUint16(0, v, true);
-      else if (t === 'u32') dv.setUint32(0, v, true); else if (t === 's32') dv.setInt32(0, v, true); else if (t === 'f32') dv.setFloat32(0, v, true);
-      push(...new Uint8Array(dv.buffer));
-    });
-  });
-  const head = new Uint8Array(14); const hv = new DataView(head.buffer);
-  hv.setUint8(0, 14); hv.setUint8(1, 0x10); hv.setUint32(4, body.length, true); [...'.FIT'].forEach((c, i) => hv.setUint8(8 + i, c.charCodeAt(0)));
-  return new Uint8Array([...head, ...body, 0, 0]);
-}
+import { fit } from '../fixtures/garminfit.js';
+
 const t0 = 1011189463; // 2022-01-15 13:57:43 UTC
 const card = fit([
   [0, [[0, 'u8', 38]]],
