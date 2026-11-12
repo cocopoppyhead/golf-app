@@ -702,3 +702,46 @@ table.t5, table.dk { width: 100%; border-collapse: collapse; font-size: 13px; } 
 .pickrounds .rchip { justify-self: start; margin-top: 4px; font: 500 12px/1 var(--text); padding: 5px 9px; border-radius: 999px; border: 1px solid var(--line); background: transparent; color: var(--mute); }
 .pickrounds .rchip.on { border-color: var(--acc); color: var(--acc); }
 .pickrounds .rchip.none { border-style: dashed; }
+
+/* ---- hole screen v2: shot panels by part of the hole ---- */
+:root { --z-tee: #b8743a; --z-tee-soft: #f6eadf; --z-mid: #7cc89a; --z-mid-ink: #2d7d4c; --z-mid-soft: #e7f5ec; --z-grn: #0b6b38; --z-grn-soft: #dcefe3; }
+:root:not([data-theme="light"]):not([data-theme="hybrid"]) { --z-tee: #d08a4c; --z-tee-soft: #3a2a1d; --z-mid: #4fae75; --z-mid-ink: #8fdcb0; --z-mid-soft: #173226; --z-grn: #2fbf6f; --z-grn-soft: #123222; }
+.shotpanel.z-tee, .shotline.z-tee { border-left: 5px solid var(--z-tee); } .z-tee .sn { background: var(--z-tee) !important; color: #fff !important; }
+.shotpanel.z-fairway, .shotline.z-fairway { border-left: 5px solid var(--z-mid); } .z-fairway .sn { background: var(--z-mid-ink) !important; color: #fff !important; }
+.shotpanel.z-greenside, .shotline.z-greenside { border-left: 5px solid var(--z-grn); } .z-greenside .sn { background: var(--z-grn) !important; color: #fff !important; }
+.shotpanel.z-green { border-left: 5px solid var(--z-grn); background: linear-gradient(var(--z-grn-soft), var(--panel) 80px); } .z-green .sn { background: var(--z-grn) !important; color: #fff !important; }
+.shotpanel .ztag { font: 600 11px var(--text); padding: 2px 8px; border-radius: 999px; background: var(--z-mid-soft); color: var(--z-mid-ink); }
+.z-tee .ztag { background: var(--z-tee-soft); color: var(--z-tee); } .z-greenside .ztag, .z-green .ztag { background: var(--z-grn-soft); color: var(--z-grn); }
+.shotpanel .lbl em { font-style: normal; color: var(--acc); font-weight: 600; }
+.shotpanel :is(.g1, .g2, .g3, .g4, .g5), .detsheet :is(.g1, .g2, .g3, .g4, .g5) { display: grid; gap: 6px; }
+.g1 { grid-template-columns: 1fr; } .g2 { grid-template-columns: 1fr 1fr; } .g3 { grid-template-columns: repeat(3, 1fr); } .g4 { grid-template-columns: repeat(4, 1fr); } .g5 { grid-template-columns: repeat(5, 1fr); }
+.shotpanel :is(.g1, .g2, .g3, .g4, .g5, .clubrow) button, .detsheet :is(.g1, .g2, .g3, .g4, .g5) button { background: var(--panel2); color: var(--ink); border: 1px solid var(--line); border-radius: 10px; padding: 10px 2px; font: 500 13.5px/1.15 var(--text); min-height: 42px; }
+.shotpanel :is(.g1, .g2, .g3, .g4, .g5, .clubrow) button.on, .detsheet :is(.g1, .g2, .g3, .g4, .g5) button.on { background: var(--acc); color: var(--acc-ink); border-color: var(--acc); }
+.shotpanel button.auto:not(.on), .shotpanel .surf button.auto { background: transparent; color: var(--acc); border: 1.5px dashed var(--acc); }
+.shotpanel button.sug { background: transparent; color: var(--acc); border: 1.5px dashed var(--acc); }
+.shotpanel .g5 button.fw:not(.on) { background: var(--z-mid-soft); }
+.shotpanel button.warn.on { background: var(--work); border-color: var(--work); }
+.shotpanel .bands button small { display: block; font-size: 10.5px; opacity: .75; }
+.clubrow { display: flex; flex-wrap: wrap; gap: 6px; } .clubrow button { padding: 8px 12px !important; min-height: 0 !important; }
+.shotpanel .sides { display: grid; grid-template-columns: 2fr 1fr 2fr; gap: 6px; font-size: 11px; color: var(--mute); text-align: center; margin-bottom: 4px; }
+.shotpanel .sides span:not(:empty) { border-bottom: 1px solid var(--line); padding-bottom: 3px; }
+.slopepad { display: grid; grid-template-columns: 16px 1fr 16px; grid-template-rows: auto auto auto; gap: 4px; align-items: center; margin-bottom: 8px; }
+.slopepad .st { grid-column: 2; grid-row: 1; } .slopepad .sb { grid-column: 2; grid-row: 3; } .slopepad .pad { grid-column: 2; grid-row: 2; }
+.slopepad .sl { grid-column: 1; grid-row: 2; writing-mode: vertical-rl; transform: rotate(180deg); } .slopepad .sr { grid-column: 3; grid-row: 2; writing-mode: vertical-rl; }
+.slopepad :is(.st, .sb, .sl, .sr) { font-size: 11px; color: var(--mute); text-align: center; }
+.slopepad .pad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; }
+.slopepad .pad button { height: 38px; border: 1px solid var(--line); background: var(--panel2); color: var(--mute); border-radius: 10px; font: 500 14px var(--text); }
+.slopepad .pad button.flat { color: var(--ink); font-weight: 600; }
+.slopepad .pad button.on { background: var(--acc); color: var(--acc-ink); border-color: var(--acc); }
+.route { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px 8px; margin: 0 0 10px; }
+.route .bar { position: relative; height: 10px; border-radius: 999px; background: linear-gradient(90deg, var(--z-tee) 0 10%, var(--z-mid) 10% 88%, var(--z-grn) 88%); opacity: .9; }
+.route .dot { position: absolute; top: 50%; width: 20px; height: 20px; margin: -10px 0 0 -10px; border-radius: 50%; background: var(--panel); color: var(--ink); border: 2px solid var(--ink); font: 700 10px/16px var(--text); text-align: center; }
+.route .dot.now { background: var(--ink); color: var(--panel); } .route .dot.flag { font-size: 11px; background: var(--panel); }
+.route .ends { display: flex; justify-content: space-between; font-size: 11px; color: var(--mute); margin-top: 7px; }
+.infob { display: inline-grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; border: 1.5px solid var(--mute); background: transparent; color: var(--mute); font: 700 11px var(--text); margin-left: 6px; padding: 0; vertical-align: 1px; }
+.infopop { background: var(--ink); color: var(--panel); border-radius: 12px; padding: 10px 12px; font-size: 13px; margin: 8px 0 0; line-height: 1.45; }
+.todo { border: 1px solid var(--line); border-radius: 12px; padding: 8px 10px; margin: 6px 0; display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 14px; }
+.kindf { display: flex; gap: 6px; margin: 10px 0 0; } .kindf button { border: 1px solid var(--chrome-line); background: transparent; color: var(--chrome-mute); border-radius: 999px; padding: 5px 12px; font: 500 13px var(--text); }
+.kindf button.on { background: var(--chrome-ink); color: var(--hero); border-color: var(--chrome-ink); }
+.savedcard { border-left: 5px solid var(--acc); }
+.hist .acc { color: var(--acc); }

@@ -9,7 +9,7 @@ import { BANDS, bandLabel } from './rounds/bands.js';
 const KIND = (name) => (/driver/i.test(name) ? 'driver' : /wood/i.test(name) ? 'wood' : /hybrid|rescue|utility/i.test(name) ? 'hybrid' : /iron|\d\s*i$/i.test(name) ? 'iron' : /putter/i.test(name) ? 'putter' : 'wedge');
 export const clubArea = (club) => ({ driver: 'driver', wood: 'driver', hybrid: 'irons', iron: 'irons', wedge: 'wedges', putter: 'putting' })[KIND(club)];
 const GREEN = new Set(['G', 'HO']);
-const TROUBLE = new Set(['LT', 'RT', 'TR', 'PN']);
+const TROUBLE = new Set(['LT', 'RT', 'TR', 'PN', 'WT', 'OB']);
 
 /**
  * On-course record for a club over rounds [{ r, c }]: counts, rates, misses, SG per shot.
@@ -36,8 +36,8 @@ export function clubOnCourse(rounds, club) {
           const t = S.tee; t.n++;
           if (x.res === 'FW') t.fw++;
           if (x.res === 'LR' || x.res === 'LT') t.left++; if (x.res === 'RR' || x.res === 'RT') t.right++;
-          if (TROUBLE.has(x.res) || ['FB', 'WS', 'PN'].includes(x.res2) || x.pen) t.trouble++;
-          if (x.pen || x.res2 === 'PN') t.pen++;
+          if (TROUBLE.has(x.res) || ['FB', 'WS', 'PN', 'WT', 'OB'].includes(x.res2) || x.pen) t.trouble++;
+          if (x.pen || ['PN', 'WT', 'OB'].includes(x.res2)) t.pen++;
           const next = h.shots[1];
           if (x.flew) t.lengths.push(x.flew); else if (yds && next?.dist != null && next.dist < yds) t.lengths.push(yds - next.dist);
         } else if (x.dist != null && x.dist >= 30) {
@@ -47,7 +47,7 @@ export function clubOnCourse(rounds, club) {
           const b = (a.byBand[key] ||= { n: 0, green: 0 }); b.n++;
           if (GREEN.has(x.res)) { a.green++; b.green++; if (k === h.shots.length - 1 && h.firstPutt != null) a.firstPutts.push(h.firstPutt); }
           if (x.dir === 'S') a.short++; if (x.dir === 'L') a.long++; if (x.dir === 'LF') a.left++; if (x.dir === 'R') a.right++;
-          if (x.pen || x.res === 'PN') a.pen++;
+          if (x.pen || ['PN', 'WT', 'OB'].includes(x.res)) a.pen++;
         }
       });
     });

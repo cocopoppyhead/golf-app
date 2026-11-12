@@ -16,7 +16,19 @@ export const len = (inches) => (isMetric() ? `${Math.round(Math.abs(inches) * IN
 export const lenRange = (a, b) => (isMetric() ? `${Math.round(a * IN_CM)}–${Math.round(b * IN_CM)} cm` : `${a}–${b} in`);
 export const lu = () => (isMetric() ? 'cm' : 'in');
 
-/** First-putt buttons: stored in feet, labelled in feet or metres. */
-export const PUTT_FT = [3, 6, 10, 20, 30, 50];
-export const puttLabel = (ft) => (isMetric() ? ({ 3: '1', 6: '2', 10: '3', 20: '6', 30: '9', 50: '12+' })[ft] : ft === 50 ? '40+' : String(ft));
+/**
+ * First-putt bands. Stored as one value in feet per band (the band's typical length, used for strokes
+ * gained); older rounds stored 3/6/10/20/30/50 and fall into the band that contains them.
+ * [ft stored, from, to] — to = null for the open-ended last band.
+ */
+export const PUTT_BANDS = [[2, 0, 2], [4, 3, 5], [7, 6, 9], [12, 10, 15], [18, 16, 20], [25, 21, 30], [35, 31, 40], [50, 41, null]];
+export const PUTT_FT = PUTT_BANDS.map((b) => b[0]);
+/** The band (its stored value) a first-putt length in feet falls in. */
+export const puttBand = (ft) => (ft == null ? null : (PUTT_BANDS.find(([, a, b]) => b == null || ft <= b) || PUTT_BANDS[PUTT_BANDS.length - 1])[0]);
+const M = { 2: '≤0.6', 4: '1–1.5', 7: '2–3', 12: '3–4.5', 18: '5–6', 25: '6.5–9', 35: '9.5–12', 50: '12+' };
+export const puttLabel = (ft) => {
+  const b = PUTT_BANDS.find((x) => x[0] === puttBand(ft)); if (!b) return '';
+  if (isMetric()) return `${M[b[0]]} m`;
+  return b[0] === 2 ? 'Tap-in' : b[2] == null ? '40+ ft' : `${b[1]}–${b[2]} ft`;
+};
 export const puttUnit = () => (isMetric() ? 'metres' : 'feet');

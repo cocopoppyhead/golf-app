@@ -14,7 +14,7 @@ import { workContext } from '../workingon.js';
 import { practiceContext } from '../practice.js';
 import { drillContext } from '../drills.js';
 import { intentionLabel, moodLine } from './intentions.js';
-import { autoShotType } from './hole.js';
+import { autoShotType, holeGaps } from './hole.js';
 import { removeSummary } from '../cloud/social.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -135,6 +135,7 @@ export async function renderSummary(r, c) {
       ${(r.players || []).length ? `<p class="mute small" style="margin:8px 0 0">${r.players.map((p) => `${esc(p.name)} ${p.scores.reduce((a, v) => a + (v || 0), 0) || '–'}`).join(' · ')}</p>` : ''}
       ${wxLine(r)}
     </div>
+    ${r.submitted === false ? (() => { const g = r.holes.map((h, k) => (holeGaps(h, c.holes[k]?.par || 4).length ? k + 1 : null)).filter(Boolean); return `<div class="card savedcard"><b>Saved, not submitted</b><p class="small mute" style="margin:4px 0 8px">${g.length ? `Hole${g.length > 1 ? 's' : ''} ${g.join(', ')} ${g.length > 1 ? 'are' : 'is'} missing details for strokes gained.` : 'Every hole has its details.'} Scores already count.</p><div class="row">${g.length ? `<button class="btn" data-x="fix" data-k="${g[0] - 1}">Finish details</button>` : ''}<button class="btn primary" data-x="submit">Submit</button></div></div>`; })() : ''}
     ${moodLine(r) ? `<p class="mute small center">${esc(moodLine(r))}</p>` : ''}
     ${statsCard(S, `${S.score} (${toParStr(S.toPar)})`)}
     ${practiceCard(r, c)}
@@ -180,6 +181,8 @@ export async function renderSummary(r, c) {
     const x = b.dataset.x;
     if (x === 'back') return api.home();
     if (x === 'edit') { r.finished = false; await putRound(r); return api.reopen(r, c); }
+    if (x === 'fix') { r.finished = false; await putRound(r); return api.reopen(r, c, +b.dataset.k); }
+    if (x === 'submit') return api.submit(r, c);
     if (x === 'del') { await deleteRound(r.id); removeSummary(r.id).catch(() => {}); return api.home(); }
     if (x === 'ai') {
       const s = api.ctx.settings();

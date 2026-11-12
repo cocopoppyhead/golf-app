@@ -57,7 +57,7 @@ export function radarRound(round, course) {
     if (ch.par >= 4) {
       R.firOpp++;
       const t = h.shots?.[0];
-      if (t && (t.res === 'LT' || t.res === 'RT' || ['FB', 'WS', 'PN'].includes(t.res2) || t.pen)) R.dirt++;
+      if (t && (t.res === 'LT' || t.res === 'RT' || ['FB', 'WS', 'PN', 'WT', 'OB'].includes(t.res2) || t.pen)) R.dirt++;
       else if (!t && (h.tee === 'LT' || h.tee === 'RT')) R.dirt++;
     }
   });

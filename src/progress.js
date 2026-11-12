@@ -5,12 +5,12 @@ import { listRounds, getCourse } from './store.js';
 import { roundStats } from './rounds/stats.js';
 import { roundSG } from './rounds/sg.js';
 import { approachBands, bandLabel } from './rounds/bands.js';
-import { puttLabel, puttUnit, du, dist as D } from './units.js';
+import { puttLabel, puttBand, PUTT_FT, du, dist as D } from './units.js';
 import { tiger5, TIGER5, TIGER5_LABEL } from './rounds/tiger.js';
 import { autoShotType } from './rounds/hole.js';
 import { CODES } from './rounds/stats.js';
 import { differential, adjustedGross, indexFrom, indexHistory } from './rounds/handicap.js';
-import { getSettings } from './store.js';
+import { getSettings, saveSettings } from './store.js';
 import { skillRadar, radarSvg, radarRead, radarRound, feedsRadar, LONG_FROM } from './rounds/radar.js';
 import { levelLabel } from './benchmarks.js';
 import { ART, CONTOUR } from './art.js';
@@ -193,7 +193,7 @@ function hero0Detail(ALL, hcp) {
   return r.axes.map((a) => `<div><b>${esc(a.label)}</b><span>${a.detail ? esc(a.detail) : 'Not enough rounds yet.'}</span></div>`).join('');
 }
 
-function heroBand(ALL, Hc, hcp, OUT = 0) {
+function heroBand(ALL, Hc, hcp, OUT = 0, KINDS = null) {
   // the radar only looks at rounds with shot detail: "Last 10" is the last 10 of those, not of every round
   const L = ALL.filter((x) => feedsRadar(x.r, x.c));
   const basis = (list) => {
@@ -214,6 +214,7 @@ function heroBand(ALL, Hc, hcp, OUT = 0) {
   return { windows, html: `<section class="hero radarcard" data-radar-views='${esc(JSON.stringify(views))}'><div class="contour" style="--mask:${CONTOUR}"></div>
     <h1>Your game</h1><p class="hsub">Strokes a round against a ${levelLabel(hcp)} golfer. Tap an area to jump to it.</p>
     <p class="hused">Scores from ${ALL.length} round${ALL.length === 1 ? '' : 's'}${OUT ? ` (${OUT} left out)` : ''}, radar from ${L.length} <button class="link" data-pickrounds>Choose rounds</button></p>
+    ${KINDS ? `<div class="kindf" role="group" aria-label="Which rounds">${[['all', 'All'], ['comp', 'Competition'], ['casual', 'Casual']].map(([k, l]) => `<button data-kindf="${k}" class="${KINDS === k ? 'on' : ''}">${l}</button>`).join('')}</div>` : ''}
     <div class="rwin" role="group" aria-label="Rounds">${windows.map((w, i) => { const prev = i ? windows[i - 1].n : 0; const off = i > 0 && L.length <= prev; return `<button data-radar-n="${w.n}" class="${w.n === 10 ? 'on' : ''}" ${off ? 'disabled' : ''}>${L.length > prev && L.length < w.n && i > 0 ? `All ${L.length}` : `Last ${w.n}`}</button>`; }).join('')}</div>
     <div class="radarbox">${views[10]}</div>
     <div class="legend"><span><i class="lg-you"></i>You</span><span><i class="lg-gh"></i>Rounds before</span><span><i class="lg-scr"></i>Scratch</span></div>
@@ -224,9 +225,17 @@ function heroBand(ALL, Hc, hcp, OUT = 0) {
 }
 
 export async function renderScoring(el) {
-  const ALL = await loadRounds(200);
+  const EVERY = await loadRounds(200);
+  const kindSel = getSettings().progressKind || 'all';
+  const hasKinds = EVERY.some((x) => x.r.kind);
+  const ALL = !hasKinds || kindSel === 'all' ? EVERY : EVERY.filter((x) => x.r.kind === kindSel);
   const OUT = (await loadRounds(0, { all: true })).filter((x) => !x.ok).length;
   const R = ALL.slice(0, 20);
+  if (!R.length && hasKinds && kindSel !== 'all') {
+    el.innerHTML = `<section class="hero empty"><h1>Your game</h1><p class="hsub">No ${kindSel === 'comp' ? 'competition' : 'casual'} rounds yet.</p><div class="kindf">${[['all', 'All'], ['comp', 'Competition'], ['casual', 'Casual']].map(([k, l]) => `<button data-kindf="${k}" class="${kindSel === k ? 'on' : ''}">${l}</button>`).join('')}</div></section>`;
+    el.onclick = (e) => { const kf = e.target.closest('[data-kindf]'); if (kf) { const st = getSettings(); st.progressKind = kf.dataset.kindf; saveSettings(st); renderScoring(el); } };
+    return;
+  }
   if (!R.length) {
     el.innerHTML = `<section class="hero empty"><h1>Your game</h1><p class="hsub">${OUT ? `None of your ${OUT} rounds count yet: they look unfinished. Choose the ones that should.` : 'Play or post a round and your game takes shape here: driving, approach, short game, putting and the mental side, against golfers at your level.'}</p>${OUT ? '<button class="btn" data-pickrounds>Choose rounds</button>' : ''}</section>`;
     el.onclick = (e) => { if (e.target.closest('[data-pickrounds]')) roundsSheet(() => renderScoring(el)); };
@@ -238,7 +247,7 @@ export async function renderScoring(el) {
   const auto = getSettings().handicapMode !== 'manual' && !(!getSettings().handicapMode && getSettings().handicap != null);
   const Hc = auto ? handicap(ALL) : null;
   const hcp = (auto ? Hc?.current?.index : getSettings().handicap) ?? 15;
-  const hero = heroBand(ALL, Hc, hcp, OUT);
+  const hero = heroBand(ALL, Hc, hcp, OUT, hasKinds ? kindSel : null);
   const radar = hero.windows[0].radar, read = radarRead(radar);
   const G = R.filter((x) => x.G && x.G.complete >= Math.min(9, x.G.holes));
   const sg = G.length ? Object.fromEntries(['ott', 'app', 'arg', 'putt', 'total'].map((k) => [k, G.reduce((a, x) => a + x.G[k] * (18 / x.G.holes), 0) / G.length])) : null;
@@ -301,10 +310,11 @@ export async function renderScoring(el) {
     if (!H.length) return '';
     const holes = H.flatMap((x) => (x.r.holes || []).filter((h) => h && h.putts != null));
     const n = holes.length; const per = (f) => ((holes.reduce((a, h) => a + f(h), 0) / n) * 18).toFixed(1);
-    const TOUR = { 3: 99, 6: 70, 10: 40, 20: 15, 30: 7, 50: 3 }, LAB = { 3: '3 ft', 6: '6 ft', 10: '10 ft', 20: '20 ft', 30: '30 ft', 50: '50 ft' };
-    const rows = [3, 6, 10, 20, 30, 50].map((ft) => { const hs = holes.filter((h) => h.firstPutt === ft); return { ft, n: hs.length, made: hs.filter((h) => h.putts === 1).length }; }).filter((r) => r.n);
+    // tour make rates by band (Broadie's PGA Tour one-putt percentages, averaged across each band)
+    const TOUR = { 2: 99, 4: 87, 7: 57, 12: 31, 18: 17, 25: 10, 35: 5, 50: 3 };
+    const rows = PUTT_FT.map((ft) => { const hs = holes.filter((h) => puttBand(h.firstPutt) === ft); return { ft, n: hs.length, made: hs.filter((h) => h.putts === 1).length }; }).filter((r) => r.n);
     return `<div class="card"><div class="trio">${tile(per((h) => h.putts), 'putts a round')}${tile(per((h) => (h.putts >= 3 ? 1 : 0)), 'three-putts')}${tile(per((h) => (h.putts === 1 ? 1 : 0)), 'one-putts')}</div>
-      ${rows.length ? `<h3>Holed, by first-putt length</h3>${rows.map((r) => `<div class="lrow"><span class="ld">${puttUnit() === 'feet' ? LAB[r.ft] : `${puttLabel(r.ft)} m`}</span><div class="lbar"><i style="width:${Math.round((100 * r.made) / r.n)}%"></i><b style="left:${TOUR[r.ft]}%"></b></div><span class="lp">${Math.round((100 * r.made) / r.n)}%</span></div>`).join('')}
+      ${rows.length ? `<h3>Holed, by first-putt length</h3>${rows.map((r) => `<div class="lrow"><span class="ld">${puttLabel(r.ft)}</span><div class="lbar"><i style="width:${Math.round((100 * r.made) / r.n)}%"></i><b style="left:${TOUR[r.ft]}%"></b></div><span class="lp">${Math.round((100 * r.made) / r.n)}%</span></div>`).join('')}
         <p class="note">The tick is a tour player. ${T('lagOpp') ? `From 20 ft and beyond you three-putt ${pctN(T('lag3'), T('lagOpp'))}% of the time — that's speed, not line.` : ''}</p>` : '<p class="note">Tap the first-putt length on each hole and how often you hole out by distance appears here.</p>'}${sgLine('putt')}</div>`;
   })();
   // --- mind ---
@@ -330,6 +340,8 @@ export async function renderScoring(el) {
   ].join('');
   el.onclick = (e) => {
     if (e.target.closest('[data-pickrounds]')) { roundsSheet(() => renderScoring(el)); return; }
+    const kf = e.target.closest('[data-kindf]');
+    if (kf) { const st = getSettings(); st.progressKind = kf.dataset.kindf; saveSettings(st); renderScoring(el); return; }
     const b = e.target.closest('[data-radar-n]');
     if (b) {
       const card = b.closest('.radarcard'); const views = JSON.parse(card.dataset.radarViews);

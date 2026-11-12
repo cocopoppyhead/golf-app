@@ -41,7 +41,9 @@ export async function startRound(page) {
 /** End the round from the hole screen, through the confirm and the finish mood sheet. */
 export async function endEarly(page) {
   await page.click('[data-h=endearly]');
-  await page.locator('.sheet [data-ok]').last().click();
+  await page.locator('.sheet [data-ok]').last().click(); // Submit
+  const anyway = page.locator('.sheet [data-anyway]'); // holes missing details: submit with scores only
+  if (await anyway.waitFor({ state: 'visible', timeout: 1500 }).then(() => true, () => false)) await anyway.click();
   const mood = page.locator('.moodscale');
   if (await mood.waitFor({ state: 'visible', timeout: 4000 }).then(() => true, () => false)) { await page.click('[data-m="6"]'); await page.locator('.sheet [data-ok]').last().click(); }
   await page.waitForSelector('.holebar', { state: 'detached' });

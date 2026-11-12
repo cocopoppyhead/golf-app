@@ -3,8 +3,39 @@
 
 // Score, fairway, GIR, approach miss and green-side bunker are all worked out from the panels.
 // Where a shot ended up, which side it missed, and what kind of swing it was
-export const ENDED = [['G', 'Green'], ['FR', 'Fringe'], ['RG', 'Rough'], ['BK', 'Green bunker'], ['FB', 'Fwy bunker'], ['WS', 'Waste'], ['FW', 'Fairway'], ['TR', 'Trees'], ['PN', 'OB / water'], ['HO', 'Holed']];
-export const TEE_EXTRA = [['FB', 'Fairway bunker'], ['WS', 'Waste'], ['PN', 'OB / water']];
+// Water and OB are separate (a drop vs stroke and distance); both add the penalty stroke. PN is the old
+// combined code, still read. 'Trouble' (TR) covers trees, heather, desert, under a bush.
+export const ENDED = [['G', 'Green'], ['GS', 'Greenside'], ['BK', 'Bunker'], ['HO', 'Holed'], ['FW', 'Fairway'], ['RG', 'Rough'], ['TR', 'Trouble'], ['WT', 'Water'], ['OB', 'OB']];
+// from greenside, the ball goes on the green, in, stays greenside, into sand, or (rarely) wet / out
+export const ENDED_GREENSIDE = [['G', 'Green'], ['HO', 'Holed'], ['GS', 'Greenside'], ['BK', 'Bunker'], ['WT', 'Water'], ['OB', 'OB']];
+export const TEE_EXTRA = [['FB', 'f.Bunker'], ['WS', 'Waste'], ['WT', 'Water'], ['OB', 'OB']];
+export const PENALTY_RES = ['PN', 'WT', 'OB'];
+// legacy labels for codes no longer offered
+export const OLD_ENDED = [['FR', 'Fringe'], ['FB', 'Fwy bunker'], ['WS', 'Waste'], ['PN', 'OB / water']];
+// where the ball sits for the next shot: slope (3×3 pad: ball above/below the feet × uphill/downhill) and surface
+export const SLOPE_FEET = [['abv', 'Ball above feet'], [null, ''], ['blw', 'Ball below feet']];
+export const SLOPE_HILL = [['up', 'Uphill'], [null, ''], ['dn', 'Downhill']];
+/** The lie surfaces: two rows. The last two of row one are the course's own trouble (see troubleFor). */
+export const SURFACES = [['fw', 'Fairway'], ['rgh', 'Rough']];
+export const SURFACES2 = [['div', 'Divot'], ['bnk', 'Bunker'], ['hp', 'Hardpan'], ['mud', 'Wet / mud']];
+export const GREENSIDE_LIES = [['frg', 'Fringe'], ['rgh', 'Rough'], ['bnk', 'Bunker'], ['hp', 'Hardpan']];
+const TROUBLE = { links: [['fes', 'Fescue'], ['hea', 'Heather']], desert: [['wst', 'Waste'], ['des', 'Desert']] };
+/** The two trouble surfaces a course has: desert courses (the Gulf) get Waste and Desert; elsewhere Fescue and Heather. A course can set its own (course.trouble). */
+export function troubleFor(course) {
+  if (Array.isArray(course?.trouble) && course.trouble.length === 2) return course.trouble;
+  const lat = course?.lat, lon = course?.lon;
+  const desert = (lat != null && lon != null && lat > 12 && lat < 32 && lon > 34 && lon < 60) || /^(uae|ae)[-:]/i.test(course?.libId || '') || course?.region === 'uae';
+  return desert ? TROUBLE.desert : TROUBLE.links;
+}
+export const LIE_NAMES = Object.fromEntries([['tee', 'Tee'], ['fw', 'Fairway'], ['rgh', 'Rough'], ['frg', 'Fringe'], ['fbk', 'Fwy bunker'], ['bnk', 'Bunker'], ['wst', 'Waste'], ['des', 'Desert'], ['rec', 'Trees'], ['fes', 'Fescue'], ['hea', 'Heather'], ['div', 'Divot'], ['hp', 'Hardpan'], ['mud', 'Wet / mud']]);
+/** A shot played from just off the green: the previous one finished greenside, or this one starts on the fringe or within 30 yards. */
+export function isGreenside(h, k) {
+  if (k === 0) return false;
+  const p = h.shots[k - 1] || {}, x = h.shots[k] || {};
+  return p.res === 'GS' || p.res === 'FR' || x.lie === 'frg' || (x.dist != null && x.dist <= 30);
+}
+/** A hole is "on the green" once a shot finished there (or the last one was holed). */
+export const onGreen = (h) => !!h.shots?.length && h.shots[h.shots.length - 1].res === 'G';
 export const DIRS = [['S', 'Short'], ['L', 'Long'], ['LF', 'Left'], ['R', 'Right']];
 export const SWING_TYPES = [['full', 'Full'], ['3q', '¾'], ['half', '½'], ['pitch', 'Pitch'], ['chip', 'Chip'], ['splash', 'Bunker'], ['punch', 'Punch'], ['putter', 'Putt']];
 // what you meant to hit (tee shots and full swings); what actually happened goes in Details → ball flight
@@ -29,7 +60,7 @@ export const autoSwing = (x, k) => {
   return d < 30 ? 'chip' : d < 80 ? 'pitch' : 'full';
 };
 // lie for the next shot from where this one ended
-export const LIE_FROM = { FW: 'fw', LR: 'rgh', RR: 'rgh', LT: 'wst', RT: 'wst', FB: 'fbk', FR: 'frg', RG: 'rgh', BK: 'bnk', WS: 'wst', TR: 'rec' };
+export const LIE_FROM = { FW: 'fw', LR: 'rgh', RR: 'rgh', LT: 'wst', RT: 'wst', FB: 'fbk', FR: 'frg', GS: 'frg', RG: 'rgh', BK: 'bnk', WS: 'wst', TR: 'rec', WT: 'rgh', OB: 'tee' };
 export const blankHole = () => ({ score: null, putts: null, tee: null, gir: null, miss: null, bunker: false, firstPutt: null, tags: [], shots: null });
 
 export function upgradeShot(x) {
@@ -62,6 +93,23 @@ export const autoShotType = (s, k, par) => {
   return d > 150 ? 'IRN' : 'APP';
 };
 /** Work out score, fairway, GIR miss, bunker and bogey tags from the panels. */
+/**
+ * What a hole still needs before strokes gained can use it, as short phrases (empty = complete):
+ * putts, the first putt's length, where the tee shot went, a distance for every shot after the tee.
+ */
+export function holeGaps(h, par) {
+  if (!h || h.score == null) return [];
+  const out = [];
+  if (h.putts == null || h.puttsAuto) out.push('putts');
+  else if (h.putts > 0 && h.firstPutt == null) out.push('putt length');
+  const shots = h.shots || [];
+  if (!shots.length) return out.length ? out : ['shots'];
+  if (par >= 4 && !shots[0].res) out.push('where the tee shot went');
+  const noDist = shots.map((x, k) => (k > 0 && x.dist == null ? k + 1 : null)).filter(Boolean);
+  if (noDist.length) out.push(`distance for shot${noDist.length > 1 ? 's' : ''} ${noDist.join(', ')}`);
+  return out;
+}
+
 export function derive(h, par) {
   const pens = h.shots.filter((x) => x.pen).length;
   if (h.putts != null) h.score = h.shots.length + pens + h.putts;

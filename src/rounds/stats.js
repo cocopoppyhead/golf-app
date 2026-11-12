@@ -11,9 +11,9 @@ export const CODES = {
   // shot type
   shot: [['DRV', 'Driver'], ['TEE', 'Non-driver off tee'], ['FWY', 'Wood/hybrid off turf'], ['IRN', 'Mid-long iron'], ['APP', 'Wedge, inside 100–150'], ['CHP', 'Chip/pitch'], ['BKR', 'Greenside bunker'], ['PT', 'Putt']],
   // execution
-  cause: [['TAC', 'Tactical'], ['SWE', 'Swing error'], ['FOC', 'Focus / prep'], ['BAC', 'Back problem']],
+  cause: [['TAC', 'Decision'], ['SWE', 'Swing'], ['FOC', 'Focus / routine'], ['BAC', 'Body (back…)']],
   // ball flight
-  flight: [['STR', 'Straight'], ['DRW', 'Draw'], ['FAD', 'Fade'], ['HK', 'Hook'], ['SL', 'Slice'], ['PL', 'Pull'], ['PU', 'Push']],
+  flight: [['STR', 'Straight'], ['DRW', 'Draw'], ['FAD', 'Fade'], ['HK', 'Hook'], ['SL', 'Slice'], ['PL', 'Pull'], ['PU', 'Push'], ['OTH', 'Other']],
   // strike
   strike: [['THN', 'Thin'], ['FAT', 'Chunk / fat'], ['TOE', 'Toe'], ['HEL', 'Heel']],
   // positioning
@@ -62,7 +62,7 @@ export function roundStats(round, course) {
     }
     if (h.putts != null) { S.gir1Opp++; if (h.score - h.putts <= par - 1) S.gir1++; }
     if (h.putts != null && h.firstPutt != null && h.firstPutt >= 20) { S.lagOpp++; if (h.putts >= 3) S.lag3++; }
-    if (par >= 4 && h.shots?.[0]) { const t = h.shots[0]; if (t.res === 'LT' || t.res === 'RT' || ['FB', 'WS', 'PN'].includes(t.res2) || t.pen) S.dirt++; }
+    if (par >= 4 && h.shots?.[0]) { const t = h.shots[0]; if (t.res === 'LT' || t.res === 'RT' || ['FB', 'WS', 'PN', 'WT', 'OB'].includes(t.res2) || t.pen) S.dirt++; }
     if (h.shots) { const a = h.shots[Math.max(0, par - 3)]; if (a && a.dist != null && a.dist >= 150 && a.dist < 200 && !(par >= 4 && a.res === 'FW')) { S.zone++; if (d >= 2) S.zoneDbl++; } }
     if (par >= 4 && h.tee) {
       S.firOpp++;

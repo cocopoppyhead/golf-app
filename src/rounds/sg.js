@@ -24,6 +24,12 @@ export function expected(lie, d) {
   if (d == null || !Number.isFinite(d)) return null;
   if (lie === 'wst') return WASTE(d);
   if (lie === 'unk') return UNKNOWN(d);
+  // the newer surfaces onto Broadie's tables: fescue and wet lies play like rough, heather and gorse like
+  // a recovery, desert like waste, a divot or hardpan like the fairway (the ball is still clean-ish)
+  if (lie === 'fes' || lie === 'mud') lie = 'rgh';
+  else if (lie === 'hea') lie = 'rec';
+  else if (lie === 'des') return WASTE(d);
+  else if (lie === 'div' || lie === 'hp') lie = 'fw';
   if (lie === 'frg') lie = 'fw';
   if (lie === 'fbk') lie = 'bnk'; // the sand table covers fairway and green-side bunkers by distance // fringe / green surround plays like a short fairway shot
   const t = T[lie] || T.rgh;
