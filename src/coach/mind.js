@@ -102,7 +102,7 @@ export function patterns(rcs) {
 }
 
 /** Everything the coach is told: who they are, how they prepare, and the recent rounds (newest first). */
-export function mindContext({ rounds = [], settings = {}, focus = null } = {}) {
+export function mindContext({ rounds = [], settings = {}, focus = null, picture = '', practice = '' } = {}) {
   const R = getRoutine(settings);
   const rules = (settings.roundRules || DEFAULT_RULES).map((id) => RULES[id]?.label).filter(Boolean);
   const parts = [];
@@ -117,6 +117,8 @@ export function mindContext({ rounds = [], settings = {}, focus = null } = {}) {
   if (pats.length) parts.push(`PATTERNS (worked out by the app from their rounds; trust these numbers)\n${pats.join('\n')}`);
   const rest = rounds.filter((x) => !focus || x.r.id !== focus.r.id).slice(0, 12);
   parts.push(rest.length ? `RECENT ROUNDS (newest first)\n${rest.map(roundLines).join('\n')}` : 'RECENT ROUNDS\nNone logged yet.');
+  if (practice) parts.push(`PRACTICE\n${practice}`);
+  if (picture) parts.push(picture);
   return parts.join('\n\n');
 }
 

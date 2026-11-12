@@ -896,3 +896,9 @@ table.t5, table.dk { width: 100%; border-collapse: collapse; font-size: 13px; } 
 .mc-form textarea { flex: 1; resize: none; font: inherit; font-size: 16px; padding: 10px 12px; border-radius: 14px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); min-height: 44px; }
 .mc-foot { margin: 6px 0 0; text-align: center; }
 :root[data-theme="hybrid"] .hp-find { color: var(--acc); }
+.mc-picture { margin-top: 10px; border-top: 1px solid var(--line); padding-top: 8px; font-size: 14px; }
+.mc-picture summary { color: var(--mute); font-weight: 600; cursor: pointer; font-size: 13px; }
+.mc-picture .mcp-k { font-size: 12.5px; color: var(--mute); font-weight: 600; margin: 10px 0 2px; }
+.mc-picture ul { margin: 0; padding-left: 18px; } .mc-picture li { margin: 2px 0; } .mc-picture p { margin: 0; }
+.mc-picture .mcp-notes { list-style: none; padding: 0; } .mc-picture .mcp-notes li { margin: 4px 0; }
+.mc-picture .link { padding: 0; margin-top: 8px; color: var(--work); font-size: 13px; }

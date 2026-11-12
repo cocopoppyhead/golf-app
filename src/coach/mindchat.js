@@ -5,6 +5,7 @@ import { aiFrom, aiReady, aiName, chatLLM, md } from './ai.js';
 import { mindContext, loadChat, saveChat, clearChat } from './mind.js';
 import { systemPrompt } from './playbook.js';
 import { counts } from '../rounds/quality.js';
+import { getPicture, pictureText, splitLearning, learn, clearPicture } from './picture.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 /** Alternate user and coach turns (two of yours in a row after a failed reply are sent as one), starting with yours. */
@@ -13,6 +14,16 @@ export function turns(list) {
   for (const { role, text } of list) { if (out.length && out[out.length - 1].role === role) out[out.length - 1].text += `\n\n${text}`; else out.push({ role, text }); }
   while (out.length && out[0].role !== 'user') out.shift();
   return out;
+}
+/** What the coach has learned, folded under the chat. */
+function pictureHtml(p) {
+  const has = p.works.length || p.unravels.length || p.cues.length || p.next || p.notes.length;
+  const list = (t, a) => (a.length ? `<div class="mcp-k">${t}</div><ul>${a.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>` : '');
+  return `<details class="mc-picture"><summary>What your coach has learned about you${has ? '' : ' <span class="mute">(nothing yet)</span>'}</summary>
+    ${has ? `${p.next ? `<div class="mcp-k">Agreed for next round</div><p>${esc(p.next)}</p>` : ''}${list('What works for you', p.works)}${list('What unravels you', p.unravels)}${list('Your cues', p.cues)}
+    ${p.notes.length ? `<div class="mcp-k">Notebook</div><ul class="mcp-notes">${p.notes.map((n) => `<li><span class="mute">${new Date(n.at).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}</span> ${esc(n.note)}</li>`).join('')}</ul>` : ''}
+    <button class="link" data-forget>Clear this</button>` : '<p class="mute small">It builds a picture of you as you talk: what works, what unravels you, your own cues. You can clear it any time.</p>'}
+  </details>`;
 }
 const STARTERS = ['Get my head right before today', 'Talk me through my last round', 'Why do my rounds unravel?', 'First-tee nerves'];
 
@@ -35,12 +46,14 @@ export async function openMindChat({ focus = null, mode = null, onSettings = () 
       </div>
       ${ready ? `${msgs.length ? '' : `<div class="mc-starters">${starters.map((t) => `<button data-start="${esc(t)}">${esc(t)}</button>`).join('')}</div>`}
       <form class="mc-form"><textarea name="q" rows="1" placeholder="Talk to your coach" ${busy ? 'disabled' : ''}></textarea><button class="btn primary" ${busy ? 'disabled' : ''}>Send</button></form>
-      <p class="mc-foot mute small">Uses ${esc(aiName(s))}. The chat stays on this phone.</p>` : '<button class="btn primary big" data-settings>Connect AI in Settings</button>'}
+      <p class="mc-foot mute small">Uses ${esc(aiName(s))}. The chat and what the coach learns stay on this phone.</p>
+      ${pictureHtml(getPicture(s))}` : '<button class="btn primary big" data-settings>Connect AI in Settings</button>'}
     </div>`;
     const log = sheet.querySelector('.mc-log'); log.scrollTop = log.scrollHeight;
     sheet.querySelector('[data-close]').onclick = () => sheet.remove();
     sheet.querySelector('[data-new]')?.addEventListener('click', () => { msgs = []; clearChat(); err = ''; draw(); });
     sheet.querySelector('[data-settings]')?.addEventListener('click', () => { sheet.remove(); onSettings(); });
+    sheet.querySelector('[data-forget]')?.addEventListener('click', () => { if (confirm('Clear what the coach has learned about you? Your rounds stay.')) { clearPicture(s); draw(); } });
     sheet.querySelectorAll('[data-start]').forEach((b) => b.onclick = () => send(b.dataset.start));
     const f = sheet.querySelector('.mc-form');
     if (f) {
@@ -55,7 +68,8 @@ export async function openMindChat({ focus = null, mode = null, onSettings = () 
     const rounds = (await listRounds().catch(() => [])).filter((r) => r.finished).sort((a, b) => b.date - a.date).slice(0, 80);
     const pairs = [];
     for (const r of rounds) { const c = await getCourse(r.courseId).catch(() => null); if (counts(r, c)) pairs.push({ r, c }); if (pairs.length >= 60) break; }
-    return mindContext({ rounds: pairs, settings: s, focus });
+    const practice = await import('../practice.js').then((m) => m.practiceContext()).catch(() => '');
+    return mindContext({ rounds: pairs, settings: s, focus, picture: pictureText(getPicture(s)), practice });
   };
   const send = async (q) => {
     if (busy) return;
@@ -67,9 +81,11 @@ export async function openMindChat({ focus = null, mode = null, onSettings = () 
         el.classList.remove('mc-typing'); el.innerHTML = md(t);
         const log = sheet.querySelector('.mc-log'); if (log.scrollHeight - log.scrollTop - log.clientHeight < 120) log.scrollTop = log.scrollHeight;
       };
-      const { text, cut } = await chatLLM({ ...aiFrom(s), system: `${systemPrompt(M)}\n\n${await context()}`, messages: turns(msgs.slice(-20)), onText });
+      const { text: full, cut } = await chatLLM({ ...aiFrom(s), system: `${systemPrompt(M)}\n\n${await context()}`, messages: turns(msgs.slice(-20)), onText: (t) => onText(splitLearning(t).text) });
+      const { text, meta } = splitLearning(full);
       if (!text.trim()) throw new Error('No reply came back.');
-      msgs = [...msgs, { role: 'assistant', text: text.trim() + (cut ? '\n\n_(Cut short. Say "go on" for the rest.)_' : ''), at: Date.now() }]; saveChat(msgs);
+      if (meta) learn(meta, s);
+      msgs = [...msgs, { role: 'assistant', text: text.trim() + (cut && !meta ? '\n\n_(Cut short. Say "go on" for the rest.)_' : ''), at: Date.now() }]; saveChat(msgs);
     } catch (e) { err = `${e.message || 'That didn\'t go through.'} Try again.`; msgs = msgs.slice(0, -1); }
     busy = false; live = ''; draw();
     if (err) { const ta = sheet.querySelector('textarea'); if (ta) ta.value = q; }
