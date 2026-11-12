@@ -108,12 +108,23 @@ export async function importGarminFiles(files) {
     }
     else entries.push({ name: f.name, bytes: await f.arrayBuffer() });
   }
-  const cards = []; let failed = 0; const exps = [];
+  // Classify by content, not name: Android's picker can hand over files without their real names.
+  const cards = []; let failed = 0; const exps = []; const seen = [];
   for (const e of entries) {
-    if (/\.fit$/i.test(e.name)) { try { cards.push(readScorecard(e.bytes, scorecardId(e.name))); } catch { failed++; } }
-    else if (/\.json$/i.test(e.name)) { try { const j = JSON.parse(new TextDecoder().decode(e.bytes)); if (j?.app === 'osolo-garmin') exps.push(j); } catch { failed++; } }
+    const b = new Uint8Array(e.bytes); seen.push(e.name);
+    const isFit = b.length > 12 && b[8] === 0x2e && b[9] === 0x46 && b[10] === 0x49 && b[11] === 0x54; // ".FIT"
+    if (isFit) {
+      try { const sc = readScorecard(e.bytes, scorecardId(e.name)); cards.push(sc); } catch { /* not a golf round */ } // a FIT that isn't a golf round (an activity)
+    } else if (b[0] === 0x7b) { // "{"
+      try { const j = JSON.parse(new TextDecoder().decode(b)); if (j?.app === 'osolo-garmin') exps.push(j); } catch { failed++; }
+    }
   }
-  if (!cards.length && !exps.length) throw new Error(failed ? 'None of those files could be read as Garmin golf data.' : 'No golf scorecards found. Choose the Garmin export zip, or the Golf-SCORECARD_RAWDATA files from DI_CONNECT/DI-GOLF.');
+  // a card without a scorecard id in its name: key it by its start time so re-imports still dedupe
+  cards.forEach((c) => { if (!c.id) c.id = `t${Math.round((c.start || 0) / 1000)}`; });
+  if (!cards.length && !exps.length) {
+    const list = seen.slice(0, 6).map((n) => n.split('/').pop()).join(', ');
+    throw new Error(`No golf scorecards found${seen.length ? ` in ${seen.length} file${seen.length > 1 ? 's' : ''} (${list}${seen.length > 6 ? ', …' : ''})` : ''}. Choose the Garmin export zip, or the Golf-SCORECARD_RAWDATA files from DI_CONNECT/DI-GOLF.`);
+  }
   const total = { added: 0, skipped: 0, newCourses: [], shots: 0, failed };
   const add = (r) => { total.added += r.added; total.skipped += r.skipped; total.shots += r.shots; r.newCourses.forEach((c) => total.newCourses.includes(c) || total.newCourses.push(c)); };
   for (const exp of exps) add(await importGarminExport(exp)); // shot-level rounds first: same ids win
