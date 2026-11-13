@@ -13,7 +13,7 @@ from matplotlib.patches import Polygon, Rectangle, FancyBboxPatch, Circle
 from shapely.geometry import Polygon as SP
 from shapely.ops import unary_union
 
-GRIP, VENT, STOP = 33.0, 5.5, 8.0
+GRIP, VENT, STOP = 33.0, 2.0, 8.0
 INK='#1d2433'; MUTE='#6b7385'; ACC='#0f7a43'; RED='#c0392b'; HATCH='#1d2433'
 plt.rcParams.update({'font.family':'DejaVu Sans','font.size':8.5,'text.color':INK,'axes.edgecolor':INK})
 
