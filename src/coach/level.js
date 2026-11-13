@@ -2,7 +2,7 @@
 // published amateur data (benchmarks.js: Shot Scope and Arccos). Without this the coach could only
 // compare them with tour players, which says little to a 6-handicap. Every number is worked out here.
 import { roundStats, aggregate } from '../rounds/stats.js';
-import { benchFor, targetHcp, GAP_SHARE } from '../benchmarks.js';
+import { benchFor, targetHcp, GAP_SHARE, ageAdjust } from '../benchmarks.js';
 
 const pc = (x) => `${Math.round(100 * x)}%`;
 const BANDS = [[0, 3, 'make0to3'], [3, 6, 'make3to6'], [6, 9, 'make6to9'], [9, 12, 'make9to12'], [12, 18, 'make12to18'], [18, 24, 'make18to24'], [24, 30, 'make24to30'], [30, 999, 'make30plus']];
@@ -28,7 +28,7 @@ export function ownNumbers(rcs) {
 }
 
 /** The block the coach reads: them, their level, their target, per stat; plus the benchmarks alone when their own data is thin. */
-export function levelText(rcs, hcp) {
+export function levelText(rcs, hcp, { ageBand = null } = {}) {
   if (hcp == null || !Number.isFinite(+hcp)) return '';
   const h = +hcp, tg = targetHcp(h), B = benchFor(h), T = benchFor(tg), me = ownNumbers(rcs);
   const lvl = `a ${Math.round(h)}-handicap`, tgt = tg ? `a ${tg}-handicap` : 'scratch';
@@ -48,5 +48,7 @@ export function levelText(rcs, hcp) {
     `Short game (${lvl} / ${tgt}): up and down from under 25 yd ${pc(B.upDownIn25)} / ${pc(T.upDownIn25)}, from 25-50 yd ${pc(B.upDown25to50)} / ${pc(T.upDown25to50)}; inside 50 yd they finish ${f1(B.proxIn50Ft)} / ${f1(T.proxIn50Ft)} ft away.`,
     `Per round (${lvl} / ${tgt}): penalties ${f1(B.penalties)} / ${f1(T.penalties)}, doubles or worse ${f1(B.doubles)} / ${f1(T.doubles)}, birdies ${f1(B.birdies)} / ${f1(T.birdies)}, putts ${f1(B.putts)} / ${f1(T.putts)}, putts per green hit ${f2(B.puttsPerGir)} / ${f2(T.puttsPerGir)}.`,
     `What a step down in handicap is made of (Arccos): ${GAP_SHARE}.`];
+  const age = ageAdjust(h, ageBand);
+  if (age) lines.push(`Age: they're in their ${age.label.toLowerCase()}. Golfers of their handicap and age drive about ${age.driveYd} yards and hit about ${pc(age.fir)} of fairways (Arccos: distance falls and accuracy rises with age at the same handicap). Judge their driving against that, not against younger players.`);
   return lines.join('\n');
 }

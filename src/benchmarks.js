@@ -54,6 +54,20 @@ export const BENCH = {
 // What each step down in handicap is made of (Arccos, 329,000 rounds, 2026): approach 38-40% of the gap,
 // tee shots 24-29% (more as you get better), putting 14-20% (less as you get better), short game the rest.
 export const GAP_SHARE = 'approach 38-40%, tee shots 24-29% (the share grows nearer scratch), putting 14-20% (shrinks nearer scratch), short game the rest';
+// Age (men, Arccos and Shot Scope). Driving distance at the same handicap falls with age, and accuracy rises:
+// Arccos 2022, golfers around a 14 index: 20s 237, 30s 234, 40s 225, 50s 216, 60s 205, 70s 194 yards. Shot Scope
+// (all handicaps): 30s 256, 40s 252, 50s 243, 60s 230. Fairways (Arccos 2026, men): 20s 38% rising to 70s 56%.
+// 7-iron (Arccos): 21-30 164, 51-60 151, 60+ 140 yards. Used as a ratio against the 20s at the same handicap.
+export const AGE_BANDS = [['u30', 'Under 30'], ['30s', '30s'], ['40s', '40s'], ['50s', '50s'], ['60s', '60s'], ['70p', '70+']];
+const AGE_DRIVE = { u30: 1, '30s': 0.987, '40s': 0.949, '50s': 0.911, '60s': 0.865, '70p': 0.819 };
+const AGE_FIR = { u30: 0.38, '30s': 0.42, '40s': 0.45, '50s': 0.49, '60s': 0.52, '70p': 0.56 };
+/** Driving at a handicap, adjusted for age: { driveYd, firShare, note }; null without an age. The table's driver figures are for all ages, taken as a golfer in their 40s. */
+export function ageAdjust(hcp, ageBand) {
+  if (!AGE_DRIVE[ageBand]) return null;
+  const all = benchFor(hcp).driveYd, drive = Math.round((all / AGE_DRIVE['40s']) * AGE_DRIVE[ageBand]);
+  return { driveYd: drive, fir: AGE_FIR[ageBand], label: AGE_BANDS.find(([v]) => v === ageBand)[1] };
+}
+
 export const SOURCES = ['Shot Scope handicap benchmarks (fairways, greens, up & down by distance, sand saves, putts, putt make % by distance, 3-putts, penalties, driver distance, birdies, bogeys, doubles, scoring by par, approach proximity by distance), via MyGolfSpy and Golf Monthly, 2024-2026', 'Arccos Golf (approach proximity, tee-shot miss rate, what each handicap step is made of)'];
 
 /**

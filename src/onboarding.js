@@ -17,12 +17,14 @@ const UAE_COURSES = [
 ];
 const QUICK_CLUBS = ['Driver', '3 wood', '4 hybrid', '5 iron', '6 iron', '7 iron', '8 iron', '9 iron', 'PW', '52°', '56°', '60°'];
 
+import { AGE_BANDS } from './benchmarks.js';
+
 /** The profile as the app knows it: settings first, filled in from the cloud row. */
 export function localProfile() {
   const s = getSettings();
   return {
     name: s.name || '', nickname: s.nickname || '', avatar: s.avatar || '', handicap: s.handicap ?? null, handicapMode: s.handicapMode || (s.handicap != null ? 'manual' : 'auto'),
-    hand: s.hand || 'right', heightIn: s.heightIn, system: s.system, homeCourse: s.homeCourse || '', onboarded: !!s.onboarded,
+    hand: s.hand || 'right', heightIn: s.heightIn, system: s.system, homeCourse: s.homeCourse || '', onboarded: !!s.onboarded, ageBand: s.ageBand || null,
   };
 }
 
@@ -115,7 +117,9 @@ export async function openProfileEditor({ first = false, prof = null, user = nul
       <label class="field-label">Units</label>
       <div class="seg seg2" id="oSys"><button type="button" data-v="imperial" class="${!metric() ? 'on' : ''}">Yards · ft/in</button><button type="button" data-v="metric" class="${metric() ? 'on' : ''}">Metres · cm</button></div>
       <label class="field-label">Height <span class="mute">(scales your swing measurements)</span></label>
-      <div class="hrow">${heightFields()}</div>`,
+      <div class="hrow">${heightFields()}</div>
+      <label class="field-label">Age <span class="mute">(optional; the coach compares you with golfers your age, and it stays private)</span></label>
+      <div class="seg seg3 agesel" id="oAge">${AGE_BANDS.map(([v, l]) => `<button type="button" data-v="${v}" class="${p.ageBand === v ? 'on' : ''}">${l}</button>`).join('')}</div>`,
     2: () => `<h2>Home course</h2>
       <p class="mute">Where you play most. New rounds start here.</p>
       <input id="oHome" list="oCourses" placeholder="Search or type a course" value="${esc(p.homeCourse)}" />
@@ -148,7 +152,7 @@ export async function openProfileEditor({ first = false, prof = null, user = nul
     if (saving) return; saving = true;
     try { readStep(); } catch (e) { console.warn('onboarding read', e); }
     const s2 = getSettings();
-    Object.assign(s2, { name: p.name, nickname: p.nickname, avatar: p.avatar, handicap: p.handicap, handicapMode: p.handicapMode, homeCourse: p.homeCourse, hand: p.hand, heightIn: p.heightIn, system: p.system, onboarded: true });
+    Object.assign(s2, { name: p.name, nickname: p.nickname, avatar: p.avatar, handicap: p.handicap, handicapMode: p.handicapMode, homeCourse: p.homeCourse, hand: p.hand, heightIn: p.heightIn, system: p.system, ageBand: p.ageBand || null, onboarded: true });
     if (first || step === 3 || bag.some((b) => b.carry)) s2.bag = bag;
     try { saveSettings(s2); } catch (e) { console.warn('onboarding settings', e); toast('Could not save on this phone: storage is full or blocked.'); }
     // Close straight away; the phone has everything. The cloud copy goes up in the background.
@@ -198,6 +202,7 @@ export async function openProfileEditor({ first = false, prof = null, user = nul
       q('#oHcpRow').hidden = p.handicapMode !== 'manual';
       q('#oHmNote').textContent = p.handicapMode === 'manual' ? 'Keep it updated yourself; osolo won\'t keep a second one.' : 'osolo keeps a WHS-style index from the rounds and scores you post here. Good if you don\'t have an official one.';
     }));
+    el.querySelectorAll('#oAge button').forEach((b) => b.addEventListener('click', () => { p.ageBand = p.ageBand === b.dataset.v ? null : b.dataset.v; el.querySelectorAll('#oAge button').forEach((x) => x.classList.toggle('on', x.dataset.v === p.ageBand)); }));
     el.querySelectorAll('#oHand button').forEach((b) => b.addEventListener('click', () => { p.hand = b.dataset.v; el.querySelectorAll('#oHand button').forEach((x) => x.classList.toggle('on', x === b)); }));
     el.querySelectorAll('#oSys button').forEach((b) => b.addEventListener('click', () => {
       readHeight(); p.system = b.dataset.v;

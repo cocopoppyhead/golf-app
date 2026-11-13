@@ -78,7 +78,7 @@ export function bagText(settings, bag = [], rcs = []) {
 
 /** Everything about the game in one block, or '' when there's nothing worked out yet. */
 export function gameText({ rcs = [], settings = {}, bag = [], swing = '', work = '', drills = '' } = {}) {
-  const parts = [leakText(rcs, { hcp: settings.handicap }), engineText(rcs), levelText(rcs, settings.handicap ?? null), sgText(rcs), tigerText(rcs, settings.handicap ?? null), statsText(rcs), bandsText(rcs), bagText(settings, bag, rcs),
+  const parts = [leakText(rcs, { hcp: settings.handicap }), engineText(rcs), levelText(rcs, settings.handicap ?? null, { ageBand: settings.ageBand }), sgText(rcs), tigerText(rcs, settings.handicap ?? null), statsText(rcs), bandsText(rcs), bagText(settings, bag, rcs),
     swing ? `Swing (from osolo's video analyses): ${swing}` : '', work ? `Working on: ${work}` : '', drills ? `Drills: ${drills}` : ''].filter(Boolean);
   return parts.length ? `THE GAME (worked out by the app; trust these numbers)\n${parts.join('\n')}` : '';
 }

@@ -23,3 +23,17 @@ describe('the golfer against their level and target', () => {
     expect(ownNumbers(rcs).par5).toBe(6);
   });
 });
+
+import { ageAdjust } from '../../src/benchmarks.js';
+describe('age', () => {
+  it('drives shorter and straighter with age at the same handicap', () => {
+    const a30 = ageAdjust(6, '30s'), a60 = ageAdjust(6, '60s');
+    expect(a30.driveYd).toBeGreaterThan(a60.driveYd);
+    expect(a60.fir).toBeGreaterThan(a30.fir);
+    expect(ageAdjust(6, null)).toBeNull();
+  });
+  it('the coach is told, and only when the age is known', () => {
+    expect(levelText(rcs, 6, { ageBand: '50s' })).toMatch(/Age: they're in their 50s\. Golfers of their handicap and age drive about \d+ yards/);
+    expect(levelText(rcs, 6)).not.toMatch(/Age:/);
+  });
+});

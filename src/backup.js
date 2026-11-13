@@ -2,7 +2,7 @@
 // numbers and notes are loaded without putting them in the app's public code.
 import { getSettings, saveSettings, listSwings, putSwing, listRounds, putRound, listCourses, putCourse, listShots, putShot, putSession, listSessions, listLaunch, putLaunch } from './store.js';
 
-const KEEP = ['name', 'bag', 'keys', 'roundRules', 'golfer', 'heightIn', 'system', 'handedness', 'club', 'view', 'theme', 'nickname', 'avatar', 'homeCourse', 'hand', 'handicap', 'partials', 'laserProfiles', 'workingOn', 'handicapMode', 'partners', 'practicePlan', 'favDrills', 'mapLeave', 'metronome', 'events', 'checklistHidden', 'laserPaired', 'mapDist', 'mapFirm', 'goToClub', 'routine', 'mindPicture'];
+const KEEP = ['name', 'bag', 'keys', 'roundRules', 'golfer', 'heightIn', 'system', 'handedness', 'club', 'view', 'theme', 'nickname', 'avatar', 'homeCourse', 'hand', 'handicap', 'partials', 'laserProfiles', 'workingOn', 'handicapMode', 'partners', 'practicePlan', 'favDrills', 'mapLeave', 'metronome', 'events', 'checklistHidden', 'laserPaired', 'mapDist', 'mapFirm', 'goToClub', 'routine', 'mindPicture', 'ageBand'];
 
 export async function exportData() {
   const s = getSettings();
