@@ -41,6 +41,12 @@ The mind
 Practice
 - Random and game-like practice transfers to the course better than hitting the same club at the same target; measure it (a score, a target, a number to beat).
 - Practise the leak, not the strength. A small, specific weekly plan beats a big vague one.
+The amateur data (Shot Scope 2026, 74 million shots)
+- Scoring levels are separated by damage control, not birdies: fewer bogeys and doubles. Par 5s show the biggest gap between levels; par 3s the smallest.
+- Dispersion off the tee is nearly the same at every level; better players avoid the big miss. A missed fairway costs distance as well as lie.
+- Wedges miss short about 40% of the time at every level: take more club, or know the real carry.
+- From off the green, the putter gets up and down far more often than a lob wedge (about 64% against 27% for a 5-handicap); a lower-lofted club beats a high one when the lie allows.
+- From 30 yards most amateurs leave 15-20 feet: the save is mostly decided before the putt.
 Expectations (Stagner)
 - Good players hit fewer greens and hole fewer putts than golfers think: scratch golfers hole about half their putts from 6-9 feet, and a scratch golfer misses about 4 greens in 10. Use the level numbers to set fair expectations, so the player doesn't chase a standard they've imagined.`;
 

@@ -7,7 +7,7 @@
 // interpolated between the published bands.
 export const HCP_BANDS = [0, 5, 10, 15, 20, 25];
 export const BENCH = {
-  driveYd: [285, 261, 259, 239, 225, 204],
+  driveYd: [281, 265, 253, 240, 228, 223], // well-struck drives (Shot Scope "performance average", 2026 report)
   fir: [0.50, 0.48, 0.49, 0.48, 0.46, 0.46],
   gir: [0.59, 0.41, 0.32, 0.21, 0.14, 0.09], // Shot Scope 2026 (Golf Monthly, Sep 2026)
   girFrom100: [0.74, 0.65, 0.57, 0.49, 0.42, 0.36],
@@ -22,10 +22,11 @@ export const BENCH = {
   bogeys: [3.87, 6.12, 7.20, 8.10, 7.38, 6.12],
   doubles: [0.27, 1.44, 2.88, 4.68, 6.66, 9.18],
   avgScore: [75, 80, 85.5, 91, 96.5, 101.5], // typical 18-hole average on a par 72 of average difficulty (golfity)
-  // scoring by par (Shot Scope via MyGolfSpy)
-  par3: [3.2, 3.4, 3.7, 3.9, 4.0, 4.2],
-  par4: [4.2, 4.5, 4.8, 5.1, 5.4, 5.9],
-  par5: [4.8, 5.3, 5.6, 6.0, 6.3, 7.0],
+  // scoring by par: average score on each (Shot Scope Annual Golf Performance Report 2026, 2025 data, read from
+  // its chart of average score to par per hole; about ±0.03). Par 5s show the biggest gap between levels.
+  par3: [3.47, 3.53, 3.69, 3.81, 3.95, 4.03],
+  par4: [4.43, 4.55, 4.85, 5.05, 5.31, 5.49],
+  par5: [5.09, 5.35, 5.53, 5.87, 6.16, 6.45],
   // short game (Shot Scope via MyGolfSpy): up and down from under 25 and 25-50 yards, sand saves, proximity inside 50 yards
   upDownIn25: [0.63, 0.56, 0.47, 0.43, 0.41, 0.35],
   upDown25to50: [0.32, 0.25, 0.20, 0.16, 0.14, 0.09],
@@ -50,7 +51,42 @@ export const BENCH = {
   puttsPerGir: [1.85, 1.93, 2.01, 2.09, 2.16, 2.18], // 5 and 15 interpolated
   threePuttRate: [0.03, 0.048, 0.07, 0.10, 0.13, 0.14], // 5 from "a 3-putt every 20.7 holes"; 15 interpolated
   missLong: [0.58, 0.54, 0.52, 0.45, 0.45, 0.41], // of missed putts, the share that finish long
+  // --- Shot Scope Annual Golf Performance Report 2026 (74M shots, 870k rounds, 2025). Values read from its charts. ---
+  driveAvg: [266, 242, 228, 214, 202, 195], // all drives, mishits included
+  teeLeftYd: [46.3, 47.1, 48.8, 50.5, 52.2, 53.8], // tee-shot dispersion from fairway centre, yards (10 and 20 interpolated)
+  teeRightYd: [45.0, 49.4, 51.0, 52.6, 54.0, 55.4],
+  approachYd: [135, 139, 144, 148, 151, 154], // average approach distance
+  leftAfterHit: [120, 128, 136, 145, 151, 158], // yards left for the second shot after a fairway hit (10 and 20 interpolated)
+  leftAfterMiss: [124, 137, 147, 157, 166, 175], // after a fairway miss
+  girFromFairway: [0.64, 0.52, 0.40, 0.28, 0.22, 0.16], // GIR by the lie of the approach (10 and 20 interpolated)
+  girFromRough: [0.48, 0.38, 0.30, 0.23, 0.18, 0.13],
+  girFromFwBunker: [0.28, 0.21, 0.18, 0.15, 0.13, 0.12],
+  prox150Ft: [31, 44, 53, 60, 70, 80], // median proximity from 150 yards, feet
+  prox30Ft: [13, 15.5, 16.5, 19, 21, 22], // median proximity from 30 yards (short game), feet
+  shotsFrom50: [3.0, 3.05, 3.15, 3.25, 3.3, 3.38], // average shots to finish from 50 yards
+  upDownPutter: [0.67, 0.64, 0.615, 0.59, 0.56, 0.53], // up and down when putting from off the green (10 and 20 interpolated)
+  upDownLobWedge: [0.35, 0.27, 0.21, 0.16, 0.12, 0.10], // with a lob wedge, for comparison
+  upDownPitchingWedge: [0.38, 0.34, 0.26, 0.21, 0.17, 0.14],
+  lobWedgeShare: [0.42, 0.35, 0.30, 0.24, 0.18, 0.18], // share of shots inside 50 yards hit with a lob wedge
 };
+// GIR by approach distance (yards) and handicap, read from the report's heatmap: approximate, about ±5 points.
+export const GIR_BY_DIST = {
+  bands: [[50, 75], [75, 100], [100, 125], [125, 150], [150, 175], [175, 200], [200, 225], [225, 250]],
+  0: [0.68, 0.63, 0.56, 0.52, 0.50, 0.47, 0.40, 0.35],
+  5: [0.63, 0.55, 0.52, 0.50, 0.47, 0.40, 0.33, 0.30],
+  10: [0.55, 0.50, 0.48, 0.47, 0.40, 0.37, 0.30, 0.25],
+  15: [0.50, 0.48, 0.47, 0.40, 0.37, 0.33, 0.25, 0.20],
+  20: [0.47, 0.45, 0.40, 0.37, 0.33, 0.25, 0.18, 0.15],
+  25: [0.45, 0.40, 0.37, 0.33, 0.25, 0.20, 0.15, 0.10],
+};
+/** Benchmark GIR from a distance at a handicap (nearest published band of handicap). */
+export function girAtDistance(hcp, yards) {
+  const h = HCP_BANDS.reduce((a, b) => (Math.abs(b - hcp) < Math.abs(a - hcp) ? b : a));
+  const i = GIR_BY_DIST.bands.findIndex(([lo, hi]) => yards >= lo && yards < hi);
+  return i < 0 ? null : GIR_BY_DIST[h][i];
+}
+// Wedge misses from 100 yards, every level (report): about 40% short, 22% long, 20% left, 18% right.
+export const WEDGE_MISS_SHARE = { short: 0.40, long: 0.22, left: 0.20, right: 0.18 };
 // What each step down in handicap is made of (Arccos, 329,000 rounds, 2026): approach 38-40% of the gap,
 // tee shots 24-29% (more as you get better), putting 14-20% (less as you get better), short game the rest.
 export const GAP_SHARE = 'approach 38-40%, tee shots 24-29% (the share grows nearer scratch), putting 14-20% (shrinks nearer scratch), short game the rest';

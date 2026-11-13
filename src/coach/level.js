@@ -2,7 +2,8 @@
 // published amateur data (benchmarks.js: Shot Scope and Arccos). Without this the coach could only
 // compare them with tour players, which says little to a 6-handicap. Every number is worked out here.
 import { roundStats, aggregate } from '../rounds/stats.js';
-import { benchFor, targetHcp, GAP_SHARE, ageAdjust } from '../benchmarks.js';
+import { benchFor, targetHcp, GAP_SHARE, ageAdjust, girAtDistance, WEDGE_MISS_SHARE } from '../benchmarks.js';
+import { approachBands } from '../rounds/bands.js';
 
 const pc = (x) => `${Math.round(100 * x)}%`;
 const BANDS = [[0, 3, 'make0to3'], [3, 6, 'make3to6'], [6, 9, 'make6to9'], [9, 12, 'make9to12'], [12, 18, 'make12to18'], [18, 24, 'make18to24'], [24, 30, 'make24to30'], [30, 999, 'make30plus']];
@@ -47,7 +48,14 @@ export function levelText(rcs, hcp, { ageBand = null } = {}) {
     `Approach proximity to the pin in feet (${lvl} / ${tgt}): 50-100 yd ${B.prox50to100.toFixed(0)} / ${T.prox50to100.toFixed(0)}, 100-150 ${B.prox100to150.toFixed(0)} / ${T.prox100to150.toFixed(0)}, 150-200 ${B.prox150to200.toFixed(0)} / ${T.prox150to200.toFixed(0)}, 200+ ${B.prox200plus.toFixed(0)} / ${T.prox200plus.toFixed(0)}; inside 30 ft ${pc(B.inside30ft)} / ${pc(T.inside30ft)} of approaches.`,
     `Short game (${lvl} / ${tgt}): up and down from under 25 yd ${pc(B.upDownIn25)} / ${pc(T.upDownIn25)}, from 25-50 yd ${pc(B.upDown25to50)} / ${pc(T.upDown25to50)}; inside 50 yd they finish ${f1(B.proxIn50Ft)} / ${f1(T.proxIn50Ft)} ft away.`,
     `Per round (${lvl} / ${tgt}): penalties ${f1(B.penalties)} / ${f1(T.penalties)}, doubles or worse ${f1(B.doubles)} / ${f1(T.doubles)}, birdies ${f1(B.birdies)} / ${f1(T.birdies)}, putts ${f1(B.putts)} / ${f1(T.putts)}, putts per green hit ${f2(B.puttsPerGir)} / ${f2(T.puttsPerGir)}.`,
+    `Off the tee (${lvl} / ${tgt}): average drive ${Math.round(B.driveAvg)} / ${Math.round(T.driveAvg)} yd, well-struck ${Math.round(B.driveYd)} / ${Math.round(T.driveYd)}; misses spread about ${Math.round(B.teeLeftYd)} yd left and ${Math.round(B.teeRightYd)} right of centre at their level (dispersion barely changes with skill; the big misses do). A fairway hit averages +0.68 on the hole, a miss +1.05 (all levels).`,
+    `Approaches (${lvl} / ${tgt}): from about ${Math.round(B.approachYd)} / ${Math.round(T.approachYd)} yd on average; greens from the fairway ${pc(B.girFromFairway)} / ${pc(T.girFromFairway)}, from rough ${pc(B.girFromRough)} / ${pc(T.girFromRough)}, from a fairway bunker ${pc(B.girFromFwBunker)} / ${pc(T.girFromFwBunker)} (fairway bunkers are the costliest lie); from 150 yd the median finish is ${Math.round(B.prox150Ft)} / ${Math.round(T.prox150Ft)} ft. Wedge misses at every level: about ${pc(WEDGE_MISS_SHARE.short)} short, ${pc(WEDGE_MISS_SHARE.long)} long (golfers under-club wedges).`,
+    `Around the green (${lvl} / ${tgt}): from 30 yd the median finish is ${f1(B.prox30Ft)} / ${f1(T.prox30Ft)} ft; from 50 yd it takes ${f2(B.shotsFrom50)} / ${f2(T.shotsFrom50)} shots. Club choice matters at every level: putting from off the green gets up and down ${pc(B.upDownPutter)} of the time at their level against ${pc(B.upDownLobWedge)} with a lob wedge, yet ${pc(B.lobWedgeShare)} of short shots are hit with a lob wedge. Lower loft wins when the lie allows.`,
     `What a step down in handicap is made of (Arccos): ${GAP_SHARE}.`];
+  // greens by approach distance, theirs against the published table, where they have 5+ shots in a band
+  const bands = approachBands(rcs.filter((x) => x.c && !x.r.quick)).bands.filter((b) => b.enough && b.gir != null && b.band[0] >= 50);
+  const gd = bands.map((b) => { const mid = (b.band[0] + b.band[1]) / 2, at = girAtDistance(h, mid), to = girAtDistance(tg, mid); return at == null ? null : `${b.label} yd them ${pc(b.gir)} (${b.n}) / ${lvl} ~${pc(at)} / ${tgt} ~${pc(to)}`; }).filter(Boolean);
+  lines.push(gd.length ? `Greens hit by approach distance: ${gd.join('; ')} (benchmarks read from Shot Scope's heatmap, about ±5 points).` : `Greens hit by approach distance at their level, roughly: 75-100 yd ~${pc(girAtDistance(h, 87))}, 100-125 ~${pc(girAtDistance(h, 112))}, 125-150 ~${pc(girAtDistance(h, 137))}, 150-175 ~${pc(girAtDistance(h, 162))}, 175-200 ~${pc(girAtDistance(h, 187))}; their own appear once they log 5+ approaches per distance.`);
   const age = ageAdjust(h, ageBand);
   if (age) lines.push(`Age: they're in their ${age.label.toLowerCase()}. Golfers of their handicap and age drive about ${age.driveYd} yards and hit about ${pc(age.fir)} of fairways (Arccos: distance falls and accuracy rises with age at the same handicap). Judge their driving against that, not against younger players.`);
   return lines.join('\n');

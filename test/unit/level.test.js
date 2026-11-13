@@ -9,13 +9,13 @@ describe('the golfer against their level and target', () => {
   it('a 6 aims at scratch and is compared with both', () => {
     expect(targetHcp(6)).toBe(0);
     const t = levelText(rcs, 6);
-    expect(t).toMatch(/Par 5s: them 6\.0; a 6-handicap [\d.]+; scratch 4\.8\./);
+    expect(t).toMatch(/Par 5s: them 6\.0; a 6-handicap [\d.]+; scratch 5\.1\./);
     expect(t).toMatch(/Putts holed by length \(a 6-handicap \/ scratch \/ them\): 0-3 ft 96% \/ 98% \/ 100% \(\d+\)/);
     expect(t).toMatch(/6-9 ft [\d]+% \/ 49% \/ 0% \(\d+\)/);
     expect(t).toMatch(/Arccos/);
   });
   it('says when their own data is thin instead of inventing it', () => {
-    expect(levelText(rcs.slice(0, 0), 10)).toMatch(/Par 3s, average score: not enough of their own data yet; a 10-handicap 3\.7; a 5-handicap 3\.4\./);
+    expect(levelText(rcs.slice(0, 0), 10)).toMatch(/Par 3s, average score: not enough of their own data yet; a 10-handicap 3\.7; a 5-handicap 3\.5\./);
   });
   it('no handicap, no comparison', () => { expect(levelText(rcs, null)).toBe(''); });
   it('the dataset covers the new rows at every level', () => {
@@ -35,5 +35,21 @@ describe('age', () => {
   it('the coach is told, and only when the age is known', () => {
     expect(levelText(rcs, 6, { ageBand: '50s' })).toMatch(/Age: they're in their 50s\. Golfers of their handicap and age drive about \d+ yards/);
     expect(levelText(rcs, 6)).not.toMatch(/Age:/);
+  });
+});
+
+import { girAtDistance } from '../../src/benchmarks.js';
+describe('Shot Scope 2026 report', () => {
+  it('greens by approach distance fall with distance at every level', () => {
+    expect(girAtDistance(0, 87)).toBeGreaterThan(girAtDistance(0, 187));
+    expect(girAtDistance(6, 137)).toBe(girAtDistance(5, 137));
+    expect(girAtDistance(6, 300)).toBeNull();
+  });
+  it('the coach gets lies, club choice off the green and the wedge miss', () => {
+    const t = levelText(rcs, 6);
+    expect(t).toMatch(/from a fairway bunker/);
+    expect(t).toMatch(/putting from off the green gets up and down \d+%/);
+    expect(t).toMatch(/40% short/);
+    expect(t).toMatch(/Greens hit by approach distance/);
   });
 });
