@@ -64,3 +64,30 @@ describe('the conversation has a shape, not a script', () => {
     expect(stepText(startFlow('pre-round'))).toMatch(/spine, not a script/);
   });
 });
+
+import { knownDates } from '../../src/coach/check.js';
+import { tigerText } from '../../src/coach/game.js';
+describe('lessons from Conor\'s first coach chats', () => {
+  const ctx2 = '4 Nov, tee time not recorded, Trump: 79 strokes, +7. 28 Oct, teed off 15:30, Trump: 83 strokes, +11.';
+  const k = knownNumbers(ctx2), dates = knownDates(ctx2);
+  it('a round on a date that isn\'t in the data is made up', () => {
+    expect(checkReply('On 9 Nov you were 5 over through 3.', knownNumbers(ctx2, '5 over'), { dates }).join()).toMatch(/9 nov/);
+    expect(checkReply('On 4 Nov and 28 October you were steady.', k, { dates })).toEqual([]);
+  });
+  it('a tee time that isn\'t in the data, with or without am/pm, or "noon"', () => {
+    expect(checkReply('All three had a 12:00 tee time.', k, { times: ctx2 }).join()).toMatch(/12:00/);
+    expect(checkReply('A noon tee in that heat.', k, { times: ctx2 }).join()).toMatch(/noon/);
+    expect(checkReply('You teed off at 15:30.', k, { times: ctx2 })).toEqual([]);
+  });
+  it('lists are fine when they asked for them', () => {
+    const list = 'Your averages:\n- doubles 2.2\n- par 5 bogeys 2.2';
+    expect(checkReply(list, knownNumbers('2.2')).join()).toMatch(/list/);
+    expect(checkReply(list, knownNumbers('2.2'), { allowLists: true })).toEqual([]);
+  });
+  it('scoring against their level, not only the tour', () => {
+    const course = { holes: Array.from({ length: 18 }, () => ({ par: 4 })) };
+    const rcs = Array.from({ length: 3 }, (_, n) => ({ r: { id: `t${n}`, holes: Array.from({ length: 18 }, (_, i) => ({ score: i < 2 ? 6 : i < 6 ? 5 : 4 })) }, c: course }));
+    const t = tigerText(rcs, 6);
+    expect(t).toMatch(/doubles or worse 2\.0 \(a 6-handicap about [\d.]+, scratch about [\d.]+\)/);
+  });
+});

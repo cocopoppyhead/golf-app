@@ -9,7 +9,7 @@ import { getPicture, pictureText, splitLearning, learn, clearPicture } from './p
 import { gameText } from './game.js';
 import { listShots, listSwings } from '../store.js';
 import { startFlow, stepText, advance, loadFlow, saveFlow, clearFlow } from './flow.js';
-import { checkReply, knownNumbers, repairPrompt } from './check.js';
+import { checkReply, knownNumbers, knownDates, repairPrompt } from './check.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 /** Alternate user and coach turns (two of yours in a row after a failed reply are sent as one), starting with yours. */
@@ -83,7 +83,8 @@ export async function openMindChat({ focus = null, mode = null, onSettings = () 
     const drills = await import('../drills.js').then((m) => m.drillContext()).catch(() => '');
     const bag = await import('../bag.js').then((m) => m.getBag().map((c) => m.resolveClub(c, shots))).catch(() => []);
     const game = gameText({ rcs: pairs, settings: s, bag, swing, work, drills });
-    return mindContext({ rounds: pairs, settings: s, focus, picture: pictureText(getPicture(s)), practice, game });
+    const today = new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'short', year: 'numeric' });
+    return `TODAY: ${today}.\n\n${mindContext({ rounds: pairs, settings: s, focus, picture: pictureText(getPicture(s)), practice, game })}`;
   };
   const send = async (q) => {
     if (busy) return;
@@ -96,14 +97,23 @@ export async function openMindChat({ focus = null, mode = null, onSettings = () 
         const log = sheet.querySelector('.mc-log'); if (log.scrollHeight - log.scrollTop - log.clientHeight < 120) log.scrollTop = log.scrollHeight;
       };
       const ctx = await context(), system = `${systemPrompt(flow.mode, stepText(flow))}\n\n${ctx}`, convo = turns(msgs.slice(-20));
-      let { text: full, cut } = await chatLLM({ ...aiFrom(s), system, messages: convo, onText: (t) => onText(splitLearning(t).text) });
+      let { text: full, cut } = await chatLLM({ ...aiFrom(s), system, messages: convo, maxTokens: 6000, onText: (t) => onText(splitLearning(t).text) });
+      // ran out of room mid-reply: carry on by itself rather than make them type "go on"
+      for (let k = 0; cut && k < 2; k++) {
+        const more = await chatLLM({ ...aiFrom(s), system, messages: [...convo, { role: 'assistant', text: full }, { role: 'user', text: '[osolo, not from the golfer] You were cut off. Continue exactly where you stopped, without repeating anything; end with the json block.' }], maxTokens: 6000, onText: (t) => onText(splitLearning(full + t).text) }).catch(() => null);
+        if (!more?.text) break;
+        full += more.text; cut = more.cut;
+      }
       // the app checks the reply before it stands (check.js); one rewrite if it broke a hard rule
-      const known = knownNumbers(ctx, ...msgs.filter((m) => m.role === 'user').map((m) => m.text));
-      const problems = checkReply(splitLearning(full).text, known);
+      const userText = msgs.filter((m) => m.role === 'user').map((m) => m.text);
+      const known = knownNumbers(ctx, ...userText);
+      const pic = getPicture(s);
+      const opts = { dates: knownDates(ctx, ...userText), times: ctx, allowLists: /\blists?\b|bullet|point form/i.test([...userText, ...pic.works, ...pic.cues].join(' ')) };
+      const problems = checkReply(splitLearning(full).text, known, opts);
       if (problems.length) {
         sheet.querySelector('.mc-live')?.classList.add('mc-fixing');
-        const again = await chatLLM({ ...aiFrom(s), system, messages: [...convo, { role: 'assistant', text: full }, { role: 'user', text: repairPrompt(problems) }], onText: (t) => onText(splitLearning(t).text) }).catch(() => null);
-        if (again?.text && checkReply(splitLearning(again.text).text, known).length < problems.length) ({ text: full, cut } = again);
+        const again = await chatLLM({ ...aiFrom(s), system, messages: [...convo, { role: 'assistant', text: full }, { role: 'user', text: repairPrompt(problems) }], maxTokens: 6000, onText: (t) => onText(splitLearning(t).text) }).catch(() => null);
+        if (again?.text && checkReply(splitLearning(again.text).text, known, opts).length < problems.length) ({ text: full, cut } = again);
       }
       const { text, meta } = splitLearning(full);
       if (!text.trim()) throw new Error('No reply came back.');

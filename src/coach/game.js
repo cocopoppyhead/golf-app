@@ -8,6 +8,7 @@ import { tiger5, TIGER5_LABEL } from '../rounds/tiger.js';
 import { approachBands } from '../rounds/bands.js';
 import { usualTeeClub } from '../rounds/shotpanel.js';
 import { leakText } from './leak.js';
+import { benchFor, targetHcp } from '../benchmarks.js';
 import { engineText } from './engine.js';
 
 const one = (d) => (d == null ? '?' : `${d > 0 ? '+' : ''}${d.toFixed(1)}`);
@@ -21,14 +22,20 @@ export function sgText(rcs) {
   return `Strokes gained per 18 against a scratch baseline, ${n} rounds with shot detail: ${parts.map((p) => `${SG_LABELS[p.k]} ${one(p.v)}`).join(', ')}. Biggest leak: ${SG_LABELS[parts[0].k]}.`;
 }
 
-/** The Tiger 5 per round, and how often the doubles come. */
-export function tigerText(rcs) {
+/** The Tiger 5 per round, and how often the doubles come; doubles, bogeys and birdies against their level and target. */
+export function tigerText(rcs, hcp = null) {
   const rows = rcs.filter((x) => x.c && !x.r.quick && (x.r.holes || []).filter((h) => h?.score != null).length >= 18);
   if (rows.length < 3) return '';
   const sum = {}; let tot = 0;
   for (const x of rows) { const t = tiger5(x.r, x.c); tot += t.total; for (const [k, v] of Object.entries(t.by)) sum[k] = (sum[k] || 0) + v; }
   const per = Object.entries(sum).map(([k, v]) => `${TIGER5_LABEL[k]} ${(v / rows.length).toFixed(1)}`).join(', ');
-  return `Tiger 5 per round over ${rows.length} full rounds: ${(tot / rows.length).toFixed(1)} in total (tour winners about 1.6, missed cuts about 3.7): ${per}.`;
+  let level = '';
+  if (Number.isFinite(+hcp) && hcp !== null) {
+    const B = benchFor(+hcp), tg = targetHcp(+hcp), T = benchFor(tg);
+    const n = rows.length, cnt = (f) => rows.reduce((a, x) => a + (x.r.holes || []).filter((h, i) => h?.score != null && f(h.score - (x.c.holes?.[i]?.par || 4))).length, 0) / n;
+    level = `\nScoring against golfers at their level (Shot Scope averages a round; Tiger 5 itself isn't published by handicap): doubles or worse ${cnt((d) => d >= 2).toFixed(1)} (a ${Math.round(+hcp)}-handicap about ${B.doubles.toFixed(1)}, ${tg ? `a ${tg}` : 'scratch'} about ${T.doubles.toFixed(1)}); bogeys ${cnt((d) => d === 1).toFixed(1)} (${B.bogeys.toFixed(1)}, ${T.bogeys.toFixed(1)}); birdies or better ${cnt((d) => d <= -1).toFixed(1)} (${B.birdies.toFixed(1)}, ${T.birdies.toFixed(1)}).`;
+  }
+  return `Tiger 5 per round over ${rows.length} full rounds: ${(tot / rows.length).toFixed(1)} in total (tour winners about 1.6, missed cuts about 3.7): ${per}.${level}`;
 }
 
 /** Tee shots, greens, putting, scrambling and the tagged causes, in one line each. */
@@ -70,7 +77,7 @@ export function bagText(settings, bag = [], rcs = []) {
 
 /** Everything about the game in one block, or '' when there's nothing worked out yet. */
 export function gameText({ rcs = [], settings = {}, bag = [], swing = '', work = '', drills = '' } = {}) {
-  const parts = [leakText(rcs, { hcp: settings.handicap }), engineText(rcs), sgText(rcs), tigerText(rcs), statsText(rcs), bandsText(rcs), bagText(settings, bag, rcs),
+  const parts = [leakText(rcs, { hcp: settings.handicap }), engineText(rcs), sgText(rcs), tigerText(rcs, settings.handicap ?? null), statsText(rcs), bandsText(rcs), bagText(settings, bag, rcs),
     swing ? `Swing (from osolo's video analyses): ${swing}` : '', work ? `Working on: ${work}` : '', drills ? `Drills: ${drills}` : ''].filter(Boolean);
   return parts.length ? `THE GAME (worked out by the app; trust these numbers)\n${parts.join('\n')}` : '';
 }

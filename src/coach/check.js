@@ -19,19 +19,32 @@ export function knownNumbers(...texts) {
   return out;
 }
 
-/** Problems with a reply (empty when it's fine). known: from knownNumbers. */
-export function checkReply(text, known = new Set()) {
+const MON = 'jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec';
+const dayMonth = (t) => {
+  const out = new Set();
+  for (const m of norm(t).matchAll(new RegExp(`\\b(\\d{1,2})(?:st|nd|rd|th)?\\s+(${MON})[a-z]*\\b`, 'gi'))) out.add(`${+m[1]} ${m[2].toLowerCase()}`);
+  for (const m of norm(t).matchAll(new RegExp(`\\b(${MON})[a-z]*\\s+(\\d{1,2})(?:st|nd|rd|th)?\\b`, 'gi'))) out.add(`${+m[2]} ${m[1].toLowerCase()}`);
+  return out;
+};
+/** The dates the coach was given (context + what the golfer said), as "4 nov". */
+export const knownDates = (...texts) => new Set(texts.flatMap((t) => [...dayMonth(t)]));
+
+/**
+ * Problems with a reply (empty when it's fine). known: from knownNumbers; dates: from knownDates (a round
+ * on a date that isn't in the data is made up); allowLists: they asked for lists.
+ */
+export function checkReply(text, known = new Set(), { dates = null, allowLists = false, times = '' } = {}) {
   const t = norm(text), problems = [];
   const q = (t.match(/\?/g) || []).length;
   if (q > 1) problems.push(`it asks ${q} questions; ask one at most`);
   const lines = t.split('\n').map((l) => l.trim());
-  if (lines.filter((l) => /^([-*•]|\d+[.)])\s/.test(l)).length >= 2) problems.push('it uses a list; write it as a short conversation in plain sentences');
+  if (!allowLists && lines.filter((l) => /^([-*•]|\d+[.)])\s/.test(l)).length >= 2) problems.push('it uses a list; write it as a short conversation in plain sentences');
   if (lines.some((l) => /^#{1,6}\s/.test(l))) problems.push('it has headings; no headings');
   // stat claims must be numbers it was given: to-par (+3, 3 over), strokes, putts, percentages, averages
   const claims = [
     ...[...t.matchAll(/(?<![\w.])([+-]\d+(?:\.\d+)?)(?![\w%])/g)].map((m) => m[1]),
     ...[...t.matchAll(/\b(\d+(?:\.\d+)?)\s+(?:over|under)(?:\s+par)?\b/gi)].map((m) => m[1]),
-    ...[...t.matchAll(/\b(\d+(?:\.\d+)?)\s+(?:strokes?|putts?|three-putts?|3-putts?|doubles?|bogeys?|birdies?|pars|penalt(?:y|ies)|fairways|greens)\b/gi)].map((m) => m[1]),
+    ...[...t.matchAll(/(?<!par\s)\b(\d+(?:\.\d+)?)\s+(?:strokes?|putts?|three-putts?|3-putts?|doubles?|bogeys?|birdies?|pars|penalt(?:y|ies)|fairways|greens)\b/gi)].map((m) => m[1]),
     ...[...t.matchAll(/\b(\d+(?:\.\d+)?)\s?%/g)].map((m) => m[1]),
     ...[...t.matchAll(/\b(?:shot|scored|carded|averag(?:e|ed|ing))\s+(?:a\s+|an\s+)?(\d{2,3})\b/gi)].map((m) => m[1]),
   ];
@@ -44,8 +57,12 @@ export function checkReply(text, known = new Set()) {
     // more than a triple bogey a hole, every hole, over a stretch: that's strokes read as to-par (one hole can be a disaster)
     if (n && toPar > (n === 1 ? 5 : 3 * n) && /^[+]|over/i.test(m[0])) problems.push(`"${m[0]}" is impossible in practice (worse than a triple bogey on every hole); that's strokes, not score to par`);
   }
-  // clock times: only ones in the data
+  // clock times: only ones in the data (times: the context, where tee times appear as 15:30)
   for (const m of t.matchAll(/\b(\d{1,2})(?::(\d{2}))?\s?(am|pm)\b/gi)) if (!known.has(m[1])) problems.push(`it states a time (${m[0]}) that isn't in the data; never assume a tee time`);
+  for (const m of t.matchAll(/\b([01]?\d|2[0-3]):([0-5]\d)\b(?!\s?(?:am|pm))/gi)) if (!norm(times).includes(m[0]) && !norm(times).includes(m[0].padStart(5, '0'))) problems.push(`it states a time (${m[0]}) that isn't in the data; never assume a tee time`);
+  if (/\b(noon|midday|lunchtime)\b/i.test(t) && /tee/i.test(t) && !/\b(noon|midday|1[12]:\d\d)\b/i.test(times)) problems.push('it says a noon tee time, which isn\'t in the data; never assume a tee time');
+  // dates: a round on a date that isn't in the data doesn't exist
+  if (dates) { const made = [...dayMonth(t)].filter((d) => !dates.has(d)); if (made.length) problems.push(`it mentions ${made.join(', ')}, which isn't in their data; only talk about rounds and dates you were given`); }
   return [...new Set(problems)];
 }
 
