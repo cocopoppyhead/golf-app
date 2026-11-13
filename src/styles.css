@@ -926,3 +926,4 @@ table.t5, table.dk { width: 100%; border-collapse: collapse; font-size: 13px; } 
 .dcmp th { font-size: 12px; color: var(--mute); font-weight: 600; text-align: right; padding: 0 0 4px; } .dcmp th:first-child { text-align: left; }
 .dcmp td { text-align: right; padding: 4px 0; border-top: 1px solid var(--line); } .dcmp td:first-child { text-align: left; color: var(--soft); }
 .dcmp td.ok { color: var(--good); font-weight: 700; } .dcmp td.gap { color: var(--work); font-weight: 700; }
+.mc-m.mc-fixing { opacity: .45; transition: opacity .2s; }

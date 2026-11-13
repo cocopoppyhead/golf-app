@@ -8,6 +8,8 @@ import { counts } from '../rounds/quality.js';
 import { getPicture, pictureText, splitLearning, learn, clearPicture } from './picture.js';
 import { gameText } from './game.js';
 import { listShots, listSwings } from '../store.js';
+import { startFlow, stepText, advance, loadFlow, saveFlow, clearFlow } from './flow.js';
+import { checkReply, knownNumbers, repairPrompt } from './check.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 /** Alternate user and coach turns (two of yours in a row after a failed reply are sent as one), starting with yours. */
@@ -34,6 +36,8 @@ export async function openMindChat({ focus = null, mode = null, onSettings = () 
   let M = mode || (focus ? 'debrief' : 'open');
   const s = getSettings();
   let msgs = loadChat().filter((m) => m.text && m.text !== '…'), busy = false, err = '', live = '';
+  // the conversation's step (debrief and pre-round have a shape; see flow.js): carried on with the chat, fresh with a new one
+  let flow = (msgs.length && loadFlow()) || startFlow(M);
   const sheet = document.createElement('div'); sheet.className = 'sheet mindchat';
   const ready = aiReady(s);
   const starters = focus ? [`Talk me through ${focus.r.courseName.split(/\s[–-]\s/)[0]}`, 'What should I take from it?', 'Where did my head go?'] : STARTERS;
@@ -53,7 +57,7 @@ export async function openMindChat({ focus = null, mode = null, onSettings = () 
     </div>`;
     const log = sheet.querySelector('.mc-log'); log.scrollTop = log.scrollHeight;
     sheet.querySelector('[data-close]').onclick = () => sheet.remove();
-    sheet.querySelector('[data-new]')?.addEventListener('click', () => { msgs = []; clearChat(); err = ''; draw(); });
+    sheet.querySelector('[data-new]')?.addEventListener('click', () => { msgs = []; clearChat(); clearFlow(); flow = startFlow(M); err = ''; draw(); });
     sheet.querySelector('[data-settings]')?.addEventListener('click', () => { sheet.remove(); onSettings(); });
     sheet.querySelector('[data-forget]')?.addEventListener('click', () => { if (confirm('Clear what the coach has learned about you? Your rounds stay.')) { clearPicture(s); draw(); } });
     sheet.querySelectorAll('[data-start]').forEach((b) => b.onclick = () => send(b.dataset.start));
@@ -82,7 +86,7 @@ export async function openMindChat({ focus = null, mode = null, onSettings = () 
   };
   const send = async (q) => {
     if (busy) return;
-    if (!msgs.length && !focus && q === STARTERS[0]) M = 'pre-round'; // "Get my head right before today"
+    if (!msgs.length) { if (!focus && q === STARTERS[0]) M = 'pre-round'; flow = startFlow(M); } // "Get my head right before today"
     msgs = [...msgs, { role: 'user', text: q, at: Date.now() }]; busy = true; err = ''; draw();
     try {
       const onText = (t) => {
@@ -90,10 +94,20 @@ export async function openMindChat({ focus = null, mode = null, onSettings = () 
         el.classList.remove('mc-typing'); el.innerHTML = md(t);
         const log = sheet.querySelector('.mc-log'); if (log.scrollHeight - log.scrollTop - log.clientHeight < 120) log.scrollTop = log.scrollHeight;
       };
-      const { text: full, cut } = await chatLLM({ ...aiFrom(s), system: `${systemPrompt(M)}\n\n${await context()}`, messages: turns(msgs.slice(-20)), onText: (t) => onText(splitLearning(t).text) });
+      const ctx = await context(), system = `${systemPrompt(flow.mode, stepText(flow))}\n\n${ctx}`, convo = turns(msgs.slice(-20));
+      let { text: full, cut } = await chatLLM({ ...aiFrom(s), system, messages: convo, onText: (t) => onText(splitLearning(t).text) });
+      // the app checks the reply before it stands (check.js); one rewrite if it broke a hard rule
+      const known = knownNumbers(ctx, ...msgs.filter((m) => m.role === 'user').map((m) => m.text));
+      const problems = checkReply(splitLearning(full).text, known);
+      if (problems.length) {
+        sheet.querySelector('.mc-live')?.classList.add('mc-fixing');
+        const again = await chatLLM({ ...aiFrom(s), system, messages: [...convo, { role: 'assistant', text: full }, { role: 'user', text: repairPrompt(problems) }], onText: (t) => onText(splitLearning(t).text) }).catch(() => null);
+        if (again?.text && checkReply(splitLearning(again.text).text, known).length < problems.length) ({ text: full, cut } = again);
+      }
       const { text, meta } = splitLearning(full);
       if (!text.trim()) throw new Error('No reply came back.');
       if (meta) learn(meta, s);
+      flow = advance(flow, meta); saveFlow(flow);
       msgs = [...msgs, { role: 'assistant', text: text.trim() + (cut && !meta ? '\n\n_(Cut short. Say "go on" for the rest.)_' : ''), at: Date.now() }]; saveChat(msgs);
     } catch (e) { err = `${e.message || 'That didn\'t go through.'} Try again.`; msgs = msgs.slice(0, -1); }
     busy = false; live = ''; draw();
