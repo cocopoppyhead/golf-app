@@ -47,7 +47,7 @@ export async function openMindChat({ focus = null, mode = null, onSettings = () 
         ${err ? `<p class="mc-err">${esc(err)}</p>` : ''}
       </div>
       ${ready ? `${msgs.length ? '' : `<div class="mc-starters">${starters.map((t) => `<button data-start="${esc(t)}">${esc(t)}</button>`).join('')}</div>`}
-      <form class="mc-form"><textarea name="q" rows="1" placeholder="Talk to your coach" ${busy ? 'disabled' : ''}></textarea><button class="btn primary" ${busy ? 'disabled' : ''}>Send</button></form>
+      <form class="mc-form"><textarea name="q" rows="1" enterkeyhint="enter" placeholder="Talk to your coach" ${busy ? 'disabled' : ''}></textarea><button class="btn primary" ${busy ? 'disabled' : ''}>Send</button></form>
       <p class="mc-foot mute small">Uses ${esc(aiName(s))}. The chat and what the coach learns stay on this phone.</p>
       ${pictureHtml(getPicture(s))}` : '<button class="btn primary big" data-settings>Connect AI in Settings</button>'}
     </div>`;
@@ -61,7 +61,8 @@ export async function openMindChat({ focus = null, mode = null, onSettings = () 
     if (f) {
       const ta = f.q;
       ta.addEventListener('input', () => { ta.style.height = 'auto'; ta.style.height = `${Math.min(ta.scrollHeight, 140)}px`; });
-      ta.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); f.requestSubmit(); } });
+      // Return is a new line, like any chat on a phone; the Send button sends (Cmd/Ctrl+Return too, on a keyboard)
+      ta.addEventListener('keydown', (e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); f.requestSubmit(); } });
       f.onsubmit = (e) => { e.preventDefault(); const q = ta.value.trim(); if (q) send(q); };
     }
   };

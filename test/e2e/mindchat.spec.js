@@ -27,4 +27,12 @@ test('the mental coach answers with your routine and rounds in its context', asy
   await chat.locator('[data-close]').click();
   await page.click('.checkin [data-act=mind]');
   await expect(page.locator('.mindchat .mc-m')).toHaveCount(2);
+  // Return is a new line, not send: the Send button sends
+  const ta = page.locator('.mindchat textarea');
+  await ta.click(); await page.keyboard.type('First line'); await page.keyboard.press('Enter'); await page.keyboard.type('Second line');
+  await expect(ta).toHaveValue('First line\nSecond line');
+  await expect(page.locator('.mindchat .mc-m')).toHaveCount(2);
+  await page.locator('.mindchat .mc-form button').click();
+  await expect(page.locator('.mindchat .mc-m.user').last()).toContainText('Second line');
+  await expect.poll(() => sent.messages.at(-1).content).toBe('First line\nSecond line');
 });
