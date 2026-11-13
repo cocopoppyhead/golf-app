@@ -130,7 +130,7 @@ export function leakText(rcs, { hcp } = {}) {
     lines.push(`Why it leaks, from ${c.n} logged shots (${greens}): ${R.length ? R.map((x) => `${x.why}: ${x.text}`).join('; ') : 'no misses tagged with a reason yet'}.`);
     const SWN = { full: 'full', '3q': '¾', half: '½', pitch: 'pitch', punch: 'punch' };
     const sws = Object.entries(c.bySw).filter(([k, v]) => SWN[k] && v.n >= 4);
-    if (sws.length >= 2) lines.push(`Greens hit by swing length: ${sws.map(([k, v]) => `${SWN[k]} ${pct(v.g, v.n)}% (${v.n})`).join(', ')}. A big gap between full and part swings means two fixes to offer: lay up to a full-swing number (strategy) or practise the part swings, e.g. 50/75/100% ladders (technique).`);
+    if (sws.length >= 2) lines.push(`Greens hit by swing length: ${sws.map(([k, v]) => `${SWN[k]} ${pct(v.g, v.n)}% (${v.n})`).join(', ')}. The ANALYSIS block cuts these shots more ways (the greens, wind, lie, distance, club, the round).`);
     if (c.planN >= 8) lines.push(`${pct(c.notPlanned, c.planN)}% weren't the shot they wanted${c.sat.length >= 8 ? `; satisfaction ${(c.sat.reduce((a, b) => a + b, 0) / c.sat.length).toFixed(1)}/5` : ''}.`);
     const tagged = c.strike + c.dirFlight + Object.values(c.tagged).reduce((a, b) => a + b, 0);
     if (tagged < c.n / 3) lines.push('Few of these shots have Details (strike, flight, cause) logged, so the why is partly a guess: ask them to tap Details on misses in this part of the game.');

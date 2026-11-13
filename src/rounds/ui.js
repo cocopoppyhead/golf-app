@@ -724,6 +724,7 @@ function moodSheet(round, key, done) {
   round.mood ||= {};
   let v = round.mood[key] ?? null, w = round.warmup ?? null, en = round.energy ?? null, it = round.intention ?? null, kept = round.intentionKept ?? null, kind = round.kind ?? null, kindInfo = false, aim = round.aim ?? null;
   const proc = { ...(round.process || {}) };
+  const greens = { ...(round.greens || {}) }; // { firm: soft|normal|firm, speed: slow|medium|fast }
   const R = getRoutine(S0());
   let thought = round.swingThought ?? R.swingThought ?? '', expect = round.expect ?? '';
   let lastAgain = null; // what you said you'd do differently, last time on this course
@@ -750,6 +751,9 @@ function moodSheet(round, key, done) {
       <details class="lminfo rtd"><summary>${icon('info', 14)} My routine</summary>${routineHtml(R)}</details>` : ''}
       ${key === 'finish' ? `<div class="lbl">Your process today</div>${PROCESS.map(([k, l]) => `<div class="procrow"><span>${l}</span><div class="seg4 sm">${FREQ.map(([v, w]) => `<button class="${proc[k] === v ? 'on' : ''}" data-proc="${k}" data-v="${v}">${w}</button>`).join('')}</div></div>`).join('')}
       ${round.aim === 'fun' || round.aim === 'both' ? `<div class="procrow"><span>Did you enjoy it?</span><div class="seg4 sm">${FREQ.map(([v, w]) => `<button class="${proc.fun === v ? 'on' : ''}" data-proc="fun" data-v="${v}">${['Loved it', 'Mostly', 'Some', 'No'][4 - v]}</button>`).join('')}</div></div>` : ''}` : ''}
+      ${key === 'finish' ? `<div class="lbl">The greens today <span class="mute">(optional)</span></div>
+      <div class="seg3">${[['soft', 'Soft'], ['normal', 'Normal'], ['firm', 'Firm']].map(([k, l]) => `<button class="${greens.firm === k ? 'on' : ''}" data-gfirm="${k}">${l}</button>`).join('')}</div>
+      <div class="seg3" style="margin-top:6px">${[['slow', 'Slow'], ['medium', 'Medium'], ['fast', 'Fast']].map(([k, l]) => `<button class="${greens.speed === k ? 'on' : ''}" data-gspeed="${k}">${l}</button>`).join('')}</div>` : ''}
       ${key === 'finish' && it ? `<div class="lbl">Did you keep to it: “${esc(intentionLabel(it))}”?</div><div class="stars">${[1, 2, 3, 4, 5].map((n) => `<button class="${kept >= n ? 'on' : ''}" data-kept="${n}">★</button>`).join('')}</div>` : ''}
       <button class="btn primary big" data-ok>${key === 'start' ? 'Start hole 1' : key === 'turn' ? 'On to the back nine' : 'See my round'}</button></div>`;
     sheet.querySelectorAll('[data-m]').forEach((b) => b.onclick = () => { v = +b.dataset.m; draw(); });
@@ -757,6 +761,8 @@ function moodSheet(round, key, done) {
     sheet.querySelectorAll('[data-en]').forEach((b) => b.onclick = () => { en = en === b.dataset.en ? null : b.dataset.en; draw(); });
     sheet.querySelectorAll('[data-aim]').forEach((b) => b.onclick = () => { aim = aim === b.dataset.aim ? null : b.dataset.aim; round.aim = aim; draw(); });
     sheet.querySelectorAll('[data-proc]').forEach((b) => b.onclick = () => { const k = b.dataset.proc, v = +b.dataset.v; proc[k] = proc[k] === v ? null : v; draw(); });
+    sheet.querySelectorAll('[data-gfirm]').forEach((b) => b.onclick = () => { greens.firm = greens.firm === b.dataset.gfirm ? null : b.dataset.gfirm; draw(); });
+    sheet.querySelectorAll('[data-gspeed]').forEach((b) => b.onclick = () => { greens.speed = greens.speed === b.dataset.gspeed ? null : b.dataset.gspeed; draw(); });
     sheet.querySelectorAll('[data-kind]').forEach((b) => b.onclick = () => { kind = kind === b.dataset.kind ? null : b.dataset.kind; round.kind = kind; draw(); });
     sheet.querySelector('[data-kindinfo]')?.addEventListener('click', () => { kindInfo = !kindInfo; draw(); });
     sheet.querySelectorAll('[data-it]').forEach((b) => b.onclick = () => { it = it === b.dataset.it ? null : b.dataset.it; draw(); });
@@ -766,7 +772,7 @@ function moodSheet(round, key, done) {
     sheet.querySelector('[data-expect]')?.addEventListener('input', (e) => { expect = e.target.value; });
     sheet.querySelector('[data-ok]').onclick = () => {
       round.mood[key] = v;
-      if (key === 'finish') round.process = proc;
+      if (key === 'finish') { round.process = proc; round.greens = greens.firm || greens.speed ? { firm: greens.firm || null, speed: greens.speed || null } : null; }
       if (key === 'start') { round.kind = kind; round.aim = aim; round.warmup = w; round.energy = en; round.intention = it; round.swingThought = thought.trim() || null; round.expect = expect.trim() || null; if (round.swingThought && round.swingThought !== R.swingThought) { const st = S0(); st.routine = { ...(st.routine || {}), swingThought: round.swingThought }; S1(st); } }
       if (key === 'finish') round.intentionKept = kept;
       sheet.remove(); save(); readWeather(round, key); done();

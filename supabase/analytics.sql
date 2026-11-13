@@ -44,7 +44,14 @@ select d.user_id, d.id as round_id,
        (d.data->'mood'->>'start')::int as mood_start, (d.data->'mood'->>'turn')::int as mood_turn, (d.data->'mood'->>'finish')::int as mood_finish,
        d.data->>'energy' as energy, d.data->>'warmup' as warmup, d.data->>'intention' as intention,
        (d.data->>'intentionKept')::int as intention_kept,
-       d.data->'debrief'->>'again' as do_differently, d.data->'debrief'->>'notes' as notes
+       d.data->'debrief'->>'again' as do_differently, d.data->'debrief'->>'notes' as notes,
+       d.data->>'aim' as aim, d.data->>'swingThought' as swing_thought, d.data->>'expect' as good_round_is,
+       (d.data->'process'->>'routine')::int as process_routine, (d.data->'process'->>'commit')::int as process_commit,
+       (d.data->'process'->>'accept')::int as process_accept, (d.data->'process'->>'fun')::int as process_fun,
+       d.data->'greens'->>'firm' as greens_firmness, d.data->'greens'->>'speed' as greens_speed,
+       (d.data->'cond'->'start'->>'tempC')::numeric as temp_c, (d.data->'cond'->'start'->>'humidity')::numeric as humidity,
+       (d.data->'cond'->'start'->>'windMph')::numeric as wind_mph, (d.data->'cond'->'start'->>'windFrom')::numeric as wind_from,
+       (d.data->'hr'->>'avg')::int as heart_rate_avg
 from public.user_docs d
 where d.kind = 'round' and not d.deleted;
 
@@ -96,7 +103,40 @@ cross join lateral jsonb_array_elements(coalesce(r.data->'holes', '[]')) with or
 cross join lateral jsonb_array_elements(case when jsonb_typeof(h.v->'puttList') = 'array' then h.v->'puttList' else '[]' end) with ordinality as p(v, ord)
 where r.kind = 'round' and not r.deleted and jsonb_typeof(p.v) = 'object';
 
-grant select on public.golf_courses, public.golf_course_holes, public.golf_rounds, public.golf_holes, public.golf_shots, public.golf_putts to authenticated;
+-- ---------- practice: sessions and what was done in them ----------
+create or replace view public.golf_practice with (security_invoker = on) as
+select d.user_id, d.id as session_id, to_timestamp((d.data->>'date')::double precision / 1000) as done_at,
+       d.data->>'status' as status, (d.data->>'minutes')::int as minutes, d.data->'where' as places,
+       (d.data->>'rating')::int as rating, d.data->>'note' as note,
+       i.ord::int as item_no, i.v->>'mode' as mode, i.v->>'title' as item, i.v->>'drillId' as drill_id,
+       (i.v->>'score')::numeric as score, (i.v->>'of')::numeric as score_of, (i.v->>'attempts')::int as attempts,
+       (i.v->>'achieved')::boolean as achieved, (i.v->>'repsDone')::int as reps, (i.v->>'rating')::int as reps_rating, i.v->'fails' as misses
+from public.user_docs d
+cross join lateral jsonb_array_elements(coalesce(d.data->'items', '[]')) with ordinality as i(v, ord)
+where d.kind = 'session' and not d.deleted;
+
+-- ---------- launch monitor: one row per shot ----------
+create or replace view public.golf_launch with (security_invoker = on) as
+select d.user_id, d.id as session_id, to_timestamp((d.data->>'date')::double precision / 1000) as hit_on,
+       d.data->>'club' as club, d.data->>'ball' as ball, d.data->>'source' as source,
+       x.ord::int as shot_no, x.v as numbers  -- carry, total, club/ball speed, smash, launch, spin, ... as the device gave them
+from public.user_docs d
+cross join lateral jsonb_array_elements(coalesce(d.data->'rows', '[]')) with ordinality as x(v, ord)
+where d.kind = 'launch' and not d.deleted;
+
+-- ---------- swing analyses (the knowledge from each video; the video stays on the phone) ----------
+create or replace view public.golf_swing_checks with (security_invoker = on) as
+select d.user_id, d.id as swing_id, to_timestamp((d.data->>'date')::double precision / 1000) as recorded_at,
+       d.data->>'club' as club, d.data->>'view' as camera, d.data->>'golfer' as friend,
+       (d.data->'summary'->>'score10')::numeric as swing_score,
+       c.v->>'key' as checkpoint, i.v->>'name' as item, i.v->>'status' as status,
+       i.v->>'you' as you, i.v->>'pro' as reference, i.v->'value' as value
+from public.user_docs d
+cross join lateral jsonb_array_elements(coalesce(d.data->'checkpoints', '[]')) as c(v)
+cross join lateral jsonb_array_elements(coalesce(c.v->'items', '[]')) as i(v)
+where d.kind = 'swing' and not d.deleted;
+
+grant select on public.golf_courses, public.golf_course_holes, public.golf_rounds, public.golf_holes, public.golf_shots, public.golf_putts, public.golf_practice, public.golf_launch, public.golf_swing_checks to authenticated;
 
 -- Examples
 --   wedges by swing length:   select swing, count(*), avg((result in ('G','HO'))::int) from golf_shots where from_yd between 30 and 139 and lie <> 'tee' and source <> 'garmin' group by swing;

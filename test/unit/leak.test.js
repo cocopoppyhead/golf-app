@@ -51,9 +51,10 @@ describe('wedges by swing length', () => {
     ? { score: 4, putts: 1, firstPutt: 4, shots: [{ lie: 'tee', dist: 400, res: 'FW' }, { lie: 'fw', dist: 70, res: 'GS', dir: 'S', sw: '3q' }, { lie: 'rgh', dist: 10, res: 'G', sw: 'chip' }] }
     : { score: 4, putts: 2, firstPutt: 25, shots: [{ lie: 'tee', dist: 400, res: 'FW' }, { lie: 'fw', dist: 110, res: 'G', sw: 'full' }] });
   const rcs = Array.from({ length: 5 }, (_, k) => ({ r: { id: `w${k}`, holes: course.holes.map((_, i) => hole(i)) }, c: course }));
-  it('shows the gap between full and part swings, and both fixes', () => {
+  it('shows the gap between full and part swings and points to the analysis, not a fixed menu', () => {
     const t = leakText(rcs, { hcp: 10 });
     expect(t).toMatch(/Greens hit by swing length: .*full 100%.*¾ 0%/);
-    expect(t).toMatch(/lay up to a full-swing number \(strategy\) or practise the part swings/);
+    expect(t).toMatch(/ANALYSIS block cuts these shots more ways/);
+    expect(t).not.toMatch(/two fixes/);
   });
 });
