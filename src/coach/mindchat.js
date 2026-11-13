@@ -43,7 +43,7 @@ export async function openMindChat({ focus = null, mode = null, onSettings = () 
   const starters = focus ? [`Talk me through ${focus.r.courseName.split(/\s[–-]\s/)[0]}`, 'What should I take from it?', 'Where did my head go?'] : STARTERS;
   const draw = () => {
     sheet.innerHTML = `<div class="sheet-in mc-in">
-      <div class="sheet-h"><b>Your coach</b><span class="mc-hact">${msgs.length ? '<button class="link" data-new>New chat</button>' : ''}<button class="link" data-close>Close</button></span></div>
+      <div class="sheet-h"><b>Your coach</b><span class="mc-hact">${msgs.length ? '<button class="link" data-share>Share</button><button class="link" data-new>New chat</button>' : ''}<button class="link" data-close>Close</button></span></div>
       <div class="mc-log" aria-live="polite">
         ${msgs.length ? '' : `<p class="mc-intro">${ready ? `Strategy, swing, the mental side and the next round, from your rounds, practice and check-ins. ${focus ? `Ready to talk about ${esc(focus.r.courseName)}.` : 'Ask anything about your game.'}` : `Your coach runs on your own AI. Connect Claude, ChatGPT or Gemini first.`}</p>`}
         ${msgs.map((m) => `<div class="mc-m ${m.role}">${m.role === 'assistant' ? md(m.text) : esc(m.text)}</div>${m.added ? `<p class="mc-added">Added to Range work: <b>${esc(m.added)}</b>. It's on the Practice tab with its drills.</p>` : ''}`).join('')}
@@ -52,11 +52,12 @@ export async function openMindChat({ focus = null, mode = null, onSettings = () 
       </div>
       ${ready ? `${msgs.length ? '' : `<div class="mc-starters">${starters.map((t) => `<button data-start="${esc(t)}">${esc(t)}</button>`).join('')}</div>`}
       <form class="mc-form"><textarea name="q" rows="1" enterkeyhint="enter" placeholder="Talk to your coach" ${busy ? 'disabled' : ''}></textarea><button class="btn primary" ${busy ? 'disabled' : ''}>Send</button></form>
-      <p class="mc-foot mute small">Uses ${esc(aiName(s))}. The chat and what the coach learns stay on this phone.</p>
+      <p class="mc-foot mute small">Uses ${esc(aiName(s))}. The chat stays on this phone (Share sends a copy); what the coach learns about you syncs to your account.</p>
       ${pictureHtml(getPicture(s))}` : '<button class="btn primary big" data-settings>Connect AI in Settings</button>'}
     </div>`;
     const log = sheet.querySelector('.mc-log'); log.scrollTop = log.scrollHeight;
     sheet.querySelector('[data-close]').onclick = () => sheet.remove();
+    sheet.querySelector('[data-share]')?.addEventListener('click', () => import('./sharechat.js').then((m) => m.shareChat(msgs, { picture: getPicture(s), model: aiName(s) })));
     sheet.querySelector('[data-new]')?.addEventListener('click', () => { msgs = []; clearChat(); clearFlow(); flow = startFlow(M); err = ''; draw(); });
     sheet.querySelector('[data-settings]')?.addEventListener('click', () => { sheet.remove(); onSettings(); });
     sheet.querySelector('[data-forget]')?.addEventListener('click', () => { if (confirm('Clear what the coach has learned about you? Your rounds stay.')) { clearPicture(s); draw(); } });

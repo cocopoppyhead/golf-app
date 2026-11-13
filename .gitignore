@@ -6,3 +6,6 @@ test/*.mp4
 .tmpdoc/
 .osm/
 test/e2e/out/
+
+# personal exports (coach chats, data files): never committed
+private/

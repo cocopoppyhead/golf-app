@@ -73,3 +73,16 @@ test('an agreed focus goes onto Range work', async ({ page }) => {
   expect(work[0]).toMatchObject({ title: 'Wedge distance', from: 'coach' });
   expect(work[0].drills[0].name).toBe('Wedge ladder');
 });
+
+// Share chat: the conversation comes out as a Markdown file (a download in a desktop browser).
+test('the chat can be shared as a file', async ({ page }) => {
+  await boot(page);
+  await page.evaluate(() => { const s = JSON.parse(localStorage.getItem('golf.settings')); s.apiKey = 'sk-ant-test'; s.aiProvider = 'claude'; localStorage.setItem('golf.settings', JSON.stringify(s)); localStorage.setItem('golf.mindChat', JSON.stringify([{ role: 'user', text: 'How was my putting?', at: 1 }, { role: 'assistant', text: 'Solid inside 6 feet.', at: 2 }])); });
+  await page.reload();
+  await page.click('nav button[data-tab=rounds]');
+  await page.click('.checkin [data-act=mind]');
+  const [dl] = await Promise.all([page.waitForEvent('download'), page.locator('.mindchat [data-share]').click()]);
+  expect(dl.suggestedFilename()).toMatch(/^osolo-coach-chat-\d{4}-\d{2}-\d{2}\.md$/);
+  const text = await (await dl.createReadStream()).toArray().then((c) => Buffer.concat(c).toString());
+  expect(text).toMatch(/How was my putting\?/); expect(text).toMatch(/Solid inside 6 feet\./);
+});
