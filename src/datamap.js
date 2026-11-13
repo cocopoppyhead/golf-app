@@ -18,7 +18,7 @@ export const ACCOUNT_SETTINGS = [
 ];
 
 /** Settings for this phone only: screen and video preferences, offline caches. Not synced, not exported. */
-export const DEVICE_SETTINGS = ['quality', 'keepVideos', 'learning', 'playRate', 'showLines', 'cpStop', 'offlineCourses', 'progressKind', 'model', 'openaiModel', 'geminiModel'];
+export const DEVICE_SETTINGS = ['quality', 'keepVideos', 'learning', 'playRate', 'showLines', 'cpStop', 'offlineCourses', 'progressKind', 'r10Club', 'model', 'openaiModel', 'geminiModel'];
 
 /** Never leave the phone: not synced, not exported, not shared. */
 export const SECRET_SETTINGS = ['apiKey', 'openaiKey', 'geminiKey'];

@@ -24,7 +24,7 @@ The structure is a tree with time, not a network: golfer → round → hole → 
 | `swing` | swings | one swing video's analysis: checkpoints and measurements (the video stays on the phone) | golf_swing_checks |
 | `shot` | shots | a single shot logged off the course: club, target, finish, swing, direction, contact, shape, weather | golf_shot_log |
 | `session` | sessions | a practice session: drills, scores, reps, ratings | golf_practice |
-| `launch` | launch | a launch-monitor session, one row per shot (bay photo, file, or the Garmin R10 over Bluetooth) | golf_launch |
+| `launch` | launch | a launch-monitor session, one row per shot (bay photo, file, or the Garmin R10 live over Bluetooth: `source` 'Garmin R10', `live` true, rows with `computed` carry) | golf_launch |
 | `settings` | localStorage | the golfer's settings (one doc, id `me`) | golf_profile, golf_bag, golf_working_on, golf_scheduled_rounds |
 | `plan` | localStorage | the coach's plan for the golfer (one doc, id `me`) | golf_coach_plan |
 
@@ -52,7 +52,7 @@ The structure is a tree with time, not a network: golfer → round → hole → 
 - **Devices:** `laserProfiles`, `laserPaired`, `launchPaired` (the R10's name)
 - **Preferences:** `system`, `theme`, `club`, `view`, `aiProvider`, `checklistHidden`
 
-**This phone only** (not synced or exported): `quality`, `keepVideos`, `learning`, `playRate`, `showLines`, `cpStop`, `offlineCourses`, `progressKind`, and the model names chosen per AI.
+**This phone only** (not synced or exported): `quality`, `keepVideos`, `learning`, `playRate`, `showLines`, `cpStop`, `offlineCourses`, `progressKind`, `r10Club` (the last club picked on the R10 screen), and the model names chosen per AI.
 
 **Never leave the phone:** `apiKey`, `openaiKey`, `geminiKey`.
 

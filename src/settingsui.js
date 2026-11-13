@@ -15,7 +15,7 @@ const BASE = import.meta.env?.BASE_URL || '/';
 // what's in the AI grid: the three that work today, then the ones on the way
 const AI_SOON = [['grok', 'Grok', 'xAI', 'grok'], ['deepseek', 'DeepSeek', 'text only, no photos', 'deepseek'], ['mistral', 'Mistral', 'Le Chat', 'mistralai'], ['qwen', 'Qwen', 'Alibaba', 'qwen'], ['kimi', 'Kimi', 'Moonshot AI', 'kimi']];
 const AI_NOW = { claude: ['Claude', 'Anthropic', 'claude'], openai: ['ChatGPT', 'OpenAI', 'openai'], gemini: ['Gemini', 'Google', 'googlegemini'] };
-const HW_SOON = [['apple', 'Apple Watch', 'Score and shots from your wrist', 'apple'], ['wearos', 'Galaxy Watch & Wear OS', 'Samsung, Pixel Watch', 'wearos'], ['garmin', 'Garmin watch, live', 'Rounds sync as you play, no export', 'garmin'], ['putt', 'osolo putter sensor', 'Every putt stroke, in the grip', null], ['glasses', 'osolo glasses', 'Chips and putts that finish close', null], ['launch', 'Launch monitors, live', 'TrackMan, Garmin R10, Rapsodo', null]];
+const HW_SOON = [['apple', 'Apple Watch', 'Score and shots from your wrist', 'apple'], ['wearos', 'Galaxy Watch & Wear OS', 'Samsung, Pixel Watch', 'wearos'], ['garmin', 'Garmin watch, live', 'Rounds sync as you play, no export', 'garmin'], ['putt', 'osolo putter sensor', 'Every putt stroke, in the grip', null], ['glasses', 'osolo glasses', 'Chips and putts that finish close', null], ['launch', 'More launch monitors, live', 'Rapsodo, Bushnell, TrackMan', null]];
 const IMPORT_SOON = [['tmfile', 'TrackMan files', 'The CSV / report download'], ['arccos', 'Arccos', 'Rounds and shots'], ['shotscope', 'Shot Scope', 'Rounds and shots'], ['apps', '18Birdies, Hole19, Golfshot', 'Scorecards']];
 const ICON = {
   laser: '<svg viewBox="0 0 24 24"><rect x="3" y="7" width="14" height="10" rx="3"/><circle cx="17" cy="12" r="4"/><path d="M21 12h2"/></svg>',
@@ -138,6 +138,7 @@ export function fillSettings() {
   renderInstall($('#installRow'), true);
   renderAccount($('#accountRow'), { toast: api.toast, onChange: api.afterAccountChange });
   renderRangefinder($('#laserRow'), { toast: api.toast });
+  import('./r10/ui.js').then((m) => m.renderR10Row($('#r10Row'), { toast: api.toast })).catch(() => {});
   import('./rounds/friends.js').then((m) => m.renderFriendsCard($('#friendsCard'), { toast: api.toast, invite: false, onJoined: () => window.dispatchEvent(new Event('golf-synced')) })).catch(() => {});
   f.handedness.value = api.settings.handedness; f.quality.value = api.settings.quality;
   f.keepVideos.checked = api.settings.keepVideos !== false;

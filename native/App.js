@@ -19,6 +19,10 @@ import { pickForImport } from './pickfiles';
 const WEB_URL = 'https://cocopoppyhead.github.io/golf-app/?app=native';
 const LASER_CHAR = '3dd92622-b3cc-458b-9093-0e842dd41bcd';
 const LASER_NAME = /PRO ?X3|BUSHNELL/i;
+// Garmin Approach R10: MultiLink service and its notify/write characteristic (src/r10/protocol.js has the rest)
+const R10_SERVICE = '6a4e2800-667b-11e3-949a-0800200c9a66';
+const R10_RW = '6a4e2810-667b-11e3-949a-0800200c9a66';
+const R10_NAME = /Approach R10/i;
 const BG = '#0b1120';
 
 const ble = new BleManager();
@@ -249,6 +253,57 @@ function Shell() {
     send({ type: 'laser.disconnected' });
   }, [send]);
 
+  // ---- Garmin Approach R10 (launch monitor): a plain pipe. The web app speaks the R10's protocol (src/r10/);
+  // this only finds and connects to it, forwards every notification from its 2810 characteristic, and
+  // writes what it's given, in order. ----
+  const r10 = useRef(null);
+  const r10Sub = useRef(null);
+  const r10Writes = useRef(Promise.resolve());
+  const r10Drop = () => { try { r10Sub.current?.remove(); } catch {} r10Sub.current = null; };
+  const r10Connect = useCallback(async () => {
+    const log = (text) => send({ type: 'r10.log', text });
+    try {
+      await ready();
+      ble.stopDeviceScan();
+      send({ type: 'r10.status', text: 'Looking for your R10. Turn it on and close the Garmin Golf app.' });
+      const found = await new Promise((resolve, reject) => {
+        const t = setTimeout(() => { ble.stopDeviceScan(); reject(new Error('No R10 found. Turn it on (press the power button), close the Garmin Golf app, and try again.')); }, 20000);
+        ble.startDeviceScan(null, null, (err, d) => {
+          if (err) { clearTimeout(t); ble.stopDeviceScan(); reject(err); return; }
+          if (R10_NAME.test(d?.name || d?.localName || '')) { clearTimeout(t); ble.stopDeviceScan(); resolve(d); }
+        });
+      });
+      log(`found ${found.name || found.localName} (${found.id})`);
+      if (await ble.isDeviceConnected(found.id).catch(() => false)) { await ble.cancelDeviceConnection(found.id).catch(() => {}); await new Promise((r) => setTimeout(r, 600)); }
+      send({ type: 'r10.status', text: 'Connecting…' });
+      const d = await ble.connectToDevice(found.id, { timeout: 12000, ...(Platform.OS === 'android' ? { requestMTU: 247 } : {}) });
+      d.onDisconnected(() => { r10.current = null; r10Drop(); send({ type: 'r10.disconnected' }); });
+      await d.discoverAllServicesAndCharacteristics();
+      r10.current = d;
+      r10Sub.current = d.monitorCharacteristicForService(R10_SERVICE, R10_RW, (err, ch) => {
+        if (err) {
+          log(`monitor: ${err.message}`);
+          if (/auth|encrypt|bond|insufficient/i.test(err.message || '')) send({ type: 'r10.error', text: 'The R10 needs pairing with this phone first: accept the pairing request when your phone asks, then connect again.' });
+          return;
+        }
+        if (ch?.value) send({ type: 'r10.data', b64: ch.value });
+      });
+      send({ type: 'r10.connected', name: d.name || found.name || 'Approach R10', mtu: d.mtu || null });
+    } catch (e) { send({ type: 'r10.error', text: e?.message || String(e) }); }
+  }, [send]);
+  const r10Write = useCallback(({ char, b64 }) => {
+    r10Writes.current = r10Writes.current
+      .then(() => r10.current?.writeCharacteristicWithResponseForService(R10_SERVICE, char, b64)
+        .catch(() => r10.current?.writeCharacteristicWithoutResponseForService(R10_SERVICE, char, b64)))
+      .catch((e) => send({ type: 'r10.log', text: `write: ${e?.message || e}` }));
+  }, [send]);
+  const r10Disconnect = useCallback(async () => {
+    r10Drop();
+    try { await r10.current?.cancelConnection(); } catch {}
+    r10.current = null;
+    send({ type: 'r10.disconnected' });
+  }, [send]);
+
   const shareFile = useCallback(async ({ name, mime, b64 }) => {
     try {
       const f = new File(Paths.cache, name);
@@ -277,6 +332,9 @@ function Shell() {
       })();
     }
     else if (msg.type === 'laser.disconnect') laserDisconnect();
+    else if (msg.type === 'r10.connect') r10Connect();
+    else if (msg.type === 'r10.write') r10Write(msg);
+    else if (msg.type === 'r10.disconnect') r10Disconnect();
     else if (msg.type === 'loop.config') { loopCfg.current = msg; Notifications.requestPermissionsAsync().catch(() => {}); }
     else if (msg.type === 'share.file') shareFile(msg);
     else if (msg.type === 'share.text') Share.share({ message: msg.text || '' }).catch(() => {});
@@ -286,7 +344,7 @@ function Shell() {
       pickForImport(want).then((r) => send({ type: 'files.picked', id: msg.id, ...r })).catch((e) => send({ type: 'files.picked', id: msg.id, error: e?.message || String(e), files: [] }));
     }
     else if (msg.type === 'open.url' && /^https?:\/\//.test(msg.url || '')) Linking.openURL(msg.url).catch(() => {});
-  }, [laserConnect, laserScan, laserDisconnect, shareFile]);
+  }, [laserConnect, laserScan, laserDisconnect, r10Connect, r10Write, r10Disconnect, shareFile]);
 
   return (
     <View style={[styles.root, pad]}>

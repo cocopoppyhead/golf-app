@@ -928,3 +928,15 @@ table.t5, table.dk { width: 100%; border-collapse: collapse; font-size: 13px; } 
 .dcmp td.ok { color: var(--good); font-weight: 700; } .dcmp td.gap { color: var(--work); font-weight: 700; }
 .mc-m.mc-fixing { opacity: .45; transition: opacity .2s; }
 .mc-added { align-self: flex-start; margin: -4px 0 4px; font-size: 13px; color: var(--acc); background: color-mix(in srgb, var(--acc) 10%, transparent); padding: 6px 10px; border-radius: 10px; }
+
+/* ---- Garmin R10 live screen ---- */
+.r10last { margin: 10px 0; padding: 12px 14px; }
+.r10big { display: block; font: 700 44px/1 var(--display, inherit); font-variant-numeric: tabular-nums; }
+.r10big small { font-size: 16px; margin-left: 4px; color: var(--mute); }
+.r10grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px 10px; margin-top: 10px; }
+.r10grid div { display: flex; flex-direction: column; }
+.r10grid b { font-variant-numeric: tabular-nums; }
+.r10grid small { color: var(--mute); font-weight: 400; }
+.r10tab { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 13px; font-variant-numeric: tabular-nums; }
+.r10tab th, .r10tab td { text-align: right; padding: 5px 4px; border-bottom: 1px solid var(--line); }
+.r10tab th:first-child, .r10tab td:first-child { text-align: left; color: var(--mute); }
