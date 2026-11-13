@@ -54,3 +54,22 @@ test('a reply that breaks the rules is rewritten before you see it', async ({ pa
   expect(sent.length).toBe(2);
   expect(sent[1].messages.at(-1).content).toMatch(/2 questions/);
 });
+
+// When the golfer agrees a focus, the coach puts it on Range work with its drills.
+test('an agreed focus goes onto Range work', async ({ page }) => {
+  const text = 'Good, wedges it is. Ladder them on the range this week.\n```json\n{"note":"Agreed wedges focus","plan":{"title":"Wedge distance","text":"Control 3/4 wedges","why":"0% greens with 3/4 wedges","drills":[{"name":"Wedge ladder","how":"50/75/100% to one target","reps":"3 x 10"}]}}\n```';
+  await page.route('https://api.anthropic.com/**', async (r) => { const ev = (o) => `event: ${o.type}\ndata: ${JSON.stringify(o)}\n\n`;
+    await r.fulfill({ headers: { 'content-type': 'text/event-stream' }, body: [{ type: 'message_start' }, { type: 'content_block_delta', delta: { type: 'text_delta', text } }, { type: 'message_delta', delta: { stop_reason: 'end_turn' } }].map(ev).join('') }); });
+  await boot(page);
+  await page.evaluate(() => { const s = JSON.parse(localStorage.getItem('golf.settings')); s.apiKey = 'sk-ant-test'; s.aiProvider = 'claude'; localStorage.setItem('golf.settings', JSON.stringify(s)); localStorage.removeItem('golf.mindChat'); });
+  await page.reload();
+  await page.click('nav button[data-tab=rounds]');
+  await page.click('.checkin [data-act=mind]');
+  const chat = page.locator('.mindchat');
+  await chat.locator('textarea').fill('Yes, let\'s focus on the wedges');
+  await chat.locator('.mc-form button').click();
+  await expect(chat.locator('.mc-added')).toContainText('Wedge distance');
+  const work = await page.evaluate(() => JSON.parse(localStorage.getItem('golf.settings')).workingOn);
+  expect(work[0]).toMatchObject({ title: 'Wedge distance', from: 'coach' });
+  expect(work[0].drills[0].name).toBe('Wedge ladder');
+});

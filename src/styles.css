@@ -927,3 +927,4 @@ table.t5, table.dk { width: 100%; border-collapse: collapse; font-size: 13px; } 
 .dcmp td { text-align: right; padding: 4px 0; border-top: 1px solid var(--line); } .dcmp td:first-child { text-align: left; color: var(--soft); }
 .dcmp td.ok { color: var(--good); font-weight: 700; } .dcmp td.gap { color: var(--work); font-weight: 700; }
 .mc-m.mc-fixing { opacity: .45; transition: opacity .2s; }
+.mc-added { align-self: flex-start; margin: -4px 0 4px; font-size: 13px; color: var(--acc); background: color-mix(in srgb, var(--acc) 10%, transparent); padding: 6px 10px; border-radius: 10px; }

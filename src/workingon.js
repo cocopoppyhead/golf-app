@@ -44,6 +44,13 @@ export function renderWork(el, { toast = () => {} } = {}) {
 }
 
 export function editWorkSheet(w, done) { return editSheet(w, done); }
+/** Add a point to Range work (the coach does this when the golfer agrees a focus). Returns it. */
+export function addWork({ title = '', text = '', why = '', drills = [] } = {}, { from = 'coach' } = {}) {
+  const w = { id: uid(), title: String(title).trim().slice(0, 60), text: String(text || title).trim(), why: String(why || '').trim(), drills: (Array.isArray(drills) ? drills : []).slice(0, 5).map((d) => ({ name: String(d?.name || '').trim(), how: String(d?.how || '').trim(), reps: String(d?.reps || '').trim() })).filter((d) => d.name), from, at: Date.now() };
+  if (!w.text) return null;
+  saveWork([w, ...getWork()]);
+  return w;
+}
 export const markWorkDone = (id, done = true) => saveWork(getWork().map((w) => (w.id === id ? { ...w, done: done ? Date.now() : null } : w)));
 function editSheet(w, done) {
   const x = w ? { ...w } : { id: uid(), text: '', why: '', drills: [], since: Date.now(), done: null };

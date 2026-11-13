@@ -122,7 +122,7 @@ export function shotPanel(o) {
   } else {
     ended = `<div class="g4">${ENDED.slice(0, 4).map(([v, l]) => btn(x.res === v, `data-res="${k}" data-v="${v}"`, l)).join('')}</div>
       <div class="g5" style="margin-top:6px">${ENDED.slice(4).map(([v, l]) => btn(x.res === v, `data-res="${k}" data-v="${v}"`, l)).join('')}</div>`;
-    if (x.res && ['GS', 'BK'].includes(x.res)) ended += `<div class="lbl">Missed the green</div><div class="g5">${DIRS.map(([v, l]) => btn(x.dir === v, `data-dir="${k}" data-v="${v}"`, l)).join('')}${btn(x.ss, `data-ss="${k}"`, 'Short-sided', x.ss ? 'warn' : '')}</div>`;
+    if (x.res && ['GS', 'BK'].includes(x.res)) ended += `<div class="lbl">Missed the green: where, from the flag?</div><div class="g5">${DIRS.map(([v, l]) => btn(x.dir === v, `data-dir="${k}" data-v="${v}"`, l)).join('')}${btn(x.ss, `data-ss="${k}"`, 'Short-sided', x.ss ? 'warn' : '')}</div>`;
   }
   const tag = { tee: 'Tee', fairway: 'Fairway', greenside: 'Greenside' }[zone];
   return `<div class="card shotpanel z-${zone}">
@@ -150,7 +150,8 @@ export function puttPanel(h, j, { open = false } = {}) {
   // a missed putt that has a putt after it folds to one line, like a logged shot
   if (!open && j < h.puttList.length - 1) {
     const rd = [p.sl && p.sl !== 'flat' ? (p.sl === 'up' ? 'uphill' : 'downhill') : null, p.brk === 'X' ? 'double break' : p.brk === 'RL' ? 'breaks left' : p.brk === 'LR' ? 'breaks right' : p.brk === 'S' ? 'straight' : null].filter(Boolean).join(', ');
-    return `<button class="card shotline z-greenside" data-pexp="${j}"><span class="sn">${j + 1}</span><span><b>Putt ${j + 1}</b><span class="mute small">${esc([p.ft != null ? puttLabel(p.ft) : null, rd || null, 'missed'].filter(Boolean).join(' · '))}</span></span><span class="mute">✎</span></button>`;
+    const miss = [p.mlen === 'S' ? 'short' : p.mlen === 'L' ? 'long' : null, p.mside === 'LF' ? 'left' : p.mside === 'R' ? 'right' : null].filter(Boolean).join(' and ');
+    return `<button class="card shotline z-greenside" data-pexp="${j}"><span class="sn">${j + 1}</span><span><b>Putt ${j + 1}</b><span class="mute small">${esc([p.ft != null ? puttLabel(p.ft) : null, rd || null, miss ? `missed ${miss}` : 'missed'].filter(Boolean).join(' · '))}</span></span><span class="mute">✎</span></button>`;
   }
   const first = j === 0;
   const band = puttBand(p.ft);
@@ -170,6 +171,9 @@ export function puttPanel(h, j, { open = false } = {}) {
     <div class="g4 bands">${bands.map(([v]) => btn(band === v, `data-pft="${j}" data-v="${v}"`, puttLabel(v).replace(/^(Tap-in)$/, 'Tap-in<small>≤2 ft</small>'))).join('')}</div>
     ${read}
     <div class="g2 presult">${btn(p.holed, `data-pholed="${j}"`, 'In the hole')}${btn(!p.holed && !last, `data-pmiss="${j}"`, 'Missed')}</div>
+    ${!p.holed && !last ? `<div class="lbl">Where did it miss? <span class="mute">(optional)</span></div>
+    <div class="g3">${[['LF', 'Left'], ['C', 'On line'], ['R', 'Right']].map(([v, l]) => btn(p.mside === v, `data-pmside="${j}" data-v="${v}"`, l)).join('')}</div>
+    <div class="g2" style="margin-top:6px">${[['S', 'Short'], ['L', 'Long']].map(([v, l]) => btn(p.mlen === v, `data-pmlen="${j}" data-v="${v}"`, l)).join('')}</div>` : ''}
   </div>`;
 }
 

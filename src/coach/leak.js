@@ -30,7 +30,7 @@ export const shotRounds = (rcs) => rcs.filter(({ r }) => !r.quick && (r.holes ||
 export function whyFor(key, rcs) {
   const A = AREAS[key];
   if (!A) return null;
-  const c = { n: 0, green: 0, short: 0, long: 0, left: 0, right: 0, shortSided: 0, bunker: 0, strike: 0, strikeBy: {}, dirFlight: 0, tagged: { TAC: 0, SWE: 0, FOC: 0, BAC: 0 }, notPlanned: 0, planN: 0, sat: [], touch: { n: 0, g: 0 }, full: { n: 0, g: 0 }, tee: { fw: 0, trouble: 0, ob: 0 } };
+  const c = { n: 0, green: 0, short: 0, long: 0, left: 0, right: 0, shortSided: 0, bunker: 0, strike: 0, strikeBy: {}, dirFlight: 0, tagged: { TAC: 0, SWE: 0, FOC: 0, BAC: 0 }, notPlanned: 0, planN: 0, sat: [], touch: { n: 0, g: 0 }, full: { n: 0, g: 0 }, bySw: {}, tee: { fw: 0, trouble: 0, ob: 0 } };
   for (const { r, c: course } of shotRounds(rcs)) {
     (r.holes || []).forEach((h, i) => {
       const par = course?.holes?.[i]?.par || 4;
@@ -51,6 +51,7 @@ export function whyFor(key, rcs) {
           if (x.res === 'BK') c.bunker++;
           const g = TOUCH.has(x.sw) ? c.touch : x.sw === 'full' || !x.sw ? c.full : null;
           if (g) { g.n++; if (hit) g.g++; }
+          const sw = x.sw || 'full'; c.bySw[sw] = c.bySw[sw] || { n: 0, g: 0 }; c.bySw[sw].n++; if (hit) c.bySw[sw].g++;
         }
         const d = x.d || {};
         if (d.strike) { c.strike++; c.strikeBy[d.strike] = (c.strikeBy[d.strike] || 0) + 1; }
@@ -66,7 +67,17 @@ export function whyFor(key, rcs) {
 
 /** Putting: where the putts go. Long ones (lag: 3-putts from 20 ft+) or short ones (missed from inside 8 ft). */
 export function puttingWhy(rcs) {
-  const c = { holes: 0, lagN: 0, lag3: 0, shortN: 0, shortMiss: 0, midN: 0, mid3: 0 };
+  const c = { holes: 0, lagN: 0, lag3: 0, shortN: 0, shortMiss: 0, midN: 0, mid3: 0, missN: 0, left: 0, right: 0, onLine: 0, short: 0, long: 0, leftOnRtoL: 0, leftOnLtoR: 0, rightOnRtoL: 0, rightOnLtoR: 0, straightN: 0, leftOnStraight: 0, rightOnStraight: 0 };
+  for (const { r } of shotRounds(rcs)) for (const h of r.holes || []) for (const p of h?.puttList || []) {
+    if (p.holed || (!p.mside && !p.mlen)) continue;
+    c.missN++;
+    if (p.mside === 'LF') c.left++; if (p.mside === 'R') c.right++; if (p.mside === 'C') c.onLine++;
+    if (p.mlen === 'S') c.short++; if (p.mlen === 'L') c.long++;
+    // brk: RL = breaks right to left, LR = left to right (the read). A miss left on every read is a pull.
+    if (p.brk === 'RL') { if (p.mside === 'LF') c.leftOnRtoL++; if (p.mside === 'R') c.rightOnRtoL++; }
+    if (p.brk === 'LR') { if (p.mside === 'LF') c.leftOnLtoR++; if (p.mside === 'R') c.rightOnLtoR++; }
+    if (p.brk === 'S') { c.straightN++; if (p.mside === 'LF') c.leftOnStraight++; if (p.mside === 'R') c.rightOnStraight++; }
+  }
   for (const { r } of shotRounds(rcs)) for (const h of r.holes || []) {
     if (!h || h.putts == null || h.puttsAuto || h.firstPutt == null || h.firstPuttSrc === 'garmin-green' || !(h.putts > 0)) continue;
     c.holes++;
@@ -111,16 +122,23 @@ export function leakText(rcs, { hcp } = {}) {
   const c = whyFor(worst.key, rcs);
   if (worst.key === 'putt') {
     const p = puttingWhy(rcs);
+    if (p.missN >= 8) lines.push(`Missed putts with a side logged (${p.missN}): ${p.left} left, ${p.right} right, ${p.onLine} on line; ${p.short} short, ${p.long} long. By the read: breaking right to left, ${p.leftOnRtoL} left / ${p.rightOnRtoL} right; left to right, ${p.leftOnLtoR} left / ${p.rightOnLtoR} right; straight, ${p.leftOnStraight} left / ${p.rightOnStraight} right. Misses to one side whatever the read point to the stroke or the set-up (a pull or push: path, face, aim, the putter's fit), not the read; misses on the low side of the break point to the read or the speed. Several causes produce the same miss: suggest a test (a gate drill, an aim check with a line or laser) or a local pro to look at it, rather than a cure.`);
     lines.push(`Why it leaks, from ${p.holes} holes with a first-putt length: from 20 ft and over, ${p.lag3} three-putts in ${p.lagN} (lag, speed); from 8 ft and in, ${p.shortMiss} missed in ${p.shortN} (start line, routine, nerve); 9-19 ft, ${p.mid3} three-putts in ${p.midN}.`);
   } else if (c?.n >= 8) {
     const R = reasons(worst.key, c);
     const greens = worst.key === 'ott' ? `${pct(c.tee.fw, c.n)}% fairways` : `${pct(c.green, c.n)}% greens`;
     lines.push(`Why it leaks, from ${c.n} logged shots (${greens}): ${R.length ? R.map((x) => `${x.why}: ${x.text}`).join('; ') : 'no misses tagged with a reason yet'}.`);
-    if (c.touch.n >= 5 && c.full.n >= 5) lines.push(`Touch shots (¾, ½, pitch) hit ${pct(c.touch.g, c.touch.n)}% of greens (${c.touch.n}); full swings ${pct(c.full.g, c.full.n)}% (${c.full.n}).`);
+    const SWN = { full: 'full', '3q': '¾', half: '½', pitch: 'pitch', punch: 'punch' };
+    const sws = Object.entries(c.bySw).filter(([k, v]) => SWN[k] && v.n >= 4);
+    if (sws.length >= 2) lines.push(`Greens hit by swing length: ${sws.map(([k, v]) => `${SWN[k]} ${pct(v.g, v.n)}% (${v.n})`).join(', ')}. A big gap between full and part swings means two fixes to offer: lay up to a full-swing number (strategy) or practise the part swings, e.g. 50/75/100% ladders (technique).`);
     if (c.planN >= 8) lines.push(`${pct(c.notPlanned, c.planN)}% weren't the shot they wanted${c.sat.length >= 8 ? `; satisfaction ${(c.sat.reduce((a, b) => a + b, 0) / c.sat.length).toFixed(1)}/5` : ''}.`);
     const tagged = c.strike + c.dirFlight + Object.values(c.tagged).reduce((a, b) => a + b, 0);
     if (tagged < c.n / 3) lines.push('Few of these shots have Details (strike, flight, cause) logged, so the why is partly a guess: ask them to tap Details on misses in this part of the game.');
   } else lines.push(`Too few logged shots in ${worst.label.toLowerCase()} (${c?.n || 0}) to say why yet.`);
-  lines.push('Left and right are of the green, not the flag: pin positions aren\'t logged.');
+  if (worst.key !== 'putt') {
+    const p = puttingWhy(rcs), side = Math.max(p.left, p.right), other = Math.min(p.left, p.right);
+    if (p.missN >= 8 && side >= 5 && side >= 2 * other) lines.push(`Putting note: of ${p.missN} missed putts with a side logged, ${p.left} went left and ${p.right} right, whatever the read. A one-sided miss is a stroke or set-up pattern (path, face, aim, putter fit) worth testing.`);
+  }
+  lines.push('Approach misses are logged from the flag; older rounds may have them from the green.');
   return lines.join('\n');
 }

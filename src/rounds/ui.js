@@ -522,6 +522,8 @@ function renderHole() {
     if (j === h.puttList.length - 1) h.puttList.push({ ft: null });
     reputt(); setTimeout(() => root.querySelector('#greenPanel')?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 60);
   });
+  root.querySelectorAll('[data-pmside]').forEach((b) => b.onclick = () => { const p = putt(+b.dataset.pmside); p.mside = p.mside === b.dataset.v ? null : b.dataset.v; reputt(); });
+  root.querySelectorAll('[data-pmlen]').forEach((b) => b.onclick = () => { const p = putt(+b.dataset.pmlen); p.mlen = p.mlen === b.dataset.v ? null : b.dataset.v; reputt(); });
   root.querySelectorAll('[data-pexp]').forEach((b) => b.onclick = () => { expandedShots.add(`${i}:p${b.dataset.pexp}`); renderHole(); });
   root.querySelector('[data-trouble]')?.addEventListener('click', () => troubleSheet(course, renderHole));
   root.querySelector('[data-learn]')?.addEventListener('change', (e) => { round.learning = e.target.checked; save(); });

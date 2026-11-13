@@ -46,7 +46,7 @@ export async function openMindChat({ focus = null, mode = null, onSettings = () 
       <div class="sheet-h"><b>Your coach</b><span class="mc-hact">${msgs.length ? '<button class="link" data-new>New chat</button>' : ''}<button class="link" data-close>Close</button></span></div>
       <div class="mc-log" aria-live="polite">
         ${msgs.length ? '' : `<p class="mc-intro">${ready ? `Strategy, swing, the mental side and the next round, from your rounds, practice and check-ins. ${focus ? `Ready to talk about ${esc(focus.r.courseName)}.` : 'Ask anything about your game.'}` : `Your coach runs on your own AI. Connect Claude, ChatGPT or Gemini first.`}</p>`}
-        ${msgs.map((m) => `<div class="mc-m ${m.role}">${m.role === 'assistant' ? md(m.text) : esc(m.text)}</div>`).join('')}
+        ${msgs.map((m) => `<div class="mc-m ${m.role}">${m.role === 'assistant' ? md(m.text) : esc(m.text)}</div>${m.added ? `<p class="mc-added">Added to Range work: <b>${esc(m.added)}</b>. It's on the Practice tab with its drills.</p>` : ''}`).join('')}
         ${busy ? (live ? `<div class="mc-m assistant mc-live">${md(live)}</div>` : '<div class="mc-m assistant mc-typing mc-live"><i></i><i></i><i></i></div>') : ''}
         ${err ? `<p class="mc-err">${esc(err)}</p>` : ''}
       </div>
@@ -107,8 +107,11 @@ export async function openMindChat({ focus = null, mode = null, onSettings = () 
       const { text, meta } = splitLearning(full);
       if (!text.trim()) throw new Error('No reply came back.');
       if (meta) learn(meta, s);
+      // they agreed a focus: it goes onto Range work with its drills
+      let added = null;
+      if (meta?.plan && typeof meta.plan === 'object') added = await import('../workingon.js').then((m) => m.addWork(meta.plan)).catch(() => null);
       flow = advance(flow, meta); saveFlow(flow);
-      msgs = [...msgs, { role: 'assistant', text: text.trim() + (cut && !meta ? '\n\n_(Cut short. Say "go on" for the rest.)_' : ''), at: Date.now() }]; saveChat(msgs);
+      msgs = [...msgs, { role: 'assistant', text: text.trim() + (cut && !meta ? '\n\n_(Cut short. Say "go on" for the rest.)_' : ''), at: Date.now(), ...(added ? { added: added.title || added.text } : {}) }]; saveChat(msgs);
     } catch (e) { err = `${e.message || 'That didn\'t go through.'} Try again.`; msgs = msgs.slice(0, -1); }
     busy = false; live = ''; draw();
     if (err) { const ta = sheet.querySelector('textarea'); if (ta) ta.value = q; }

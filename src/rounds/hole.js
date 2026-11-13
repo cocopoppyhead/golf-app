@@ -42,7 +42,7 @@ export function isGreenside(h, k) {
   return p.res === 'GS' || p.res === 'FR' || x.lie === 'frg' || (x.dist != null && x.dist <= 30);
 }
 /**
- * Putts one by one: h.puttList = [{ ft, brk, sl, holed }]. The count, the first putt's length and its
+ * Putts one by one: h.puttList = [{ ft, brk, sl, holed, mside: 'LF'|'C'|'R', mlen: 'S'|'L' }] (miss side and length optional). The count, the first putt's length and its
  * read are kept in step on the hole (h.putts, h.firstPutt, h.pBreak, h.pSlope) for the stats.
  */
 export function ensurePutts(h) {

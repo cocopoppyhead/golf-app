@@ -32,3 +32,28 @@ describe('the biggest leak and why', () => {
     expect(t).toMatch(/don't spend the session on their strengths/);
   });
 });
+
+import { puttingWhy } from '../../src/coach/leak.js';
+describe('putts missed to one side, whatever the read', () => {
+  const putts = (i) => [{ ft: 15, brk: ['RL', 'LR', 'S'][i % 3], mside: 'LF', mlen: i % 2 ? 'S' : null, holed: false }, { ft: 2, holed: true }];
+  const rcs = Array.from({ length: 3 }, (_, k) => ({ r: { id: `p${k}`, holes: Array.from({ length: 18 }, (_, i) => ({ score: 4, putts: 2, firstPutt: 15, puttList: putts(i), shots: [{ lie: 'tee', dist: 400, res: 'FW' }, { lie: 'fw', dist: 120, res: 'G', sw: 'full' }] })) }, c: { holes: Array.from({ length: 18 }, () => ({ par: 4, yds: 400 })) } }));
+  it('counts left misses on every kind of read', () => {
+    const p = puttingWhy(rcs);
+    expect(p.missN).toBe(54); expect(p.left).toBe(54); expect(p.right).toBe(0);
+    expect(p.leftOnRtoL).toBe(18); expect(p.leftOnLtoR).toBe(18); expect(p.leftOnStraight).toBe(18);
+  });
+});
+
+describe('wedges by swing length', () => {
+  const course = { holes: Array.from({ length: 18 }, () => ({ par: 4, yds: 400 })) };
+  // full wedges hit the green, ¾ wedges miss short
+  const hole = (i) => (i % 2
+    ? { score: 4, putts: 1, firstPutt: 4, shots: [{ lie: 'tee', dist: 400, res: 'FW' }, { lie: 'fw', dist: 70, res: 'GS', dir: 'S', sw: '3q' }, { lie: 'rgh', dist: 10, res: 'G', sw: 'chip' }] }
+    : { score: 4, putts: 2, firstPutt: 25, shots: [{ lie: 'tee', dist: 400, res: 'FW' }, { lie: 'fw', dist: 110, res: 'G', sw: 'full' }] });
+  const rcs = Array.from({ length: 5 }, (_, k) => ({ r: { id: `w${k}`, holes: course.holes.map((_, i) => hole(i)) }, c: course }));
+  it('shows the gap between full and part swings, and both fixes', () => {
+    const t = leakText(rcs, { hcp: 10 });
+    expect(t).toMatch(/Greens hit by swing length: .*full 100%.*¾ 0%/);
+    expect(t).toMatch(/lay up to a full-swing number \(strategy\) or practise the part swings/);
+  });
+});
