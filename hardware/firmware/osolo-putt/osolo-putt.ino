@@ -119,7 +119,7 @@ void setup() {
   pinMode(LED_RED, OUTPUT); digitalWrite(LED_RED, !LED_STATE_ON);
   pinMode(LED_BLUE, OUTPUT); digitalWrite(LED_BLUE, !LED_STATE_ON);
   pinMode(VBAT_ENABLE, OUTPUT); digitalWrite(VBAT_ENABLE, HIGH);
-  pinMode(PIN_CHARGING_CURRENT, OUTPUT); digitalWrite(PIN_CHARGING_CURRENT, LOW); // 100 mA charge: fine for a 100 mAh cell at 1C
+  pinMode(PIN_CHARGING_CURRENT, OUTPUT); digitalWrite(PIN_CHARGING_CURRENT, HIGH); // 50 mA charge: 0.5C for the 100 mAh cell (100 mA would be 1C, the cell's limit)
   pinMode(PIN_LSM6DS3TR_C_POWER, OUTPUT); digitalWrite(PIN_LSM6DS3TR_C_POWER, HIGH);
   delay(50);
   Serial.begin(115200);

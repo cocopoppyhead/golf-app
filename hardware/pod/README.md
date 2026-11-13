@@ -17,3 +17,9 @@ Before printing, measure the grip with calipers and regenerate:
 counterweight; the spigot stops 1 mm short of it. Assembly: battery on the floor between the lower
 rails, Kapton over it, board on the rail step with the USB-C facing the slot, two wires soldered to the
 BAT pads, lid pressed on. Height above the grip ≈ 12.4 mm; 33 mm wide for a jumbo grip.
+
+## Build pack
+
+`out/osolo-putter-pod-build-pack.pdf`, three sheets: the print drawing for the print shop (sections, sizes,
+material, quantities), the wiring (the battery's two wires to BAT+ / BAT−, nothing else), and the assembly
+in order. Regenerate with `python3 drawing.py` after changing GRIP / VENT / STOP at its top.
