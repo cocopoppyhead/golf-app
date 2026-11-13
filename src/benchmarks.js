@@ -9,9 +9,9 @@ export const HCP_BANDS = [0, 5, 10, 15, 20, 25];
 export const BENCH = {
   driveYd: [285, 261, 259, 239, 225, 204],
   fir: [0.50, 0.48, 0.49, 0.48, 0.46, 0.46],
-  gir: [0.61, 0.44, 0.36, 0.24, 0.17, 0.10],
+  gir: [0.59, 0.41, 0.32, 0.21, 0.14, 0.09], // Shot Scope 2026 (Golf Monthly, Sep 2026)
   girFrom100: [0.74, 0.65, 0.57, 0.49, 0.42, 0.36],
-  upDown: [0.47, 0.41, 0.31, 0.21, 0.20, 0.18],
+  upDown: [0.54, 0.47, 0.39, 0.34, 0.31, 0.25], // from inside 50 yards (Shot Scope via MyGolfSpy)
   putts: [29.4, 30.2, 31.2, 33.1, 33.1, 33.8],
   penalties: [0.56, 0.91, 1.62, 2.45, 3.03, 4.67],
   proximityFt: [41.7, 50.5, 59.2, 68, 76, 84], // Arccos scratch and 15; the rest a straight line through them
@@ -22,8 +22,39 @@ export const BENCH = {
   bogeys: [3.87, 6.12, 7.20, 8.10, 7.38, 6.12],
   doubles: [0.27, 1.44, 2.88, 4.68, 6.66, 9.18],
   avgScore: [75, 80, 85.5, 91, 96.5, 101.5], // typical 18-hole average on a par 72 of average difficulty (golfity)
+  // scoring by par (Shot Scope via MyGolfSpy)
+  par3: [3.2, 3.4, 3.7, 3.9, 4.0, 4.2],
+  par4: [4.2, 4.5, 4.8, 5.1, 5.4, 5.9],
+  par5: [4.8, 5.3, 5.6, 6.0, 6.3, 7.0],
+  // short game (Shot Scope via MyGolfSpy): up and down from under 25 and 25-50 yards, sand saves, proximity inside 50 yards
+  upDownIn25: [0.63, 0.56, 0.47, 0.43, 0.41, 0.35],
+  upDown25to50: [0.32, 0.25, 0.20, 0.16, 0.14, 0.09],
+  sandSave: [0.37, 0.23, 0.20, 0.18, 0.15, 0.10],
+  proxIn50Ft: [11, 14, 15, 18, 20, 22],
+  greensideBunkers: [0.68, 1.06, 1.12, 1.18, 1.22, 1.26], // a round
+  // approach proximity to the pin in feet by distance, and approaches finishing inside 30 ft (Shot Scope via Golf Monthly, 2025)
+  prox50to100: [26, 36, 41, 48, 49, 57],
+  prox100to150: [38, 50, 57, 72, 81, 91],
+  prox150to200: [54, 82, 92, 122, 132, 168],
+  prox200plus: [92, 150, 190, 264, 291, 362],
+  inside30ft: [0.42, 0.29, 0.25, 0.17, 0.15, 0.13],
+  // putting (Shot Scope via MyGolfSpy and Golf Monthly): make % by length, putts per green hit, 3-putts per hole putted, share of misses long
+  make0to3: [0.98, 0.96, 0.96, 0.93, 0.90, 0.88],
+  make3to6: [0.76, 0.67, 0.65, 0.59, 0.55, 0.48],
+  make6to9: [0.49, 0.44, 0.39, 0.36, 0.33, 0.30],
+  make9to12: [0.34, 0.34, 0.26, 0.22, 0.18, 0.17],
+  make12to18: [0.19, 0.19, 0.18, 0.16, 0.14, 0.12],
+  make18to24: [0.12, 0.13, 0.10, 0.09, 0.07, 0.06],
+  make24to30: [0.07, 0.07, 0.07, 0.07, 0.05, 0.04],
+  make30plus: [0.04, 0.03, 0.03, 0.02, 0.02, 0.02],
+  puttsPerGir: [1.85, 1.93, 2.01, 2.09, 2.16, 2.18], // 5 and 15 interpolated
+  threePuttRate: [0.03, 0.048, 0.07, 0.10, 0.13, 0.14], // 5 from "a 3-putt every 20.7 holes"; 15 interpolated
+  missLong: [0.58, 0.54, 0.52, 0.45, 0.45, 0.41], // of missed putts, the share that finish long
 };
-export const SOURCES = ['Shot Scope handicap benchmarks (fairways, greens, up & down, putts, penalties, driver distance, birdies, bogeys, doubles)', 'Arccos Golf (approach proximity, tee-shot miss rate)'];
+// What each step down in handicap is made of (Arccos, 329,000 rounds, 2026): approach 38-40% of the gap,
+// tee shots 24-29% (more as you get better), putting 14-20% (less as you get better), short game the rest.
+export const GAP_SHARE = 'approach 38-40%, tee shots 24-29% (the share grows nearer scratch), putting 14-20% (shrinks nearer scratch), short game the rest';
+export const SOURCES = ['Shot Scope handicap benchmarks (fairways, greens, up & down by distance, sand saves, putts, putt make % by distance, 3-putts, penalties, driver distance, birdies, bogeys, doubles, scoring by par, approach proximity by distance), via MyGolfSpy and Golf Monthly, 2024-2026', 'Arccos Golf (approach proximity, tee-shot miss rate, what each handicap step is made of)'];
 
 /**
  * The level to aim at: five shots better than you are now, in steps of five, and never past scratch.

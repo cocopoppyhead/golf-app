@@ -13,8 +13,8 @@ const rounds = Array.from({ length: 10 }, (_, k) => ({ r: round(k), c: course })
 
 describe('club stats', () => {
   it('benchmarks interpolate and clamp', () => {
-    expect(benchFor(0).gir).toBeCloseTo(0.61, 2); expect(benchFor(10).fir).toBeCloseTo(0.49, 2);
-    expect(benchFor(12.5).gir).toBeCloseTo((0.36 + 0.24) / 2, 3); expect(benchFor(40).hcp).toBe(25); expect(scratch().driveYd).toBe(285);
+    expect(benchFor(0).gir).toBeCloseTo(0.59, 2); expect(benchFor(10).fir).toBeCloseTo(0.49, 2);
+    expect(benchFor(12.5).gir).toBeCloseTo((0.32 + 0.21) / 2, 3); expect(benchFor(40).hcp).toBe(25); expect(scratch().driveYd).toBe(285);
     expect(levelLabel(5.6)).toBe('6-handicap'); expect(levelLabel(0.4)).toBe('scratch');
     expect(clubArea('Driver')).toBe('driver'); expect(clubArea('7 iron')).toBe('irons'); expect(clubArea('56°')).toBe('wedges');
   });

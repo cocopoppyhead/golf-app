@@ -10,6 +10,7 @@ import { usualTeeClub } from '../rounds/shotpanel.js';
 import { leakText } from './leak.js';
 import { benchFor, targetHcp } from '../benchmarks.js';
 import { engineText } from './engine.js';
+import { levelText } from './level.js';
 
 const one = (d) => (d == null ? '?' : `${d > 0 ? '+' : ''}${d.toFixed(1)}`);
 
@@ -77,7 +78,7 @@ export function bagText(settings, bag = [], rcs = []) {
 
 /** Everything about the game in one block, or '' when there's nothing worked out yet. */
 export function gameText({ rcs = [], settings = {}, bag = [], swing = '', work = '', drills = '' } = {}) {
-  const parts = [leakText(rcs, { hcp: settings.handicap }), engineText(rcs), sgText(rcs), tigerText(rcs, settings.handicap ?? null), statsText(rcs), bandsText(rcs), bagText(settings, bag, rcs),
+  const parts = [leakText(rcs, { hcp: settings.handicap }), engineText(rcs), levelText(rcs, settings.handicap ?? null), sgText(rcs), tigerText(rcs, settings.handicap ?? null), statsText(rcs), bandsText(rcs), bagText(settings, bag, rcs),
     swing ? `Swing (from osolo's video analyses): ${swing}` : '', work ? `Working on: ${work}` : '', drills ? `Drills: ${drills}` : ''].filter(Boolean);
   return parts.length ? `THE GAME (worked out by the app; trust these numbers)\n${parts.join('\n')}` : '';
 }
