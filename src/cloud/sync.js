@@ -9,8 +9,9 @@ import {
   listCourses, putCourse, deleteCourse, listShots, putShot, deleteShot, putSession, deleteSession, listSessions, listLaunch, putLaunch, deleteLaunch } from '../store.js';
 import { getPlan, savePlan } from '../coach/profile.js';
 import { planMerge, planSettings } from './merge.js';
+import { ACCOUNT_SETTINGS } from '../datamap.js';
 
-const SETTINGS_KEYS = ['name', 'bag', 'keys', 'roundRules', 'golfer', 'heightIn', 'system', 'handedness', 'club', 'view', 'nickname', 'avatar', 'homeCourse', 'hand', 'handicap', 'onboarded', 'partials', 'laserProfiles', 'aiProvider', 'starredCourses', 'workingOn', 'handicapMode', 'partners', 'practicePlan', 'favDrills', 'mapLeave', 'metronome', 'events', 'checklistHidden', 'laserPaired', 'mapDist', 'mapFirm', 'goToClub', 'routine', 'mindPicture', 'ageBand'];
+const SETTINGS_KEYS = ACCOUNT_SETTINGS; // src/datamap.js: what belongs to the golfer, not the phone
 const KINDS = {
   swing: { list: listSwings, put: putSwing, del: deleteSwing },
   round: { list: listRounds, put: putRound, del: deleteRound },

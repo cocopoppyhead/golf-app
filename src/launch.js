@@ -162,7 +162,7 @@ function reviewSheet(sheet, T, { toast, onSaved, club, when = Date.now(), source
       await putLaunch(rec);
       // premium-ball carries feed the Bag's learned number like any saved shot
       let fed = 0;
-      if (ball === 'premium' && keep.has('carry')) { for (const r of keptRows) if (r.carry) { await putShot({ id: uid('s'), at: when, club, swing: 'full', target: Math.round(r.carry), result: Math.round(r.carry), note: 'launch monitor', cond: null, norm: r.carry }); fed++; } }
+      if (ball === 'premium' && keep.has('carry')) { for (const r of keptRows) if (r.carry) { await putShot({ id: uid('s'), date: when, source: 'launch', club, swing: 'full', target: Math.round(r.carry), result: Math.round(r.carry), note: 'launch monitor', cond: null, norm: r.carry }); fed++; } }
       sheet.remove(); toast(`Saved ${keptRows.length} shots for ${club}${fed ? ` · ${fed} carries into your Bag` : ''}`); onSaved(rec);
     };
   };

@@ -12,6 +12,14 @@ import { startFlow, stepText, advance, loadFlow, saveFlow, clearFlow } from './f
 import { checkReply, knownNumbers, knownDates, repairPrompt } from './check.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+/** Rounds they've scheduled in the app, with the tee time they entered (the only tee times the coach may use). */
+export function upcomingText(list = [], now = Date.now()) {
+  const soon = list.filter((e) => e.when && e.when > now - 3 * 3600e3 && e.when < now + 14 * 86400e3).slice(0, 3);
+  if (!soon.length) return '';
+  const f = (e) => { const d = new Date(e.when); return `${d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')} at ${e.courseName || 'a course'}${e.who ? ` with ${e.who}` : ''}${e.note ? ` (${e.note})` : ''}`; };
+  return `SCHEDULED IN THE APP (tee times as they entered them): ${soon.map(f).join('; ')}.`;
+}
+
 /** Alternate user and coach turns (two of yours in a row after a failed reply are sent as one), starting with yours. */
 export function turns(list) {
   const out = [];
@@ -82,9 +90,11 @@ export async function openMindChat({ focus = null, mode = null, onSettings = () 
     const work = await import('../workingon.js').then((m) => m.workContext()).catch(() => '');
     const drills = await import('../drills.js').then((m) => m.drillContext()).catch(() => '');
     const bag = await import('../bag.js').then((m) => m.getBag().map((c) => m.resolveClub(c, shots))).catch(() => []);
-    const game = gameText({ rcs: pairs, settings: s, bag, swing, work, drills });
+    const launch = await import('../launch.js').then((m) => m.launchContext()).catch(() => '');
+    const game = gameText({ rcs: pairs, settings: s, bag, swing, work, drills, launch });
     const today = new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'short', year: 'numeric' });
-    return `TODAY: ${today}.\n\n${mindContext({ rounds: pairs, settings: s, focus, picture: pictureText(getPicture(s)), practice, game })}`;
+    const next = await import('../rounds/course.js').then((m) => upcomingText(m.events())).catch(() => '');
+    return `TODAY: ${today}.${next ? `\n${next}` : ''}\n\n${mindContext({ rounds: pairs, settings: s, focus, picture: pictureText(getPicture(s)), practice, game })}`;
   };
   const send = async (q) => {
     if (busy) return;

@@ -91,6 +91,7 @@ export const putShot = (x, o = {}) => tx('shots', 'readwrite', (st) => st.put(st
 export const deleteShot = (id, o = {}) => { if (!o.fromSync) { tombstone('shot', id); changed('shot'); } return tx('shots', 'readwrite', (st) => st.delete(id)); };
 export async function listShots() {
   const all = await tx('shots', 'readonly', (st) => st.getAll());
+  for (const x of all || []) if (x.date == null && x.at != null) x.date = x.at; // launch-monitor carries saved before 14 Nov 2026
   return (all || []).sort((a, b) => b.date - a.date);
 }
 

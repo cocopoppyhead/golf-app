@@ -8,8 +8,9 @@
 -- the caller's rights (security_invoker), so row-level security still means each golfer sees only
 -- their own rows. A coach's shared view later is a grant on these, not a new store.
 --
--- Hierarchy: golfer -> round -> hole -> shot / putt; course -> hole (par, yards, SI). Plus practice
--- sessions and launch-monitor sessions as their own documents. It's a tree with time, not a network,
+-- Hierarchy: golfer (profile, bag, Range work, scheduled rounds, coach plan) -> round -> hole -> shot / putt;
+-- course -> hole (par, yards, SI). Plus practice sessions, launch-monitor sessions, single logged shots and
+-- swing analyses as their own documents. Every view is listed, with its fields, in docs/DATA.md. It's a tree with time, not a network,
 -- so plain relational views fit; a graph database would add nothing here.
 --
 -- Par comes from the golfer's own copy of the course (synced as a course document when they play it);
@@ -136,9 +137,67 @@ cross join lateral jsonb_array_elements(coalesce(d.data->'checkpoints', '[]')) a
 cross join lateral jsonb_array_elements(coalesce(c.v->'items', '[]')) as i(v)
 where d.kind = 'swing' and not d.deleted;
 
-grant select on public.golf_courses, public.golf_course_holes, public.golf_rounds, public.golf_holes, public.golf_shots, public.golf_putts, public.golf_practice, public.golf_launch, public.golf_swing_checks to authenticated;
+-- ---------- the golfer (their settings doc: who they are, not the phone's preferences) ----------
+create or replace view public.golf_profile with (security_invoker = on) as
+select d.user_id, d.data->>'name' as name, d.data->>'nickname' as nickname,
+       (d.data->>'handicap')::numeric as handicap, d.data->>'handicapMode' as handicap_mode, d.data->>'ageBand' as age_band,
+       coalesce(d.data->>'hand', d.data->>'handedness') as hand, (d.data->>'heightIn')::numeric as height_in,
+       d.data->>'homeCourse' as home_course, d.data->>'goToClub' as go_to_club, d.data->>'system' as units,
+       d.data->>'keys' as swing_keys, d.data->'routine' as routine, d.data->'roundRules' as round_rules,
+       d.data->'mindPicture' as coach_picture, d.updated_at
+from public.user_docs d
+where d.kind = 'settings' and d.id = 'me' and not d.deleted;
+
+-- ---------- the bag: one row per club, carries by swing length (yards) ----------
+create or replace view public.golf_bag with (security_invoker = on) as
+select d.user_id, b.ord::int as slot, b.v->>'club' as club,
+       (b.v->>'carry')::numeric as carry_full, (b.v->>'total')::numeric as total_full,
+       (b.v->>'three')::numeric as carry_three_quarter, (b.v->>'threeTotal')::numeric as total_three_quarter,
+       (b.v->>'half')::numeric as carry_half, (b.v->>'halfTotal')::numeric as total_half
+from public.user_docs d
+cross join lateral jsonb_array_elements(case when jsonb_typeof(d.data->'bag') = 'array' then d.data->'bag' else '[]' end) with ordinality as b(v, ord)
+where d.kind = 'settings' and d.id = 'me' and not d.deleted and jsonb_typeof(b.v) = 'object';
+
+-- ---------- Range work: what they're working on (and what they fixed) ----------
+create or replace view public.golf_working_on with (security_invoker = on) as
+select d.user_id, w.v->>'id' as item_id, w.v->>'title' as title, w.v->>'text' as working_on, w.v->>'why' as why,
+       w.v->>'from' as source, w.v->'drills' as drills,
+       case when w.v ? 'done' and w.v->>'done' is not null then to_timestamp((w.v->>'done')::double precision / 1000) end as fixed_at
+from public.user_docs d
+cross join lateral jsonb_array_elements(case when jsonb_typeof(d.data->'workingOn') = 'array' then d.data->'workingOn' else '[]' end) as w(v)
+where d.kind = 'settings' and d.id = 'me' and not d.deleted and jsonb_typeof(w.v) = 'object';
+
+-- ---------- rounds they've scheduled (tee time as entered) ----------
+create or replace view public.golf_scheduled_rounds with (security_invoker = on) as
+select d.user_id, e.v->>'id' as event_id, to_timestamp((e.v->>'when')::double precision / 1000) as tee_time,
+       e.v->>'courseName' as course_name, e.v->>'courseId' as course_id, e.v->>'who' as playing_with, e.v->>'note' as note
+from public.user_docs d
+cross join lateral jsonb_array_elements(case when jsonb_typeof(d.data->'events') = 'array' then d.data->'events' else '[]' end) as e(v)
+where d.kind = 'settings' and d.id = 'me' and not d.deleted and jsonb_typeof(e.v) = 'object' and e.v->>'when' is not null;
+
+-- ---------- single shots logged off the course (range, rangefinder, launch-monitor carries) ----------
+create or replace view public.golf_shot_log with (security_invoker = on) as
+select d.user_id, d.id as shot_id, to_timestamp(coalesce(d.data->>'date', d.data->>'at')::double precision / 1000) as hit_at,
+       d.data->>'club' as club, (d.data->>'target')::numeric as target_yd, (d.data->>'result')::numeric as result_yd,
+       (d.data->>'result')::numeric - (d.data->>'target')::numeric as long_short_yd,
+       d.data->>'swing' as swing, d.data->>'dir' as direction, d.data->>'contact' as contact, d.data->>'shape' as shape,
+       coalesce(d.data->>'source', 'manual') as source, (d.data->>'factor')::numeric as weather_factor, (d.data->>'norm')::numeric as still_air_yd,
+       d.data->'cond' as conditions
+from public.user_docs d
+where d.kind = 'shot' and not d.deleted;
+
+-- ---------- the coach's plan for them (one document) ----------
+create or replace view public.golf_coach_plan with (security_invoker = on) as
+select d.user_id, d.data as plan, d.updated_at
+from public.user_docs d
+where d.kind = 'plan' and d.id = 'me' and not d.deleted;
+
+grant select on public.golf_courses, public.golf_course_holes, public.golf_rounds, public.golf_holes, public.golf_shots, public.golf_putts, public.golf_practice, public.golf_launch, public.golf_swing_checks,
+  public.golf_profile, public.golf_bag, public.golf_working_on, public.golf_scheduled_rounds, public.golf_shot_log, public.golf_coach_plan to authenticated;
 
 -- Examples
 --   wedges by swing length:   select swing, count(*), avg((result in ('G','HO'))::int) from golf_shots where from_yd between 30 and 139 and lie <> 'tee' and source <> 'garmin' group by swing;
 --   putts missed by the read: select read_break, missed_side, count(*) from golf_putts where not holed and missed_side is not null group by 1, 2;
 --   doubles after a penalty:  select count(*) from golf_holes h join golf_shots s using (user_id, round_id, hole_no) where s.penalty and h.to_par >= 2;
+--   range misses by club:     select club, avg(long_short_yd), count(*) from golf_shot_log where source <> 'launch' group by club;
+--   R10 vs the course:        select l.club, avg((l.numbers->>'carry')::numeric) as r10_carry, b.carry_full from golf_launch l join golf_bag b using (user_id, club) group by l.club, b.carry_full;
