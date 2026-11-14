@@ -27,4 +27,11 @@ describe('score check', () => {
     applyNoScore(h); expect(h).toMatchObject({ score: null, putts: null, pickup: true }); expect(needsCheck(h)).toBe(false);
     applyScore(h, 5); expect(h.pickup).toBeUndefined();
   });
+  it('changing the score keeps the putt list in step', () => {
+    const h = { shots: [{ res: 'FW' }, { res: 'G' }], putts: 2, score: 4, puttList: [{ ft: 20, holed: false }, { ft: 2, holed: true }] };
+    applyScore(h, 5);
+    expect(h.putts).toBe(3); expect(h.puttList.length).toBe(3); expect(h.puttList.map((q) => q.holed)).toEqual([false, false, true]); expect(h.puttList[0].ft).toBe(20);
+    applyScore(h, 3);
+    expect(h.puttList).toEqual([{ ft: 20, holed: true }]); expect(h.firstPutt).toBe(20);
+  });
 });

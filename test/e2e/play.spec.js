@@ -275,3 +275,25 @@ test('after tapping the map to measure, Move tee is still there', async ({ page,
   await expect(page.locator('.hm-tap')).toContainText('Tap:');
   await expect(page.locator('[data-tee-move]')).toBeVisible();
 });
+
+test('greenside bunker: the sand wedge is picked; a confirmed score can be changed', async ({ page }) => {
+  await boot(page);
+  await addCourse(page, 'Majlis');
+  await startRound(page);
+  await page.click('[data-res="0"][data-v="FW"]');
+  await page.click('.shotpanel.z-fairway [data-res="1"][data-v="BK"]');
+  await page.click('[data-add]');
+  const p3 = page.locator('.shotpanel.z-greenside');
+  await expect(p3.locator('[data-club].on')).toHaveText('56°');
+  await p3.locator('[data-res="2"][data-v="G"]').click();
+  await page.locator('button[data-h="next"].big').click();
+  await page.locator('.scorecheck [data-ok]').click(); // 3 shots + 2 putts = 5
+  await page.click('[data-h=prev]');
+  await expect(page.locator('.holedone')).toContainText('5');
+  await page.locator('[data-score-edit]').click();
+  await expect(page.locator('.scorecheck')).toContainText('change your score');
+  await page.locator('.scorecheck [data-d="-1"]').click();
+  await page.locator('.scorecheck [data-ok]').click();
+  await expect(page.locator('.holedone')).toContainText('4');
+  await expect(page.locator('.holedone')).toContainText('1 putt');
+});

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { usualTeeClub, clubForDistance, clubChoices, zoneOf, shotPanel, puttPanel, holeDone } from '../../src/rounds/shotpanel.js';
-import { holeGaps, troubleFor, isGreenside, defaultLie, ensurePutts, syncPutts } from '../../src/rounds/hole.js';
+import { holeGaps, troubleFor, isGreenside, defaultLie, ensurePutts, syncPutts, bunkerClub } from '../../src/rounds/hole.js';
 import { puttBand, puttLabel } from '../../src/units.js';
 import { expected } from '../../src/rounds/sg.js';
 
@@ -28,6 +28,7 @@ describe('hole flow helpers', () => {
     // a drive in the fairway means a fairway shot next, even with a short number typed in To the pin
     expect(zoneOf({ shots: [{ res: 'FW' }, { dist: 10 }] }, 1)).toBe('fairway');
     expect(zoneOf({ shots: [{ res: 'FW' }, { lie: 'frg' }] }, 1)).toBe('greenside');
+    expect(zoneOf({ shots: [{ res: 'FW' }, { res: 'BK' }, {}] }, 2)).toBe('greenside'); // in the greenside bunker
   });
   it('carries the lie over from where the last shot finished; your own pick wins', () => {
     const h = { shots: [{ res: 'RR' }, { lie: null }, { lie: null }] };
@@ -71,5 +72,12 @@ describe('hole flow helpers', () => {
     hp.puttList[1].holed = false; hp.puttList.push({ ft: 2, holed: true }); syncPutts(hp);
     expect(hp.putts).toBe(3); expect(hp.firstPutt).toBe(10);
     expect(holeDone({ score: 5, putts: 3 }, 4)).toContain('Bogey');
+  });
+  it('picks the sand wedge for a greenside bunker', () => {
+    expect(bunkerClub(['Driver', '7 iron', 'PW', '52°', '56°', '60°'])).toBe('56°');
+    expect(bunkerClub(['PW', 'GW', 'SW', 'LW'])).toBe('SW');
+    expect(bunkerClub(['PW', '50°', '60°'])).toBe('60°');
+    expect(bunkerClub(['PW'])).toBe('PW');
+    expect(bunkerClub(['Driver'])).toBe(null);
   });
 });

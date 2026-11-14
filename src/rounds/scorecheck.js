@@ -29,6 +29,13 @@ export function applyScore(h, score) {
   const n = strokesBeforeGreen(h), last = h.shots?.[h.shots.length - 1]?.res;
   if ((last === 'G' || last === 'HO') && score >= n) {
     h.putts = score - n; delete h.puttsAuto;
+    // keep the putt-by-putt list in step: same number of putts, the last one holed
+    if (Array.isArray(h.puttList)) {
+      const L = h.puttList.slice(0, h.putts).map((q) => ({ ...q, holed: false }));
+      while (L.length < h.putts) L.push({ ft: null, holed: false });
+      if (L.length) L[L.length - 1].holed = true;
+      h.puttList = L; h.firstPutt = L[0]?.ft ?? null;
+    }
   }
   h.score = score; h.scoreConfirmed = true; delete h.pickup;
 }
@@ -39,7 +46,7 @@ export function applyNoScore(h) {
 }
 
 /** The sheet. done() runs after Confirm or Skip (Skip leaves the hole without a score); Cancel stays on the hole. */
-export function scoreCheckSheet({ h, par, hole }, done) {
+export function scoreCheckSheet({ h, par, hole, edit = false }, done) {
   let v = scoreGuess(h, par);
   const min = Math.max(1, strokesBeforeGreen(h));
   const sheet = document.createElement('div'); sheet.className = 'sheet scorecheck';
@@ -47,19 +54,19 @@ export function scoreCheckSheet({ h, par, hole }, done) {
   const putts = () => { const n = strokesBeforeGreen(h), last = h.shots?.[h.shots.length - 1]?.res; return last === 'G' || last === 'HO' ? v - n : null; };
   const draw = () => {
     const p = putts();
-    sheet.innerHTML = `<div class="sheet-in"><div class="sheet-h"><b>Hole ${hole} · par ${par}: your score?</b><button class="link" data-close>Cancel</button></div>
+    sheet.innerHTML = `<div class="sheet-in"><div class="sheet-h"><b>Hole ${hole} · par ${par}: ${edit ? 'change your score' : 'your score?'}</b><button class="link" data-close>Cancel</button></div>
       <div class="sc-step"><button data-d="-1" ${v <= min ? 'disabled' : ''} aria-label="One less">−</button>
         <span class="${v < par ? 'under' : v > par ? 'over' : ''}"><b>${v}</b><small>${word(v - par)}${p != null ? ` · ${p} putt${p === 1 ? '' : 's'}` : ''}</small></span>
         <button data-d="1" aria-label="One more">+</button></div>
       <button class="btn primary big" data-ok>Confirm ${v}</button>
       <button class="btn big" data-na>No score (n/a)</button>
       <p class="mute small center">Picked up, Stableford, or a team format: the card shows a hyphen.</p>
-      <p class="center"><button class="link mute" data-skip>Skip: fill it in later</button></p></div>`;
+      ${edit ? '' : '<p class="center"><button class="link mute" data-skip>Skip: fill it in later</button></p>'}</div>`;
     sheet.querySelectorAll('[data-d]').forEach((b) => b.onclick = () => { v = Math.max(min, v + +b.dataset.d); draw(); });
     sheet.querySelector('[data-close]').onclick = () => sheet.remove();
     sheet.querySelector('[data-ok]').onclick = () => { applyScore(h, v); sheet.remove(); done(); };
     sheet.querySelector('[data-na]').onclick = () => { applyNoScore(h); sheet.remove(); done(); };
-    sheet.querySelector('[data-skip]').onclick = () => { if (h.puttsAuto) { h.putts = null; h.score = null; delete h.puttsAuto; } sheet.remove(); done(); };
+    sheet.querySelector('[data-skip]')?.addEventListener('click', () => { if (h.puttsAuto) { h.putts = null; h.score = null; delete h.puttsAuto; } sheet.remove(); done(); });
   };
   draw();
   sheet.addEventListener('click', (e) => { if (e.target === sheet) sheet.remove(); });
