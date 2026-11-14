@@ -1,7 +1,12 @@
 name: Deploy to GitHub Pages
 
+# Goes live only after CI (lint, unit, build, end-to-end) has passed on main, and deploys exactly the commit
+# that passed. To roll back: revert the pull request (GitHub's Revert button), which runs CI and then this.
+# A manual run (workflow_dispatch) redeploys main as it stands.
 on:
-  push:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
     branches: [main]
   workflow_dispatch:
 
@@ -16,9 +21,12 @@ concurrency:
 
 jobs:
   build:
+    if: github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.ref }}
       - uses: actions/setup-node@v4
         with:
           node-version: 22
