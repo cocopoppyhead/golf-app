@@ -19,7 +19,7 @@ test.describe('Play', () => {
     await page.click('[data-res="1"][data-v="G"]');
     await page.click('[data-pmiss="0"]'); await page.click('[data-pholed="1"]');
     await page.click('[data-h=next]');
-    await expect(page.locator('.hnum')).toHaveText('Hole 2');
+    await expect(page.locator('.rb-h')).toHaveText('2');
     // end early, back home: the course card shows the round
     await endEarly(page);
     await page.click('nav button[data-tab=bag]'); await page.click('nav button[data-tab=rounds]');
@@ -40,7 +40,7 @@ test.describe('Play', () => {
     await context.setGeolocation({ latitude: 25.08875, longitude: 55.16228, accuracy: 6 });
     await page.waitForTimeout(1500);
     await page.evaluate((b64) => window.__golfNativeEvent({ type: 'laser.packet', b64 }), packet(340, 340));
-    await expect(page.locator('.hnum')).toHaveText('Hole 2');
+    await expect(page.locator('.rb-h')).toHaveText('2');
     await expect(page.locator('.laserpop')).toContainText('shot 1');
     await page.click('.laserpop [data-x=no]');
   });
@@ -142,4 +142,27 @@ test('Submit lists holes missing details; Save keeps the round to finish later',
   const r = await page.evaluate(async () => new Promise((res) => { const o = indexedDB.open('golf-app'); o.onsuccess = () => { const q = o.result.transaction('rounds').objectStore('rounds').getAll(); q.onsuccess = () => res(q.result[0]); }; }));
   expect(r.finished).toBe(true); expect(r.submitted).toBe(true);
   expect(r.holes[1].putts).toBe(2); expect(r.holes[1].puttsAuto).toBe(true); expect(r.holes[1].firstPutt).toBeNull();
+});
+
+test('the hole ribbon: hole, par and first-time note; the strip and the full card jump to a hole', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await boot(page);
+  await addCourse(page, 'Majlis');
+  await startRound(page);
+  const rb = page.locator('.ribbon');
+  await expect(rb.locator('.rb-h')).toHaveText('1');
+  await expect(rb.locator('.rb-tp')).toContainText('NOT STARTED');
+  await expect(rb.locator('[data-hist]')).toContainText('FIRST TIME HERE');
+  await expect(rb.locator('.rb-c')).toHaveCount(9);
+  await page.screenshot({ path: 'test/e2e/out/hole-ribbon.png' });
+  await rb.locator('.rb-c[data-go="3"]').click();
+  await expect(page.locator('.rb-h')).toHaveText('4');
+  await page.locator('.ribbon .rb-1').click();
+  const card = page.locator('.cardsheet');
+  await expect(card.locator('.cd-grid')).toHaveCount(2);
+  await page.screenshot({ path: 'test/e2e/out/hole-card.png' });
+  await card.locator('.cd-hd[data-go="11"]').click();
+  await expect(card).toHaveCount(0);
+  await expect(page.locator('.rb-h')).toHaveText('12');
+  await expect(page.locator('.rb-hd').last()).toHaveText('IN');
 });
