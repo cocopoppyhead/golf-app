@@ -958,17 +958,18 @@ table.t5, table.dk { width: 100%; border-collapse: collapse; font-size: 13px; } 
 .rb-sc > span { text-align: center; font: 700 13px var(--display); padding: 2px 0; }
 .rb-lb { font: 600 9px var(--text) !important; color: var(--rbm); letter-spacing: .06em; text-align: left !important; padding-left: 8px !important; }
 .rb-hd { font: 600 10px var(--text) !important; color: var(--rbm); }
-.rb-c { cursor: pointer; display: grid; place-items: center; min-height: 24px; }
-.rb-c.rb-todo { color: #5b7cb0; } .rb-c.cur { background: #fff; color: var(--rb2); border-radius: 4px; margin: 0 2px; }
-.rb-c.cur .mk { color: var(--rb2); }
+.rb-c, .rb-par, .rb-hd[data-go] { cursor: pointer; }
+.rb-c { display: grid; place-items: center; min-height: 26px; }
+.rb-par { color: var(--rbm); font-weight: 600 !important; }
+.rb-hd.cur { background: #fff; color: var(--rb2) !important; border-radius: 4px; margin: 0 2px; font-weight: 800 !important; }
 .rb-tot { color: #fff; }
-/* scores marked the scorecard way */
-.ribbon .mk, .rb-card .mk { display: inline-grid; place-items: center; width: 22px; height: 22px; font: 700 14px var(--display); color: #fff; }
-.mk.bird { border: 2px solid #ff7a7a; color: #ff9a9a; border-radius: 50%; }
-.mk.eagle { border: 2px solid #ff7a7a; color: #ff9a9a; border-radius: 50%; box-shadow: 0 0 0 2px #0d2c5c, 0 0 0 4px #ff7a7a; }
-.mk.bog { border: 2px solid #f2c94c; color: #f2c94c; }
-.mk.dbl { border: 2px solid #f2c94c; color: #f2c94c; box-shadow: 0 0 0 2px #0d2c5c, 0 0 0 4px #f2c94c; }
-.rb-sc .mk { width: 20px; height: 20px; font-size: 13px; }
+/* scores marked the scorecard way, outlines only: circle birdie, double circle eagle, square bogey, double square worse */
+:is(.ribbon, .rb-card) .mk { display: inline-grid; place-items: center; width: 22px; height: 22px; border: 0; border-radius: 0; font: 700 14px var(--display); color: #fff; }
+:is(.ribbon, .rb-card) .mk.bird { box-shadow: inset 0 0 0 1.5px #5aa9e6; border-radius: 50%; }
+:is(.ribbon, .rb-card) .mk.eagle { box-shadow: inset 0 0 0 1.5px #5aa9e6, 0 0 0 2px #0d2c5c, 0 0 0 3.5px #5aa9e6; border-radius: 50%; }
+:is(.ribbon, .rb-card) .mk.bog { box-shadow: inset 0 0 0 1.5px #5aa9e6; border-radius: 3px; }
+:is(.ribbon, .rb-card) .mk.dbl { box-shadow: inset 0 0 0 1.5px #5aa9e6, 0 0 0 2px #0d2c5c, 0 0 0 3.5px #5aa9e6; border-radius: 3px; }
+.rb-sc .mk { width: 21px; height: 21px; font-size: 13px; }
 /* the full card */
 .cardsheet .rb-card { background: linear-gradient(180deg, #123c7a, #0d2c5c); border-top: 2px solid #4c8ee8; color: #fff; }
 .cd-h { display: flex; align-items: baseline; gap: 10px; margin-bottom: 8px; }
@@ -985,3 +986,12 @@ table.t5, table.dk { width: 100%; border-collapse: collapse; font-size: 13px; } 
 /* front / back on the hole map: a faded blue taken from the page, readable on white and on dark */
 .hm-dist > div:not(.pl) b:not(.c) { color: #8fa0c4; }
 :root:is([data-theme="light"], [data-theme="hybrid"]) .hm-dist > div:not(.pl) b:not(.c) { color: #6f80a6; }
+
+/* confirm the score before the next hole (rounds/scorecheck.js) */
+.sc-step { display: flex; align-items: center; justify-content: center; gap: 22px; margin: 14px 0 18px; }
+.sc-step button { width: 56px; height: 56px; border-radius: 50%; border: 1px solid var(--line); background: var(--panel2); color: var(--ink); font-size: 28px; }
+.sc-step button:disabled { opacity: .35; }
+.sc-step span { min-width: 120px; text-align: center; } .sc-step span b { display: block; font: 700 56px/1 var(--display); }
+.sc-step span small { color: var(--mute); font-size: 13px; } .sc-step span.under b { color: var(--good); } .sc-step span.over b { color: var(--work); }
+:is(.ribbon, .rb-card) .mk.par { background: none; border: 0; box-shadow: none; padding: 0; min-width: 0; height: 22px; }
+.rb-na { font-style: normal; color: #fff; font: 700 14px var(--display); }

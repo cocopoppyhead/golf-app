@@ -166,3 +166,40 @@ test('the hole ribbon: hole, par and first-time note; the strip and the full car
   await expect(page.locator('.rb-h')).toHaveText('12');
   await expect(page.locator('.rb-hd').last()).toHaveText('IN');
 });
+
+test('a drive in the fairway: shot 2 is a fairway shot with the fairway lie, even with a short distance typed', async ({ page }) => {
+  await boot(page);
+  await addCourse(page, 'Majlis');
+  await startRound(page);
+  await page.click('[data-res="0"][data-v="FW"]');
+  const p2 = page.locator('.shotpanel.z-fairway');
+  await expect(p2.locator('[data-lie][data-v="fw"]')).toHaveClass(/auto/);
+  await page.fill('[data-sd="1"]', '10'); await page.press('[data-sd="1"]', 'Enter');
+  await expect(page.locator('.shotpanel.z-fairway')).toContainText('To the pin (optional)');
+  await expect(page.locator('.shotpanel.z-greenside')).toHaveCount(0);
+});
+
+test('Next asks for the score: on the green in 2 starts at 4 with 2 putts; n/a shows a hyphen on the card', async ({ page }) => {
+  await boot(page);
+  await addCourse(page, 'Majlis');
+  await startRound(page);
+  await page.click('[data-res="0"][data-v="FW"]');
+  await page.click('.shotpanel.z-fairway [data-res="1"][data-v="G"]');
+  await page.locator('button[data-h="next"].big').click();
+  const sheet = page.locator('.scorecheck');
+  await expect(sheet).toContainText('Hole 1 · par 4');
+  await expect(sheet.locator('.sc-step')).toContainText('4');
+  await expect(sheet.locator('.sc-step')).toContainText('2 putts');
+  await sheet.locator('[data-d="1"]').click();
+  await expect(sheet.locator('.sc-step')).toContainText('3 putts');
+  await page.screenshot({ path: 'test/e2e/out/score-check.png' });
+  await sheet.locator('[data-ok]').click();
+  await expect(page.locator('.rb-h')).toHaveText('2');
+  await expect(page.locator('.rb-c[data-go="0"] .mk.bog')).toHaveText('5');
+  // hole 2: no score
+  await page.locator('button[data-h="next"].big').click();
+  await page.locator('.scorecheck [data-na]').click();
+  await expect(page.locator('.rb-h')).toHaveText('3');
+  await expect(page.locator('.rb-c[data-go="1"] .rb-na')).toHaveText('–');
+  await expect(page.locator('.rb-tp')).toContainText('THRU 2');
+});

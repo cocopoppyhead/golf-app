@@ -36,8 +36,11 @@ export function historyLine(hist, par) {
   return `YOUR AVG <b>${toParTv(hist.avg)}</b> <span class="rb-n">(${hist.n} RD${hist.n > 1 ? 'S' : ''})</span><span class="rb-sep">|</span>LAST ${Math.min(3, hist.last.length)} ${hist.last.map((s) => mark(s, par)).join('')}`;
 }
 
+const NA = 'na'; // a hole played without a score (picked up: Stableford, a team format, a casual round): shown as a hyphen
+const thru = (scores) => scores.filter((s) => Number.isFinite(s) || s === NA).length;
+
 /**
- * The ribbon. i: hole index; pars: every hole's par; scores: today's score per hole (null = not played);
+ * The ribbon. i: hole index; pars: every hole's par; scores: today's score per hole (null = not played, 'na' = no score);
  * name: what to call the golfer; hist: this hole's history (or null while loading).
  */
 export function ribbonHtml({ i, pars, scores, name, hist }) {
@@ -46,17 +49,20 @@ export function ribbonHtml({ i, pars, scores, name, hist }) {
   const nine = pars.length > 9 && i >= 9 ? 9 : 0, end = Math.min(pars.length, nine + 9);
   const cells = [];
   for (let k = nine; k < end; k++) cells.push({ k, s: scores[k], p: pars[k] });
-  const nineDiff = cells.filter((c) => Number.isFinite(c.s)).reduce((a, c) => a + c.s - c.p, 0);
   const nineAny = cells.some((c) => Number.isFinite(c.s));
-  const cols = `grid-template-columns:34px repeat(${cells.length},1fr) 34px`;
+  const cols = `grid-template-columns:44px repeat(${cells.length},1fr) 36px`;
+  const parSum = cells.reduce((a, c) => a + c.p, 0);
+  const gross = cells.filter((c) => Number.isFinite(c.s)).reduce((a, c) => a + c.s, 0);
+  const cur = (c) => (c.k === i ? ' cur' : '');
   return `<div class="ribbon" data-card role="button" aria-label="Open the scorecard">
     <div class="rb-1"><b class="rb-h">${i + 1}</b><span class="rb-p">PAR<br>${par}</span><i class="rb-flag"></i>
       <b class="rb-nm">${esc((name || 'You').toUpperCase())}</b>
-      <span class="rb-tp"><b>${toParTv(today)}</b><small>${played.length ? `THRU ${played.length}` : 'NOT STARTED'}</small></span></div>
+      <span class="rb-tp"><b>${toParTv(today)}</b><small>${thru(scores) ? `THRU ${thru(scores)}` : 'NOT STARTED'}</small></span></div>
     <div class="rb-2" data-hist>${historyLine(hist, par)}</div>
     <div class="rb-sc" style="${cols}">
-      <span class="rb-lb">HOLE</span>${cells.map((c) => `<span class="rb-hd">${c.k + 1}</span>`).join('')}<span class="rb-hd">${nine ? 'IN' : pars.length > 9 ? 'OUT' : 'TOT'}</span>
-      <span class="rb-lb">YOU</span>${cells.map((c) => `<span class="rb-c${c.k === i ? ' cur' : ''}${Number.isFinite(c.s) ? '' : ' rb-todo'}" data-go="${c.k}">${Number.isFinite(c.s) ? mark(c.s, c.p) : c.p}</span>`).join('')}<span class="rb-tot">${nineAny ? toParTv(nineDiff) : ''}</span>
+      <span class="rb-lb">HOLE</span>${cells.map((c) => `<span class="rb-hd${cur(c)}" data-go="${c.k}">${c.k + 1}</span>`).join('')}<span class="rb-hd">${nine ? 'IN' : pars.length > 9 ? 'OUT' : 'TOT'}</span>
+      <span class="rb-lb">PAR</span>${cells.map((c) => `<span class="rb-par" data-go="${c.k}">${c.p}</span>`).join('')}<span class="rb-par">${parSum}</span>
+      <span class="rb-lb">SCORE</span>${cells.map((c) => `<span class="rb-c" data-go="${c.k}">${Number.isFinite(c.s) ? mark(c.s, c.p) : c.s === NA ? '<i class="rb-na">–</i>' : ''}</span>`).join('')}<span class="rb-tot">${nineAny ? gross : ''}</span>
     </div></div>`;
 }
 
@@ -73,13 +79,13 @@ export function cardHtml({ i, pars, scores, name, courseName, hists }) {
     return `<div class="cd-grid" style="${cols}">
       <span class="cd-lb">HOLE</span>${ks.map((k) => `<span class="cd-hd${k === i ? ' cur' : ''}" data-go="${k}">${k + 1}</span>`).join('')}<span class="cd-hd">${label}</span>
       <span class="cd-lb">PAR</span>${ks.map((k) => `<span>${pars[k]}</span>`).join('')}<span>${parSum}</span>
-      <span class="cd-lb">TODAY</span>${ks.map((k) => `<span data-go="${k}">${Number.isFinite(scores[k]) ? mark(scores[k], pars[k]) : '<i class="cd-dash">–</i>'}</span>`).join('')}<span>${done.length ? toParTv(done.reduce((a, k) => a + scores[k] - pars[k], 0)) : ''}</span>
+      <span class="cd-lb">TODAY</span>${ks.map((k) => `<span data-go="${k}">${Number.isFinite(scores[k]) ? mark(scores[k], pars[k]) : scores[k] === NA ? '<i class="rb-na">–</i>' : '<i class="cd-dash">·</i>'}</span>`).join('')}<span>${done.length ? toParTv(done.reduce((a, k) => a + scores[k] - pars[k], 0)) : ''}</span>
       <span class="cd-lb">AVG</span>${ks.map((k) => `<span class="cd-avg">${hists ? (hists[k]?.n ? toParTv(hists[k].avg) : '·') : '…'}</span>`).join('')}<span class="cd-avg">${avgs.length ? toParTv(avgs.reduce((a, b) => a + b, 0)) : ''}</span>
     </div>`;
   };
   const two = pars.length > 9;
   return `<div class="sheet cardsheet"><div class="sheet-in rb-card">
-    <div class="cd-h"><b>${esc((name || 'You').toUpperCase())} · ${esc((courseName || '').split(/\s[–-]\s/)[0].toUpperCase())}</b><span>${toParTv(today)}${played.length ? ` THRU ${played.length}` : ''}</span><button class="link" data-close>Close</button></div>
+    <div class="cd-h"><b>${esc((name || 'You').toUpperCase())} · ${esc((courseName || '').split(/\s[–-]\s/)[0].toUpperCase())}</b><span>${toParTv(today)}${thru(scores) ? ` THRU ${thru(scores)}` : ''}</span><button class="link" data-close>Close</button></div>
     ${nine(0, Math.min(9, pars.length), two ? 'OUT' : 'TOT')}
     ${two ? nine(9, pars.length, 'IN') : ''}
     <p class="cd-note">AVG is your usual score to par on each hole here, from rounds that count, rounded to a whole stroke. Tap a hole to go to it.</p>

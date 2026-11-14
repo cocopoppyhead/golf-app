@@ -108,7 +108,7 @@ export function shotPanel(o) {
     lieHtml = `<div class="lbl">Lie</div><div class="g4">${GREENSIDE_LIES.map(([v, l]) => btn(lie === v, `data-lie="${k}" data-v="${v}"`, l, !x.lie && lie === v ? 'auto' : '')).join('')}</div>`;
   }
 
-  const distHtml = tee ? '' : `<div class="lbl">To the pin${zone === 'greenside' ? ' <span class="mute">(optional)</span>' : ''}</div>
+  const distHtml = tee ? '' : `<div class="lbl">To the pin <span class="mute">(optional)</span></div>
     <div class="srow1"><input inputmode="numeric" data-sd="${k}" placeholder="${du()}" value="${x.dist != null ? dist(x.dist) : ''}" /><span class="mute small">${du()}${x.src === 'laser' ? ` · laser${x.plays && x.plays !== x.dist ? `, plays ${dist(x.plays)}` : ''}${x.gps ? ' · 📍' : ''}` : x.src === 'club' ? ' · ≈ from club' : ''}</span></div>`;
 
   let ended;
