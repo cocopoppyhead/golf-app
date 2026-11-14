@@ -148,12 +148,26 @@ export function requestFix(ms = 3000) {
 
 // ---------- tiles ----------
 const tiles = new Map(); // url -> Image (loaded or loading)
+// A tile that fails (a mobile-data blip, flicking through holes) is forgotten and fetched again a moment later,
+// up to 4 tries; before, one failure left the hole without imagery until the app was reloaded.
+const tileTries = new Map();
 function tile(z, x, y, onload) {
   const u = TILE(z, x, y);
   let img = tiles.get(u);
-  if (!img) { img = new Image(); img.crossOrigin = 'anonymous'; img.onload = () => onload?.(); img.src = u; tiles.set(u, img); }
-  else if (!img.complete) img.addEventListener('load', () => onload?.(), { once: true });
+  if (!img) {
+    img = new Image(); img.crossOrigin = 'anonymous'; img.onload = () => { tileTries.delete(u); onload?.(); };
+    img.onerror = () => {
+      tiles.delete(u); const n = (tileTries.get(u) || 0) + 1; tileTries.set(u, n);
+      if (n < 4) setTimeout(() => onload?.(), 1500 * n); // redraw, which asks for the tile again
+    };
+    img.src = u; tiles.set(u, img);
+  } else if (!img.complete) img.addEventListener('load', () => onload?.(), { once: true });
   return img.complete && img.naturalWidth ? img : null;
+}
+/** While a tile is missing, the one a zoom level up (already loaded) stands in, scaled. */
+function parentTile(z, x, y) {
+  const img = tiles.get(TILE(z - 1, x >> 1, y >> 1));
+  return img?.complete && img.naturalWidth ? { img, sx: (x & 1) * 128, sy: (y & 1) * 128 } : null;
 }
 
 /**
@@ -229,18 +243,25 @@ export function mountHoleMap(el, opts) {
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, W, H);
     ctx.fillStyle = '#1d2a1f'; ctx.fillRect(0, 0, W, H);
     if (!f.s) return drawStrip();
-    const { T, G, z, toPx, project } = f;
-    // satellite tiles under the frame: walk the mercator tiles covering the canvas corners
-    const corners = [[0, 0], [W, 0], [0, H], [W, H]].map(([x, y]) => toLatLon(x, y)).map((ll) => merc(ll[0], ll[1], z));
-    const tx0 = Math.floor(Math.min(...corners.map((c) => c[0]))), tx1 = Math.floor(Math.max(...corners.map((c) => c[0])));
-    const ty0 = Math.floor(Math.min(...corners.map((c) => c[1]))), ty1 = Math.floor(Math.max(...corners.map((c) => c[1])));
+    const { T, G, toPx, project } = f;
+    // satellite tiles under the frame: walk the mercator tiles covering the canvas corners. Too many at this
+    // zoom (a long hole, a big screen): step down a zoom level rather than draw nothing.
+    let z = f.z, tx0, tx1, ty0, ty1;
+    for (;;) {
+      const corners = [[0, 0], [W, 0], [0, H], [W, H]].map(([x, y]) => toLatLon(x, y)).map((ll) => merc(ll[0], ll[1], z));
+      tx0 = Math.floor(Math.min(...corners.map((c) => c[0]))); tx1 = Math.floor(Math.max(...corners.map((c) => c[0])));
+      ty0 = Math.floor(Math.min(...corners.map((c) => c[1]))); ty1 = Math.floor(Math.max(...corners.map((c) => c[1])));
+      if ((tx1 - tx0 + 1) * (ty1 - ty0 + 1) <= 40 || z <= 14) break;
+      z--;
+    }
     if ((tx1 - tx0 + 1) * (ty1 - ty0 + 1) <= 40) {
       for (let x = tx0; x <= tx1; x++) for (let y = ty0; y <= ty1; y++) {
-        const img = tile(z, x, y, schedule); if (!img) continue;
+        const img = tile(z, x, y, schedule), up = img ? null : parentTile(z, x, y); if (!img && !up) continue;
         const nw = toPx(project(unmerc(x, y, z))), ne = toPx(project(unmerc(x + 1, y, z))), sw = toPx(project(unmerc(x, y + 1, z)));
         ctx.save(); ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
         ctx.transform((ne[0] - nw[0]) / 256, (ne[1] - nw[1]) / 256, (sw[0] - nw[0]) / 256, (sw[1] - nw[1]) / 256, nw[0], nw[1]);
-        ctx.drawImage(img, 0, 0); ctx.restore();
+        if (img) ctx.drawImage(img, 0, 0); else ctx.drawImage(up.img, up.sx, up.sy, 128, 128, 0, 0, 256, 256);
+        ctx.restore();
       }
     }
     // OSM shapes
