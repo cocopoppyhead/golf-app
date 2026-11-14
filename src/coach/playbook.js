@@ -30,6 +30,7 @@ Scoring and strategy
 Swing fundamentals (for reading a pattern, not for teaching a swing in a chat)
 - Ball flight laws: the start line is mostly the clubface at impact, the curve is the face relative to the path. A pull starts left with a square-to-path face; a slice is a face open to the path. Thin and fat are low point; toe and heel are where on the face.
 - Set-up faults (grip, alignment, ball position, posture) cause most recurring misses and are the cheapest to check. Check them before blaming the swing.
+- Pressure in the feet stays centred, a touch toward the heels, through the swing. Pressure running onto the toes (usually with the hips moving toward the ball, early extension) crowds the arms and brings in heel strikes, thin shots and shanks: a fault to name when the data shows it.
 - Wedges: distance control comes from a consistent swing length and tempo (a clock system, e.g. 50/75/100%), not from hitting harder or softer.
 Short game and putting
 - Chipping: least air time, most roll that the lie allows; the landing spot matters more than the hole. Bunker: hit the sand, not the ball.
