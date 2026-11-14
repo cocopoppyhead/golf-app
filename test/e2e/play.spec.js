@@ -228,3 +228,17 @@ test('move the tee: distances and the tee shot are measured from your tee, and i
   await expect(page.locator('.hm-dist')).not.toContainText('your tee');
   await expect(page.locator('.hm-dist b.c')).toHaveText(before);
 });
+
+test('standing near the course (GPS on, not on the hole line ahead): a moved tee still sets the distances', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await boot(page);
+  await addCourse(page, 'Majlis');
+  await startRound(page);
+  await page.waitForTimeout(800);
+  const before = await page.locator('.hm-dist b.c').innerText();
+  await page.locator('[data-tee-move]').click();
+  const box = await page.locator('#holeMap canvas').boundingBox();
+  await page.mouse.click(box.x + box.width / 2, box.y + box.height * 0.45);
+  await expect(page.locator('.hm-dist')).toContainText('from your tee today');
+  expect(await page.locator('.hm-dist b.c').innerText()).not.toBe(before);
+});

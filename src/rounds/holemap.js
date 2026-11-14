@@ -105,6 +105,15 @@ export function teeFor(gh, yds, teeName, mine) {
   if (tees.length && yds) { let best = null, err = Infinity; for (const t of tees) { const e = Math.abs(metres(t.c, g) - yds * YD); if (e < err) { err = e; best = t.c; } } if (best) return { c: best, how: 'nearest' }; }
   return { c: gh.line[0], how: 'line' };
 }
+/**
+ * Measure from the GPS fix? Only when it's on this hole: not behind the tee, no further from the green than the
+ * tee is, and within 150 m either side of the tee-green line. Standing within 25 m of a tee you moved: the tee.
+ */
+export function useGps(p, { T, G, project, mine = false }) {
+  if (mine && metres(p, T) < 25) return false;
+  const [x, y] = project(p);
+  return y > -30 && metres(p, G) <= metres(T, G) + 30 && Math.abs(x) <= 150;
+}
 /** Which mapped tee matches the card? (kept for callers that only want the point) */
 export const pickTee = (gh, yds, teeName) => teeFor(gh, yds, teeName)?.c ?? null;
 /** The words under the distances: which tee they're from. */
@@ -207,9 +216,11 @@ export function mountHoleMap(el, opts) {
     return [f.T[0] + ny / mPerLat, f.T[1] + ex / mPerLon(f.T[0])];
   };
 
-  const refPoint = () => { // where distances are measured from: a fresh, accurate fix near the hole, else the tee
-    const f = fix; if (!frame?.T || !f || f.acc > 35 || Date.now() - f.t > 20000) return { p: frame?.T, gps: false };
-    return metres([f.lat, f.lon], frame.T) < 1500 ? { p: [f.lat, f.lon], gps: true } : { p: frame.T, gps: false };
+  // Where distances are measured from: you (GPS) only when you're on this hole, i.e. no further from the green
+  // than the tee and within ~150 m of the line; else the tee. A tee you moved wins while you stand on it.
+  const refPoint = () => {
+    const f = fix, T = frame?.T; if (!T || !f || f.acc > 35 || Date.now() - f.t > 20000) return { p: T, gps: false };
+    return useGps([f.lat, f.lon], { T, G: frame.G, project: frame.project, mine: !!o.teeAt }) ? { p: [f.lat, f.lon], gps: true } : { p: T, gps: false };
   };
 
   function draw() {
