@@ -301,7 +301,7 @@ function renderHole() {
       if (!mapEl.isConnected) return;
       const gh = geoHole(geo, i + 1) || markedHole(ch.mark, i + 1);
       if (!gh && !ch.yds && !course.lat) { mapEl.remove(); return; }
-      holeMap = mountHoleMap(mapEl, { gh, geo, par, yds: ch.yds, teeName: course.tees, clubs, inGame: true, bestBand, cond: round.cond?.start || null, geoId: course.libId || course.id, canMark: !!course.lat, onMark: () => markHoleSheet({ course, start: i, geo, onSave: (k, mark) => { course.holes[k].mark = mark; putCourse(course); }, onClose: renderHole }) });
+      holeMap = mountHoleMap(mapEl, { gh, geo, par, yds: ch.yds, teeName: course.tees, teeAt: h.teeAt || null, onTeeMove: (p, yds) => { const t0 = h.shots[0]; if (p) { h.teeAt = p.map((v) => +v.toFixed(6)); if (t0 && yds && t0.src !== 'laser') { t0.dist = yds; t0.src = 'tee'; } } else { delete h.teeAt; if (t0?.src === 'tee') { delete t0.dist; delete t0.src; } } save(); renderHole(); }, clubs, inGame: true, bestBand, cond: round.cond?.start || null, geoId: course.libId || course.id, canMark: !!course.lat, onMark: () => markHoleSheet({ course, start: i, geo, onSave: (k, mark) => { course.holes[k].mark = mark; putCourse(course); }, onClose: renderHole }) });
     });
   }
   const histEl = root.querySelector('#holeHist');

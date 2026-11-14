@@ -34,7 +34,7 @@ The structure is a tree with time, not a network: golfer → round → hole → 
   - `date`, `courseId`, `courseName`, `tees`, `kind` (comp or casual), `source` (osolo or garmin), `finished`, `quick` (score only)
   - `mood.start/turn/finish`, `energy`, `warmup`, `intention`, `intentionKept`, `aim`, `swingThought`, `expect`
   - `process.routine/commit/accept/fun`, `greens.firm/speed`, `cond.start` (temperature, humidity, wind), `hr`, `debrief`
-- **Hole** (`holes[i]`): `score`, `pickup` (played without a score: shown as a hyphen), `scoreConfirmed`, `putts`, `firstPutt`, `tee`, `gir`, `miss`, `shortSided`, `bunker`, `fpLong`, `fpSide`, `hr`, `at`
+- **Hole** (`holes[i]`): `score`, `pickup` (played without a score: shown as a hyphen), `teeAt` (where they teed off today, when moved on the map), `scoreConfirmed`, `putts`, `firstPutt`, `tee`, `gir`, `miss`, `shortSided`, `bunker`, `fpLong`, `fpSide`, `hr`, `at`
 - **Shot** (`holes[i].shots[k]`):
   - `dist` (yards to the flag), `lie` or `lieAuto`
   - `res` (result), `res2`, `dir` (where it missed, measured from the flag), `ss` (short-sided), `pen`

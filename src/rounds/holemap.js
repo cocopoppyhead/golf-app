@@ -89,14 +89,28 @@ export function playsLike(yards, { cond = null, bearingDeg = null, riseM = null 
 }
 
 // ---------- tee choice ----------
-/** Which mapped tee matches the card? The one whose distance to the green is nearest the card yardage. */
-export function pickTee(gh, yds, teeName) {
+/**
+ * Where the tee shot is measured from, and how we know: { c, how }.
+ *   how 'yours'  the golfer moved the tee today (tee boxes move day to day; OSM rarely says which is which)
+ *       'named'  a mapped tee with the card's name (e.g. 'Black')
+ *       'nearest' the mapped tee whose distance to the green is nearest the card yardage
+ *       'line'   the start of the mapped hole line (no tees mapped)
+ */
+export function teeFor(gh, yds, teeName, mine) {
   if (!gh) return null;
+  if (mine) return { c: mine, how: 'yours' };
   const tees = gh.tees || [];
-  if (teeName) { const byName = tees.find((t) => t.name && t.name.toLowerCase() === teeName.toLowerCase()); if (byName) return byName.c; }
+  if (teeName) { const byName = tees.find((t) => t.name && t.name.toLowerCase() === teeName.toLowerCase()); if (byName) return { c: byName.c, how: 'named' }; }
   const g = gh.green?.c || gh.line[gh.line.length - 1];
-  if (tees.length && yds) { let best = null, err = Infinity; for (const t of tees) { const e = Math.abs(metres(t.c, g) - yds * YD); if (e < err) { err = e; best = t.c; } } if (best) return best; }
-  return gh.line[0];
+  if (tees.length && yds) { let best = null, err = Infinity; for (const t of tees) { const e = Math.abs(metres(t.c, g) - yds * YD); if (e < err) { err = e; best = t.c; } } if (best) return { c: best, how: 'nearest' }; }
+  return { c: gh.line[0], how: 'line' };
+}
+/** Which mapped tee matches the card? (kept for callers that only want the point) */
+export const pickTee = (gh, yds, teeName) => teeFor(gh, yds, teeName)?.c ?? null;
+/** The words under the distances: which tee they're from. */
+export function teeWords(how, teeName) {
+  const t = teeName ? `${teeName.toLowerCase()} tee` : 'tee';
+  return { yours: 'from your tee today', named: `from the ${t} on the map`, nearest: `from the map's tee closest to the card`, line: 'from the start of the hole on the map' }[how] || 'from the tee';
 }
 
 // ---------- shared GPS watch (one for the whole app; stops when no map is on screen) ----------
@@ -144,7 +158,7 @@ export function mountHoleMap(el, opts) {
     <canvas></canvas><div class="hm-tap mute small"></div><div class="hm-attr">${ATTRIBUTION}</div>`;
   const cv = el.querySelector('canvas'), ctx = cv.getContext('2d');
   const distEl = el.querySelector('.hm-dist'), tapEl = el.querySelector('.hm-tap');
-  let o = { ...opts }, mode = lastMode, tap = null, raf = 0;
+  let o = { ...opts }, mode = lastMode, tap = null, raf = 0, movingTee = false;
   let frame = null; // {T, G, theta, s, W, H, cx, cy, z, project}
   let elev = null; // { tee, green } metres for this hole, when known
   const loadElev = () => {
@@ -162,7 +176,7 @@ export function mountHoleMap(el, opts) {
     cv.width = W * dpr; cv.height = H * dpr; cv.style.height = `${H}px`;
     const gh = o.gh;
     if (gh) {
-      const T = pickTee(gh, o.yds, o.teeName); let G = gh.green?.c || gh.line[gh.line.length - 1];
+      const tee = teeFor(gh, o.yds, o.teeName, o.teeAt); const T = tee.c; o.teeHow = tee.how; let G = gh.green?.c || gh.line[gh.line.length - 1];
       // no mapped green and a hole line far shorter than the card: the mapper stopped short, so put
       // the green where the card says it is, along the line's final bearing, and say so. A line a bit
       // short of the card is normal (a forward tee) and its end is trusted as the green.
@@ -264,7 +278,20 @@ export function mountHoleMap(el, opts) {
     const clubs = withBasis((o.clubs || []).filter((c) => c.carry > 0));
     const centreYds = metres(ref.p, G) / YD;
     const pl = o.inGame ? playsLike(centreYds, { cond: o.cond, bearingDeg: (bearing(ref.p, G) * 180) / Math.PI, riseM: elev ? elev.green - elev.tee : null }) : null;
-    if (mode === 'tee') arcs(ref.p, teeClubs(clubs, { par: o.par, toGo: o.par === 3 || ref.gps ? (pl ? pl.plays : centreYds) : null }), 1, '#ffd23f');
+    const teeList = mode === 'tee' ? teeClubs(clubs, { par: o.par, toGo: o.par === 3 || ref.gps ? (pl ? pl.plays : centreYds) : null }) : [];
+    // the yellow line the arcs hang off: from where it's measured, along the hole, to the longest landing spot
+    if (teeList.length) {
+      const far = Math.max(...teeList.map((c) => c.carry)) * YD, path = [ref.p, ...o.gh.line.slice(1), G];
+      const pts = [ref.p]; let run = 0;
+      for (let k = 1; k < path.length && run < far; k++) { const seg = metres(path[k - 1], path[k]); if (run + seg >= far) { pts.push(alongLine(path, far)); break; } run += seg; pts.push(path[k]); }
+      ctx.beginPath(); pts.forEach((p, k) => { const [x, y] = toPx(project(p)); k ? ctx.lineTo(x, y) : ctx.moveTo(x, y); });
+      ctx.strokeStyle = '#ffd23f'; ctx.lineWidth = 2; ctx.stroke();
+    }
+    if (mode === 'tee') arcs(ref.p, teeList, 1, '#ffd23f');
+    // the tee it's measured from, always shown, labelled
+    { const [x, y] = toPx(project(T)); ctx.beginPath(); ctx.arc(x, y, 7, 0, 7); ctx.fillStyle = o.teeHow === 'yours' ? '#ffd23f' : '#fff'; ctx.fill(); ctx.strokeStyle = '#0d1b2a'; ctx.lineWidth = 2; ctx.stroke();
+      ctx.font = '700 11px Inter, system-ui'; ctx.textAlign = 'left'; const lab = o.teeHow === 'yours' ? 'YOUR TEE' : 'TEE'; const w = ctx.measureText(lab).width + 8;
+      ctx.fillStyle = 'rgba(0,0,0,.7)'; ctx.fillRect(x + 10, y - 8, w, 16); ctx.fillStyle = '#fff'; ctx.fillText(lab, x + 14, y + 4); }
     if (mode === 'green') arcs(G, clubs.filter((c) => c.carry <= 150).sort((a, b) => b.carry - a.carry).slice(0, 4), -1, '#8fd3ff');
     // you
     if (ref.gps) { const [x, y] = toPx(project(ref.p)); ctx.beginPath(); ctx.arc(x, y, 6, 0, 7); ctx.fillStyle = '#3ddc84'; ctx.fill(); ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke(); }
@@ -285,9 +312,13 @@ export function mountHoleMap(el, opts) {
     const pre = real ? '' : '≈ ';
     const dTxt = cell(pre + fmt(metres(ref.p, F)), 'front') + cell(pre + fmt(metres(ref.p, G)), 'centre', true) + cell(pre + fmt(metres(ref.p, B)), 'back');
     const playsTxt = pl && pl.plays !== Math.round(centreYds) ? `<div class="pl"><b>${D(pl.plays)}</b><span>plays</span></div>` : '';
-    distEl.innerHTML = `${dTxt}${playsTxt}<span class="src">${ref.gps ? 'from where you stand' : 'from the tee'} · ${unitLabel()}${pl?.why.length ? ` · ${pl.why.join(' · ')}` : ''}${o.approxGreen ? ' · green placed from the card, not mapped' : !real ? ' · green depth assumed' : ''}</span>`;
-    tapEl.innerHTML = tap ? `Tap: ${fmt(metres(ref.p, tap))} ${unitLabel()} out · ${fmt(metres(tap, G))} ${unitLabel()} to the green · ${fmt(metres(tap, F))} front` : `${mode === 'tee' && o.par !== 3 ? `<label class="check inl"><input type="checkbox" data-leave ${leaveOn ? 'checked' : ''}/> what each club leaves${o.bestBand && leaveOn ? ` <span class="mute">(★ = your ${D(o.bestBand[0])}–${D(o.bestBand[1])} band)</span>` : ''}</label>` : 'Tap the map to measure.'}${o.gh.marked ? ' <button class="link" data-mark>Re-mark</button>' : o.approxGreen && o.canMark ? ' <button class="link acc" data-mark>Mark the green</button>' : ''}`;
+    distEl.innerHTML = `${dTxt}${playsTxt}<span class="src">${ref.gps ? 'from where you stand' : teeWords(o.teeHow, o.teeName)} · ${unitLabel()}${pl?.why.length ? ` · ${pl.why.join(' · ')}` : ''}${o.approxGreen ? ' · green placed from the card, not mapped' : !real ? ' · green depth assumed' : ''}</span>`;
+    const teeCtl = o.onTeeMove ? `<div class="hm-teectl">${movingTee ? '<b>Tap the map where you\'re teeing off</b> <button class="link" data-tee-cancel>Cancel</button>' : `<button class="btn sm" data-tee-move>Move tee</button>${o.teeAt ? ' <button class="link" data-tee-reset>Use the map\'s tee</button>' : ''}`}</div>` : '';
+    tapEl.innerHTML = movingTee ? teeCtl : tap ? `Tap: ${fmt(metres(ref.p, tap))} ${unitLabel()} out · ${fmt(metres(tap, G))} ${unitLabel()} to the green · ${fmt(metres(tap, F))} front` : `${mode === 'tee' && o.par !== 3 ? `<label class="check inl"><input type="checkbox" data-leave ${leaveOn ? 'checked' : ''}/> what each club leaves${o.bestBand && leaveOn ? ` <span class="mute">(★ = your ${D(o.bestBand[0])}–${D(o.bestBand[1])} band)</span>` : ''}</label>` : 'Tap the map to measure.'}${o.gh.marked ? ' <button class="link" data-mark>Re-mark</button>' : o.approxGreen && o.canMark ? ' <button class="link acc" data-mark>Mark the green</button>' : ''}${teeCtl}`;
     tapEl.querySelector('[data-mark]')?.addEventListener('click', () => o.onMark?.());
+    tapEl.querySelector('[data-tee-move]')?.addEventListener('click', () => { movingTee = true; tap = null; schedule(); });
+    tapEl.querySelector('[data-tee-cancel]')?.addEventListener('click', () => { movingTee = false; schedule(); });
+    tapEl.querySelector('[data-tee-reset]')?.addEventListener('click', () => { o.teeAt = null; o.onTeeMove?.(null); frame = null; schedule(); });
     tapEl.querySelector('[data-leave]')?.addEventListener('change', (e) => { const s = getSettings(); s.mapLeave = e.target.checked; saveSettings(s); schedule(); });
     basisRow();
     wantGps();
@@ -326,7 +357,11 @@ export function mountHoleMap(el, opts) {
   }
 
   el.querySelectorAll('[data-m]').forEach((b) => b.onclick = () => { mode = lastMode = b.dataset.m; el.querySelectorAll('[data-m]').forEach((x) => x.classList.toggle('on', x === b)); schedule(); });
-  cv.addEventListener('click', (e) => { if (!frame?.s) return; const r = cv.getBoundingClientRect(); const p = toLatLon(e.clientX - r.left, e.clientY - r.top); tap = tap && metres(tap, p) < 8 ? null : p; schedule(); });
+  cv.addEventListener('click', (e) => {
+    if (!frame?.s) return; const r = cv.getBoundingClientRect(); const p = toLatLon(e.clientX - r.left, e.clientY - r.top);
+    if (movingTee) { movingTee = false; o.teeAt = p; o.onTeeMove?.(p, Math.round(metres(p, frame.G) / YD)); frame = null; tap = null; return schedule(); } // re-centre on the new tee
+    tap = tap && metres(tap, p) < 8 ? null : p; schedule();
+  });
   const onFix = () => schedule(); fixListeners.add(onFix);
   const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(() => { frame = null; schedule(); }) : null; ro?.observe(el);
   layout(); loadElev(); schedule();
