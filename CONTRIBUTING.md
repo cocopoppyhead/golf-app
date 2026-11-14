@@ -6,7 +6,7 @@
 4. **Squash-merge.** One commit per change on `main`, titled like the pull request. The branch is deleted after the merge.
 5. **Deploy follows CI.** After the merge, CI runs on `main`; only when it passes does the Deploy workflow publish that exact commit to GitHub Pages.
 6. **Roll back** by reverting the pull request (the Revert button on the merged PR). That goes through CI and deploys like any other change.
-7. **Releases.** A tag `vMAJOR.MINOR.PATCH` marks a version people used (`git tag v0.2.0 && git push --tags`), with notes in the GitHub release. Before 1.0, MINOR means new features and PATCH means fixes.
+7. **Releases.** Actions → Release → Run workflow, type the version (e.g. `0.2.0`). It tags `main` as `v0.2.0` and publishes a GitHub release listing the merged pull requests. Before 1.0, MINOR means new features and PATCH means fixes.
 
 ## Code layout
 

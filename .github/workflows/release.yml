@@ -1,0 +1,33 @@
+name: Release
+
+# Tags a version and publishes its GitHub release. Run it from the Actions tab ("Run workflow"), type the
+# version (e.g. 0.1.0). It tags main as it stands, which CI has already passed before it deployed.
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version, without the v (e.g. 0.1.0)
+        required: true
+      notes:
+        description: What's in it (optional; GitHub adds the list of merged pull requests)
+        required: false
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Check the version
+        run: |
+          echo "${{ inputs.version }}" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$' || { echo "Use MAJOR.MINOR.PATCH, e.g. 0.1.0"; exit 1; }
+          if git rev-parse "v${{ inputs.version }}" >/dev/null 2>&1; then echo "v${{ inputs.version }} already exists"; exit 1; fi
+      - name: Tag and publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "v${{ inputs.version }}" --target main --title "osolo ${{ inputs.version }}" --notes "${{ inputs.notes }}" --generate-notes
