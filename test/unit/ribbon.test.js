@@ -33,9 +33,14 @@ describe('ribbon', () => {
   it('shows the front nine on holes 1-9 and the back nine with IN on 10-18', () => {
     const s = [...none]; s[0] = 5; s[1] = 3;
     const front = ribbonHtml({ i: 2, pars, scores: s, name: 'Conor', hist: null });
-    expect((front.match(/data-go="/g) || []).length).toBe(9);
+    expect((front.match(/class="rb-c" data-go="/g) || []).length).toBe(9);
     expect(front).toContain('data-go="0"'); expect(front).toContain('OUT'); expect(front).toContain('THRU 2'); expect(front).toContain('>E<');
-    expect(front).toMatch(/rb-c cur rb-todo" data-go="2"/);
+    expect(front).toMatch(/rb-hd cur" data-go="2"/);
+    expect(front).toContain('>PAR<'); expect(front).toContain('>SCORE<');
+    expect(front).toContain('<span class="rb-par">36</span>'); expect(front).toContain('<span class="rb-tot">8</span>'); // 5 + 3 strokes so far
+    const na = [...none]; na[0] = 'na'; na[1] = 4;
+    const withNa = ribbonHtml({ i: 2, pars, scores: na, name: 'C', hist: null });
+    expect(withNa).toContain('rb-na'); expect(withNa).toContain('THRU 2'); expect(withNa).toContain('>E<');
     const back = ribbonHtml({ i: 11, pars, scores: none, name: '', hist: null });
     expect(back).toContain('data-go="9"'); expect(back).not.toContain('data-go="8"'); expect(back).toContain('>IN<'); expect(back).toContain('NOT STARTED'); expect(back).toContain('YOU');
   });

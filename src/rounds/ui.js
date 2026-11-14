@@ -32,6 +32,7 @@ export { sgCard } from './summary.js';
 import { esc, uid, fmtD } from './fmt.js';
 import { ribbonHtml, cardHtml, courseHistory, historyLine } from './ribbon.js';
 import { counts } from './quality.js';
+import { needsCheck, scoreCheckSheet } from './scorecheck.js';
 import { initHome, roundsHome, openCardImport, openCoursePage, aggStats } from './home.js';
 import { routineSheet, readWeather, moodSheet } from './checkinsheets.js';
 export { roundsHome, openCardImport, openCoursePage };
@@ -89,7 +90,7 @@ async function loadRibbonHistory(course, round) {
 function openCard() {
   const { round, course, hole } = cur;
   const el = document.createElement('div');
-  el.innerHTML = cardHtml({ i: hole, pars: course.holes.map((x) => x.par), scores: round.holes.map((x) => x?.score ?? null), name: golferName(), courseName: round.courseName, hists: ribbonHist.key === histKey(course, round) ? ribbonHist.hists : null });
+  el.innerHTML = cardHtml({ i: hole, pars: course.holes.map((x) => x.par), scores: round.holes.map((x) => (x?.pickup ? 'na' : x?.score ?? null)), name: golferName(), courseName: round.courseName, hists: ribbonHist.key === histKey(course, round) ? ribbonHist.hists : null });
   const sheet = el.firstElementChild; document.body.appendChild(sheet);
   sheet.querySelector('[data-close]').onclick = () => sheet.remove();
   sheet.addEventListener('click', (e) => { if (e.target === sheet) sheet.remove(); });
@@ -261,7 +262,7 @@ function renderHole() {
   root.innerHTML = `
     <div class="holebar rb-bar">
       <button class="btn icon" data-h="prev" ${i === 0 ? 'disabled' : ''}>‹</button>
-      ${ribbonHtml({ i, pars: course.holes.map((x) => x.par), scores: round.holes.map((x) => x?.score ?? null), name: golferName(), hist: ribbonHist.key === histKey(course, round) ? ribbonHist.hists[i] : null })}
+      ${ribbonHtml({ i, pars: course.holes.map((x) => x.par), scores: round.holes.map((x) => (x?.pickup ? 'na' : x?.score ?? null)), name: golferName(), hist: ribbonHist.key === histKey(course, round) ? ribbonHist.hists[i] : null })}
       <button class="btn icon" data-h="next">›</button>
     </div>
     <p class="mute small center">${esc(round.courseName)}${ch.si ? ` · SI ${ch.si}` : ''}${review ? ' · reviewing bogeys' : ''}</p>
@@ -389,8 +390,10 @@ function renderHole() {
         window.scrollTo(0, 0); renderHole();
       };
       // at the turn: how are you feeling?
-      if (i === 8 && course.holes.length > 9 && !review && round.mood?.turn == null) return moodSheet(round, 'turn', go);
-      return go();
+      const turn = () => (i === 8 && course.holes.length > 9 && !review && round.mood?.turn == null ? moodSheet(round, 'turn', go) : go());
+      // never move on with a score the golfer hasn't seen: confirm it first
+      if (!review && needsCheck(h)) return scoreCheckSheet({ h, par, hole: i + 1 }, async () => { derive(h, par); await save(); turn(); });
+      return turn();
     }
     if (a === 'save' || a === 'submit') return endRound(round, course, { submit: a === 'submit' });
     if (a === 'finish') {

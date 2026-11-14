@@ -18,7 +18,7 @@ export const SLOPE_HILL = [['up', 'Uphill'], [null, ''], ['dn', 'Downhill']];
 /** The lie surfaces: two rows. The last two of row one are the course's own trouble (see troubleFor). */
 export const SURFACES = [['fw', 'Fairway'], ['rgh', 'Rough']];
 export const SURFACES2 = [['div', 'Divot'], ['bnk', 'Bunker'], ['hp', 'Hardpan'], ['mud', 'Wet / mud']];
-export const GREENSIDE_LIES = [['frg', 'Fringe'], ['rgh', 'Rough'], ['bnk', 'Bunker'], ['hp', 'Hardpan']];
+export const GREENSIDE_LIES = [['fw', 'Fairway'], ['frg', 'Fringe'], ['rgh', 'Rough'], ['bnk', 'Bunker'], ['hp', 'Hardpan']];
 /** Trouble a ball can sit in, beyond rough and sand. A course shows two of these in its lie row. */
 export const TROUBLE_OPTIONS = [['wst', 'Waste'], ['des', 'Desert'], ['rec', 'Trees'], ['bsh', 'Bushes'], ['fes', 'Fescue'], ['hea', 'Heather'], ['grs', 'Gorse']];
 const T_NAME = Object.fromEntries(TROUBLE_OPTIONS);
@@ -35,11 +35,15 @@ export function troubleCodes(course) {
 }
 export const troubleFor = (course) => troubleCodes(course).map((c) => [c, T_NAME[c] || c]);
 export const LIE_NAMES = Object.fromEntries([['bsh', 'Bushes'], ['grs', 'Gorse'], ['tee', 'Tee'], ['fw', 'Fairway'], ['rgh', 'Rough'], ['frg', 'Fringe'], ['fbk', 'Fwy bunker'], ['bnk', 'Bunker'], ['wst', 'Waste'], ['des', 'Desert'], ['rec', 'Trees'], ['fes', 'Fescue'], ['hea', 'Heather'], ['div', 'Divot'], ['hp', 'Hardpan'], ['mud', 'Wet / mud']]);
-/** A shot played from just off the green: the previous one finished greenside, or this one starts on the fringe or within 30 yards. */
+/**
+ * A shot played from just off the green: the previous one finished greenside, or the golfer picked the fringe.
+ * Where the last shot finished decides it, never a distance: a tee shot in the fairway means a fairway shot next,
+ * whatever number is typed in To the pin.
+ */
 export function isGreenside(h, k) {
   if (k === 0) return false;
   const p = h.shots[k - 1] || {}, x = h.shots[k] || {};
-  return p.res === 'GS' || p.res === 'FR' || x.lie === 'frg' || (x.dist != null && x.dist <= 30);
+  return p.res === 'GS' || p.res === 'FR' || x.lie === 'frg';
 }
 /**
  * Putts one by one: h.puttList = [{ ft, brk, sl, holed, mside: 'LF'|'C'|'R', mlen: 'S'|'L' }] (miss side and length optional). The count, the first putt's length and its
@@ -134,6 +138,7 @@ export function holeGaps(h, par) {
 }
 
 export function derive(h, par) {
+  if (h.pickup) { h.score = null; h.putts = null; }
   const pens = h.shots.filter((x) => x.pen).length;
   if (h.putts != null) h.score = h.shots.length + pens + h.putts;
   h.tee = par >= 4 ? (h.shots[0].res || null) : null;

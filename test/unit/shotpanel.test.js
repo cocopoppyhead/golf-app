@@ -22,9 +22,12 @@ describe('hole flow helpers', () => {
     expect(clubChoices(bag, 'fairway', { suggest: '7 iron' })).toEqual(['6 iron', '7 iron', '8 iron']);
   });
   it('works out where a shot is played from', () => {
-    const h = { shots: [{ res: 'FW' }, { dist: 140, res: 'GS' }, { dist: 12 }] };
+    const h = { shots: [{ res: 'FW' }, { dist: 140, res: 'GS' }, { dist: 12 }] }; // shot 3 is greenside because shot 2 finished there
     expect(['tee', 'fairway', 'greenside'].map((_, k) => zoneOf(h, k))).toEqual(['tee', 'fairway', 'greenside']);
     expect(isGreenside({ shots: [{}, { dist: 200 }] }, 1)).toBe(false);
+    // a drive in the fairway means a fairway shot next, even with a short number typed in To the pin
+    expect(zoneOf({ shots: [{ res: 'FW' }, { dist: 10 }] }, 1)).toBe('fairway');
+    expect(zoneOf({ shots: [{ res: 'FW' }, { lie: 'frg' }] }, 1)).toBe('greenside');
   });
   it('carries the lie over from where the last shot finished; your own pick wins', () => {
     const h = { shots: [{ res: 'RR' }, { lie: null }, { lie: null }] };
