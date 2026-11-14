@@ -264,3 +264,14 @@ test('map tiles that fail once are fetched again (no dark map until reload)', as
   await startRound(page);
   await expect.poll(() => retried, { timeout: 10000 }).toBeGreaterThan(3);
 });
+
+test('after tapping the map to measure, Move tee is still there', async ({ page, context }) => {
+  await context.setGeolocation({ latitude: 51.5, longitude: -0.1, accuracy: 8 });
+  await boot(page);
+  await addCourse(page, 'Majlis');
+  await startRound(page);
+  const box = await page.locator('#holeMap canvas').boundingBox();
+  await page.mouse.click(box.x + box.width * 0.2, box.y + box.height * 0.3);
+  await expect(page.locator('.hm-tap')).toContainText('Tap:');
+  await expect(page.locator('[data-tee-move]')).toBeVisible();
+});
