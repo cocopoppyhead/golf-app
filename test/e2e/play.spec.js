@@ -203,3 +203,28 @@ test('Next asks for the score: on the green in 2 starts at 4 with 2 putts; n/a s
   await expect(page.locator('.rb-c[data-go="1"] .rb-na')).toHaveText('–');
   await expect(page.locator('.rb-tp')).toContainText('THRU 2');
 });
+
+test('move the tee: distances and the tee shot are measured from your tee, and it says so', async ({ page, context }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await context.setGeolocation({ latitude: 51.5, longitude: -0.1, accuracy: 8 }); // away from the course: distances come from the tee
+  await boot(page);
+  await addCourse(page, 'Majlis');
+  await startRound(page);
+  const dist = page.locator('.hm-dist');
+  await expect(dist).toContainText('from the');
+  await page.locator('#holeMap').screenshot({ path: 'test/e2e/out/tee-before.png' });
+  await page.waitForTimeout(800);
+  const before = await dist.locator('b.c').innerText();
+  await page.locator('[data-tee-move]').click();
+  await expect(page.locator('.hm-tap')).toContainText('teeing off');
+  const box = await page.locator('#holeMap canvas').boundingBox();
+  await page.mouse.click(box.x + box.width / 2, box.y + box.height * 0.7);
+  await expect(page.locator('.hm-dist')).toContainText('from your tee today');
+  await expect(page.locator('[data-tee-reset]')).toBeVisible();
+  const after = await page.locator('.hm-dist b.c').innerText();
+  expect(after).not.toBe(before);
+  await page.waitForTimeout(800); await page.locator('#holeMap').screenshot({ path: 'test/e2e/out/tee-after.png' });
+  await page.locator('[data-tee-reset]').click();
+  await expect(page.locator('.hm-dist')).not.toContainText('your tee');
+  await expect(page.locator('.hm-dist b.c')).toHaveText(before);
+});

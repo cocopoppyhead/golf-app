@@ -995,3 +995,4 @@ table.t5, table.dk { width: 100%; border-collapse: collapse; font-size: 13px; } 
 .sc-step span small { color: var(--mute); font-size: 13px; } .sc-step span.under b { color: var(--good); } .sc-step span.over b { color: var(--work); }
 :is(.ribbon, .rb-card) .mk.par { background: none; border: 0; box-shadow: none; padding: 0; min-width: 0; height: 22px; }
 .rb-na { font-style: normal; color: #fff; font: 700 14px var(--display); }
+.hm-teectl { display: flex; align-items: center; gap: 12px; margin-top: 8px; } .hm-teectl b { color: var(--ink); }
