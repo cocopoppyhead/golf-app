@@ -251,3 +251,16 @@ test('the top arrows browse holes without asking for a score', async ({ page }) 
   await expect(page.locator('.scorecheck')).toHaveCount(0);
   await page.click('[data-h=prev]'); await expect(page.locator('.rb-h')).toHaveText('3');
 });
+
+test('map tiles that fail once are fetched again (no dark map until reload)', async ({ page }) => {
+  const seen = new Set(); let retried = 0;
+  await page.route(/arcgisonline|World_Imagery/, (r) => {
+    const u = r.request().url();
+    if (!seen.has(u)) { seen.add(u); return r.abort(); } // every tile fails the first time
+    retried++; return r.continue();
+  });
+  await boot(page);
+  await addCourse(page, 'Majlis');
+  await startRound(page);
+  await expect.poll(() => retried, { timeout: 10000 }).toBeGreaterThan(3);
+});
