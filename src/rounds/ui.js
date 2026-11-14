@@ -19,7 +19,7 @@ import { icon } from '../icons.js';
 import { approachBands } from './bands.js';
 import { INTENTIONS, intentionLabel } from './intentions.js';
 export { MOOD_WORDS, moodLine } from './intentions.js';
-import { LIE_DETAIL, PENALTY_RES, TROUBLE_OPTIONS, troubleCodes, ensurePutts, syncPutts, asPlanned, autoSwing, autoShotType, blankHole, ensureShots, defaultLie, derive, nextBogeyFrom, holeGaps } from './hole.js';
+import { LIE_DETAIL, PENALTY_RES, TROUBLE_OPTIONS, troubleCodes, ensurePutts, syncPutts, asPlanned, autoSwing, autoShotType, blankHole, ensureShots, defaultLie, derive, nextBogeyFrom, holeGaps, bunkerClub } from './hole.js';
 import { shotPanel, shotLine, puttPanel, holeDone, routeStrip, zoneOf, usualTeeClub, clubForDistance } from './shotpanel.js';
 export { SWING_TYPES, INTENT, autoShotType } from './hole.js';
 import { removeSummary } from '../cloud/social.js';
@@ -240,10 +240,15 @@ function renderHole() {
   // a par 4/5 tee shot starts with the Driver (or the club you usually hit here) already picked
   const t0 = h.shots[0];
   if (par >= 4 && !t0.d?.club && !t0.res) { t0.d = { ...(t0.d || {}), club: usual?.club || bag.find((c) => /driver/i.test(c.club))?.club || null, clubAuto: true }; if (!t0.d.club) delete t0.d; }
+  // a greenside bunker shot starts with the sand wedge picked
+  h.shots.forEach((x, k) => {
+    if (k === 0 || x.d?.club || (x.lie || x.lieAuto) !== 'bnk' || zoneOf(h, k) !== 'greenside') return;
+    const c = bunkerClub(bag.map((b) => b.club).filter(Boolean)); if (c) x.d = { ...(x.d || {}), club: c, clubAuto: true };
+  });
   // every other shot with a distance gets the club for that distance, recorded unless you pick another
   h.shots.forEach((x, k) => {
     const yd = k === 0 ? (par >= 4 ? null : x.dist ?? ch.yds) : (x.plays ?? x.dist);
-    if (yd == null || (x.d?.club && !x.d.clubAuto)) return;
+    if (yd == null || (x.d?.club && !x.d.clubAuto) || (k > 0 && (x.lie || x.lieAuto) === 'bnk' && zoneOf(h, k) === 'greenside')) return;
     const c = clubForDistance(bag, yd);
     if (c && x.d?.club !== c) x.d = { ...(x.d || {}), club: c, clubAuto: true };
   });
@@ -361,6 +366,7 @@ function renderHole() {
   root.querySelectorAll('[data-pp]').forEach((b) => b.onclick = () => { const p = round.players[+b.dataset.pp]; const v = p.scores[i]; p.scores[i] = v == null ? par : Math.max(1, v + +b.dataset.d); save(); renderHole(); });
   root.querySelectorAll('[data-pq]').forEach((b) => b.onclick = () => { const p = round.players[+b.dataset.pq]; const v = p.putts[i]; p.putts[i] = v == null ? 2 : Math.max(0, v + +b.dataset.d); save(); renderHole(); });
   root.querySelector('[data-paddp]')?.addEventListener('click', () => playersSheet(round, () => { save(); renderHole(); }));
+  root.querySelector('[data-score-edit]')?.addEventListener('click', () => scoreCheckSheet({ h, par, hole: i + 1, edit: true }, async () => { derive(h, par); await save(); renderHole(); }));
   root.querySelector('[data-note]')?.addEventListener('input', (e) => { h.note = e.target.value; clearTimeout(window.__noteT); window.__noteT = setTimeout(save, 500); });
   // leaving a hole counts it as played: unpicked putts are taken as 2, unpicked lies as the suggested ones
   const commit = () => {

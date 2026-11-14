@@ -36,14 +36,14 @@ export function troubleCodes(course) {
 export const troubleFor = (course) => troubleCodes(course).map((c) => [c, T_NAME[c] || c]);
 export const LIE_NAMES = Object.fromEntries([['bsh', 'Bushes'], ['grs', 'Gorse'], ['tee', 'Tee'], ['fw', 'Fairway'], ['rgh', 'Rough'], ['frg', 'Fringe'], ['fbk', 'Fwy bunker'], ['bnk', 'Bunker'], ['wst', 'Waste'], ['des', 'Desert'], ['rec', 'Trees'], ['fes', 'Fescue'], ['hea', 'Heather'], ['div', 'Divot'], ['hp', 'Hardpan'], ['mud', 'Wet / mud']]);
 /**
- * A shot played from just off the green: the previous one finished greenside, or the golfer picked the fringe.
+ * A shot played from just off the green: the previous one finished greenside or in a greenside bunker, or the golfer picked the fringe.
  * Where the last shot finished decides it, never a distance: a tee shot in the fairway means a fairway shot next,
  * whatever number is typed in To the pin.
  */
 export function isGreenside(h, k) {
   if (k === 0) return false;
   const p = h.shots[k - 1] || {}, x = h.shots[k] || {};
-  return p.res === 'GS' || p.res === 'FR' || x.lie === 'frg';
+  return p.res === 'GS' || p.res === 'FR' || p.res === 'BK' || x.lie === 'frg'; // 'Bunker' as a result is a greenside bunker (fairway bunkers are the tee's f.Bunker)
 }
 /**
  * Putts one by one: h.puttList = [{ ft, brk, sl, holed, mside: 'LF'|'C'|'R', mlen: 'S'|'L' }] (miss side and length optional). The count, the first putt's length and its
@@ -101,6 +101,11 @@ export function ensureShots(h, par, yds) {
   }
   h.shots[0] = { ...h.shots[0], lie: 'tee', dist: h.shots[0].dist ?? yds ?? null };
   h.shots.forEach(upgradeShot);
+}
+/** The club for a greenside bunker shot: the sand wedge (56°/SW), else the most lofted wedge up to 60°, else the gap wedge. */
+export function bunkerClub(names) {
+  const by = (re) => names.find((n) => re.test(n));
+  return by(/\b(56|SW|sand)/i) || by(/\b(58|60|LW|lob)/i) || by(/\b(54|52|50|GW|AW|gap)/i) || by(/\bPW\b|pitch/i) || null;
 }
 export function defaultLie(h, k) {
   const p = h.shots[k - 1] || {};

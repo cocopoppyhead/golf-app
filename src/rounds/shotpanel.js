@@ -179,10 +179,11 @@ export function puttPanel(h, j, { open = false } = {}) {
 
 /** Closure before moving on: how many putts, and the hole's score against par. */
 export function holeDone(h, par) {
+  if (h.pickup) return `<div class="card holedone"><b>–</b><span><b>No score</b><span class="mute small">picked up / not counted</span></span><button class="link" data-score-edit>Change</button></div>`;
   if (h.score == null) return '';
   const d = h.score - par;
   const word = d <= -2 ? 'Eagle' : d === -1 ? 'Birdie' : d === 0 ? 'Par' : d === 1 ? 'Bogey' : d === 2 ? 'Double bogey' : `+${d}`;
-  return `<div class="card holedone ${d < 0 ? 'under' : d > 0 ? 'over' : ''}"><b>${h.score}</b><span><b>${word}</b><span class="mute small">${h.putts === 0 ? 'holed from off the green' : `${h.putts} putt${h.putts === 1 ? '' : 's'}${h.puttsAuto ? ' (assumed)' : ''}`}</span></span></div>`;
+  return `<div class="card holedone ${d < 0 ? 'under' : d > 0 ? 'over' : ''}"><b>${h.score}</b><span><b>${word}</b><span class="mute small">${h.putts === 0 ? 'holed from off the green' : `${h.putts} putt${h.putts === 1 ? '' : 's'}${h.puttsAuto ? ' (assumed)' : ''}`}</span></span><button class="link" data-score-edit>Change</button></div>`;
 }
 
 /** The strip from tee to green with a dot where each shot was played from. */
