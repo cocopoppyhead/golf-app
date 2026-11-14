@@ -114,6 +114,18 @@ export function useGps(p, { T, G, project, mine = false }) {
   const [x, y] = project(p);
   return y > -30 && metres(p, G) <= metres(T, G) + 30 && Math.abs(x) <= 150;
 }
+/** The mapped tee box at a tapped point (inside its outline, or within 12 m of its middle), or null. */
+export function teeBoxAt(gh, p) {
+  for (const t of gh?.tees || []) {
+    if (metres(p, t.c) < 12) return t.c;
+    const r = t.poly || []; let inside = false;
+    for (let a = 0, b = r.length - 1; a < r.length; b = a++) {
+      if ((r[a][0] > p[0]) !== (r[b][0] > p[0]) && p[1] < ((r[b][1] - r[a][1]) * (p[0] - r[a][0])) / (r[b][0] - r[a][0]) + r[a][1]) inside = !inside;
+    }
+    if (inside) return t.c;
+  }
+  return null;
+}
 /** Which mapped tee matches the card? (kept for callers that only want the point) */
 export const pickTee = (gh, yds, teeName) => teeFor(gh, yds, teeName)?.c ?? null;
 /** The words under the distances: which tee they're from. */
@@ -345,8 +357,8 @@ export function mountHoleMap(el, opts) {
     const dTxt = cell(pre + fmt(metres(ref.p, F)), 'front') + cell(pre + fmt(metres(ref.p, G)), 'centre', true) + cell(pre + fmt(metres(ref.p, B)), 'back');
     const playsTxt = pl && pl.plays !== Math.round(centreYds) ? `<div class="pl"><b>${D(pl.plays)}</b><span>plays</span></div>` : '';
     distEl.innerHTML = `${dTxt}${playsTxt}<span class="src">${ref.gps ? 'from where you stand' : teeWords(o.teeHow, o.teeName)} · ${unitLabel()}${pl?.why.length ? ` · ${pl.why.join(' · ')}` : ''}${o.approxGreen ? ' · green placed from the card, not mapped' : !real ? ' · green depth assumed' : ''}</span>`;
-    const teeCtl = o.onTeeMove ? `<div class="hm-teectl">${movingTee ? '<b>Tap the map where you\'re teeing off</b> <button class="link" data-tee-cancel>Cancel</button>' : `<button class="btn sm" data-tee-move>Move tee</button>${o.teeAt ? ' <button class="link" data-tee-reset>Use the map\'s tee</button>' : ''}`}</div>` : '';
-    tapEl.innerHTML = movingTee ? teeCtl : tap ? `Tap: ${fmt(metres(ref.p, tap))} ${unitLabel()} out · ${fmt(metres(tap, G))} ${unitLabel()} to the green · ${fmt(metres(tap, F))} front` : `${mode === 'tee' && o.par !== 3 ? `<label class="check inl"><input type="checkbox" data-leave ${leaveOn ? 'checked' : ''}/> what each club leaves${o.bestBand && leaveOn ? ` <span class="mute">(★ = your ${D(o.bestBand[0])}–${D(o.bestBand[1])} band)</span>` : ''}</label>` : 'Tap the map to measure.'}${o.gh.marked ? ' <button class="link" data-mark>Re-mark</button>' : o.approxGreen && o.canMark ? ' <button class="link acc" data-mark>Mark the green</button>' : ''}${teeCtl}`;
+    const teeCtl = o.onTeeMove ? `<div class="hm-teectl">${movingTee ? '<b>Tap the map where you\'re teeing off</b> <button class="link" data-tee-cancel>Cancel</button>' : `<button class="btn sm" data-tee-move>Move tee</button> <span class="mute small">or tap a tee box</span>${o.teeAt ? ' <button class="link" data-tee-reset>Use the map\'s tee</button>' : ''}`}</div>` : '';
+    tapEl.innerHTML = movingTee ? teeCtl : tap ? `Tap: ${fmt(metres(ref.p, tap))} ${unitLabel()} out · ${fmt(metres(tap, G))} ${unitLabel()} to the green · ${fmt(metres(tap, F))} front${teeCtl}` : `${mode === 'tee' && o.par !== 3 ? `<label class="check inl"><input type="checkbox" data-leave ${leaveOn ? 'checked' : ''}/> what each club leaves${o.bestBand && leaveOn ? ` <span class="mute">(★ = your ${D(o.bestBand[0])}–${D(o.bestBand[1])} band)</span>` : ''}</label>` : 'Tap the map to measure.'}${o.gh.marked ? ' <button class="link" data-mark>Re-mark</button>' : o.approxGreen && o.canMark ? ' <button class="link acc" data-mark>Mark the green</button>' : ''}${teeCtl}`;
     tapEl.querySelector('[data-mark]')?.addEventListener('click', () => o.onMark?.());
     tapEl.querySelector('[data-tee-move]')?.addEventListener('click', () => { movingTee = true; tap = null; schedule(); });
     tapEl.querySelector('[data-tee-cancel]')?.addEventListener('click', () => { movingTee = false; schedule(); });
@@ -391,6 +403,8 @@ export function mountHoleMap(el, opts) {
   el.querySelectorAll('[data-m]').forEach((b) => b.onclick = () => { mode = lastMode = b.dataset.m; el.querySelectorAll('[data-m]').forEach((x) => x.classList.toggle('on', x === b)); schedule(); });
   cv.addEventListener('click', (e) => {
     if (!frame?.s) return; const r = cv.getBoundingClientRect(); const p = toLatLon(e.clientX - r.left, e.clientY - r.top);
+    const box = o.onTeeMove && !movingTee ? teeBoxAt(o.gh, p) : null; // tapped a tee box on the map: tee off from it
+    if (box && metres(box, frame.T) > 3) { o.teeAt = box; o.onTeeMove(box, Math.round(metres(box, frame.G) / YD)); frame = null; tap = null; return schedule(); }
     if (movingTee) { movingTee = false; o.teeAt = p; o.onTeeMove?.(p, Math.round(metres(p, frame.G) / YD)); frame = null; tap = null; return schedule(); } // re-centre on the new tee
     tap = tap && metres(tap, p) < 8 ? null : p; schedule();
   });

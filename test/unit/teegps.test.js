@@ -29,3 +29,15 @@ describe('measure from GPS or the tee', () => {
     expect(teeFor({ line: [T, G], tees: [] }, 460, null).how).toBe('line');
   });
 });
+
+describe('tapping a tee box', () => {
+  it('finds the box under the tap, or none', async () => {
+    const { teeBoxAt } = await import('../../src/rounds/holemap.js');
+    const box = { c: at(0, 100), poly: [at(-8, 90), at(8, 90), at(8, 110), at(-8, 110)] };
+    const gh = { tees: [box] };
+    expect(teeBoxAt(gh, at(6, 92))).toEqual(box.c); // inside the outline
+    expect(teeBoxAt(gh, at(0, 108))).toEqual(box.c);
+    expect(teeBoxAt(gh, at(40, 100))).toBe(null);
+    expect(teeBoxAt({ tees: [] }, at(0, 100))).toBe(null);
+  });
+});
