@@ -263,7 +263,7 @@ function renderHole() {
     <div class="holebar rb-bar">
       <button class="btn icon" data-h="prev" ${i === 0 ? 'disabled' : ''}>‹</button>
       ${ribbonHtml({ i, pars: course.holes.map((x) => x.par), scores: round.holes.map((x) => (x?.pickup ? 'na' : x?.score ?? null)), name: golferName(), hist: ribbonHist.key === histKey(course, round) ? ribbonHist.hists[i] : null })}
-      <button class="btn icon" data-h="next">›</button>
+      <button class="btn icon" data-h="fwd" aria-label="Next hole" ${i === course.holes.length - 1 ? 'disabled' : ''}>›</button>
     </div>
     <p class="mute small center">${esc(round.courseName)}${ch.si ? ` · SI ${ch.si}` : ''}${review ? ' · reviewing bogeys' : ''}</p>
     ${round.quick ? '' : '<div id="holeMap"></div><div id="holeHist"></div>'}
@@ -383,6 +383,7 @@ function renderHole() {
     if (a !== 'home' && a !== 'prev') commit();
     await save();
     if (a === 'prev') { cur.hole = Math.max(0, i - 1); return renderHole(); }
+    if (a === 'fwd') { cur.hole = Math.min(course.holes.length - 1, i + 1); window.scrollTo(0, 0); return renderHole(); } // the top arrows browse: no score asked
     if (a === 'next') {
       const go = () => {
         if (review) { const n = nextBogey(i); cur.hole = n < 0 ? i : n; }

@@ -18,7 +18,7 @@ test.describe('Play', () => {
     // next hole: ball on the green with shot 2, two putts
     await page.click('[data-res="1"][data-v="G"]');
     await page.click('[data-pmiss="0"]'); await page.click('[data-pholed="1"]');
-    await page.click('[data-h=next]');
+    await page.click('[data-h=fwd]');
     await expect(page.locator('.rb-h')).toHaveText('2');
     // end early, back home: the course card shows the round
     await endEarly(page);
@@ -108,7 +108,7 @@ test('a hole: Driver pre-picked, lie carried over, slope, Details, then the gree
   await expect(page.locator('.holedone')).toContainText('Par');
   await expect(page.locator('.holedone')).toContainText('2 putts');
   // leave and come back: it all survives
-  await page.click('[data-h=next]'); await page.click('[data-h=prev]');
+  await page.click('[data-h=fwd]'); await page.click('[data-h=prev]');
   await expect(page.locator('[data-pexp="0"]')).toContainText('16–20 ft · uphill, breaks left · missed');
   await page.click('[data-pexp="0"]');
   await expect(page.locator('[data-pft="0"][data-v="18"]')).toHaveClass(/on/);
@@ -127,7 +127,7 @@ test('Submit lists holes missing details; Save keeps the round to finish later',
   await page.click('[data-res="0"][data-v="FW"]');
   await page.fill('[data-sd="1"]', '140'); await page.press('[data-sd="1"]', 'Enter');
   await page.click('[data-res="1"][data-v="G"]'); await page.click('[data-pft="0"][data-v="12"]'); await page.click('[data-pmiss="0"]'); await page.click('[data-pholed="1"]');
-  await page.click('[data-h=next]');
+  await page.click('[data-h=fwd]');
   await page.click('[data-res="0"][data-v="FW"]');
   await page.fill('[data-sd="1"]', '120'); await page.press('[data-sd="1"]', 'Enter');
   await page.click('[data-res="1"][data-v="G"]'); // on the green, putts not entered: assumed 2, flagged
@@ -241,4 +241,13 @@ test('standing near the course (GPS on, not on the hole line ahead): a moved tee
   await page.mouse.click(box.x + box.width / 2, box.y + box.height * 0.45);
   await expect(page.locator('.hm-dist')).toContainText('from your tee today');
   expect(await page.locator('.hm-dist b.c').innerText()).not.toBe(before);
+});
+
+test('the top arrows browse holes without asking for a score', async ({ page }) => {
+  await boot(page);
+  await addCourse(page, 'Majlis');
+  await startRound(page);
+  for (const n of ['2', '3', '4']) { await page.click('[data-h=fwd]'); await expect(page.locator('.rb-h')).toHaveText(n); }
+  await expect(page.locator('.scorecheck')).toHaveCount(0);
+  await page.click('[data-h=prev]'); await expect(page.locator('.rb-h')).toHaveText('3');
 });
