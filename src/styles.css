@@ -940,3 +940,48 @@ table.t5, table.dk { width: 100%; border-collapse: collapse; font-size: 13px; } 
 .r10tab { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 13px; font-variant-numeric: tabular-nums; }
 .r10tab th, .r10tab td { text-align: right; padding: 5px 4px; border-bottom: 1px solid var(--line); }
 .r10tab th:first-child, .r10tab td:first-child { text-align: left; color: var(--mute); }
+
+/* ---- The hole ribbon (rounds/ribbon.js): the top of the hole screen as a tour broadcast graphic ---- */
+.rb-bar { align-items: stretch; gap: 8px; }
+.rb-bar .btn.icon { width: 32px; height: auto; border-radius: 12px; flex: none; }
+.ribbon { --rb1: #123c7a; --rb2: #0d2c5c; --rbl: #4c8ee8; --rbs: #cfe0ff; --rbm: #8fb3ea; flex: 1; min-width: 0; cursor: pointer;
+  background: linear-gradient(180deg, var(--rb1), var(--rb2)); border: 2px solid var(--rbl); border-radius: 10px; color: #fff; overflow: hidden; }
+.rb-1 { display: flex; align-items: center; gap: 10px; padding: 8px 12px 3px; }
+.rb-h { font: 800 36px/1 var(--display); }
+.rb-p { font: 700 13px/1.1 var(--display); opacity: .9; }
+.rb-flag { width: 4px; align-self: stretch; background: #e0362c; border-radius: 2px; }
+.rb-nm { flex: 1; min-width: 0; font: 800 24px var(--display); letter-spacing: .03em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rb-tp { text-align: right; } .rb-tp b { font: 800 28px/1 var(--display); display: block; } .rb-tp small { font: 600 10px var(--text); opacity: .8; }
+.rb-2 { display: flex; align-items: center; gap: 6px; padding: 2px 12px 7px; font: 600 11px var(--text); letter-spacing: .05em; color: var(--rbs); white-space: nowrap; min-height: 30px; }
+.rb-2 b { color: #fff; font: 700 15px var(--display); letter-spacing: 0; } .rb-n { opacity: .85; } .rb-sep { opacity: .4; margin: 0 4px; } .rb-dim { opacity: .75; }
+.rb-sc { display: grid; align-items: center; background: rgba(0, 0, 0, .25); border-top: 1px solid rgba(76, 142, 232, .5); padding: 2px 0 4px; }
+.rb-sc > span { text-align: center; font: 700 13px var(--display); padding: 2px 0; }
+.rb-lb { font: 600 9px var(--text) !important; color: var(--rbm); letter-spacing: .06em; text-align: left !important; padding-left: 8px !important; }
+.rb-hd { font: 600 10px var(--text) !important; color: var(--rbm); }
+.rb-c { cursor: pointer; display: grid; place-items: center; min-height: 24px; }
+.rb-c.rb-todo { color: #5b7cb0; } .rb-c.cur { background: #fff; color: var(--rb2); border-radius: 4px; margin: 0 2px; }
+.rb-c.cur .mk { color: var(--rb2); }
+.rb-tot { color: #fff; }
+/* scores marked the scorecard way */
+.ribbon .mk, .rb-card .mk { display: inline-grid; place-items: center; width: 22px; height: 22px; font: 700 14px var(--display); color: #fff; }
+.mk.bird { border: 2px solid #ff7a7a; color: #ff9a9a; border-radius: 50%; }
+.mk.eagle { border: 2px solid #ff7a7a; color: #ff9a9a; border-radius: 50%; box-shadow: 0 0 0 2px #0d2c5c, 0 0 0 4px #ff7a7a; }
+.mk.bog { border: 2px solid #f2c94c; color: #f2c94c; }
+.mk.dbl { border: 2px solid #f2c94c; color: #f2c94c; box-shadow: 0 0 0 2px #0d2c5c, 0 0 0 4px #f2c94c; }
+.rb-sc .mk { width: 20px; height: 20px; font-size: 13px; }
+/* the full card */
+.cardsheet .rb-card { background: linear-gradient(180deg, #123c7a, #0d2c5c); border-top: 2px solid #4c8ee8; color: #fff; }
+.cd-h { display: flex; align-items: baseline; gap: 10px; margin-bottom: 8px; }
+.cd-h b { font: 800 20px var(--display); flex: 1; } .cd-h > span { font: 800 20px var(--display); } .cd-h .link { color: #cfe0ff; }
+.cd-grid { display: grid; text-align: center; font: 700 13px var(--display); margin-bottom: 10px; }
+.cd-grid > span { padding: 5px 0; border-bottom: 1px solid rgba(255, 255, 255, .08); display: grid; place-items: center; }
+.cd-lb { color: #8fb3ea; font: 600 10px var(--text) !important; letter-spacing: .05em; place-items: center start !important; }
+.cd-hd { color: #8fb3ea; font: 600 11px var(--text) !important; cursor: pointer; }
+.cd-hd.cur { background: #fff; color: #0d2c5c; border-radius: 4px; }
+.cd-grid [data-go] { cursor: pointer; }
+.cd-avg { color: #cfe0ff; font-weight: 600 !important; } .cd-dash { color: #5b7cb0; font-style: normal; }
+.cd-note { color: #8fb3ea; font-size: 11px; margin: 4px 0 0; }
+
+/* front / back on the hole map: a faded blue taken from the page, readable on white and on dark */
+.hm-dist > div:not(.pl) b:not(.c) { color: #8fa0c4; }
+:root:is([data-theme="light"], [data-theme="hybrid"]) .hm-dist > div:not(.pl) b:not(.c) { color: #6f80a6; }

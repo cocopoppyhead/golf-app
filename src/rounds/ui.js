@@ -29,7 +29,9 @@ export { sgCard } from './summary.js';
 
 
 
-import { esc, uid, fmtD, toParStr } from './fmt.js';
+import { esc, uid, fmtD } from './fmt.js';
+import { ribbonHtml, cardHtml, courseHistory, historyLine } from './ribbon.js';
+import { counts } from './quality.js';
 import { initHome, roundsHome, openCardImport, openCoursePage, aggStats } from './home.js';
 import { routineSheet, readWeather, moodSheet } from './checkinsheets.js';
 export { roundsHome, openCardImport, openCoursePage };
@@ -69,6 +71,31 @@ initLaserLoop({ getCur: () => cur, toast: (t) => ctx.toast?.(t), renderHole: () 
 
 // ---------------- Previous plays of this hole ----------------
 let histCache = { key: '', rows: null };
+// ---------------- The ribbon (ribbon.js): usual score per hole on this course, from rounds that count ----------------
+let ribbonHist = { key: '', hists: [] };
+const histKey = (course, round) => `${course.libId || course.id}:${round.id}`;
+const golferName = () => { const st = ctx.settings() || {}; return st.nickname || (st.name || '').split(' ')[0] || 'You'; };
+async function loadRibbonHistory(course, round) {
+  const key = histKey(course, round);
+  if (ribbonHist.key === key) return ribbonHist.hists;
+  const [rounds, courses] = await Promise.all([listRounds().catch(() => []), listCourses().catch(() => [])]);
+  const byId = new Map(courses.map((c) => [c.id, c]));
+  const same = (c) => c && (course.libId ? c.libId === course.libId : c.id === course.id);
+  const rows = rounds.filter((r) => r.id !== round.id && !r.quick && same(byId.get(r.courseId)) && counts(r, byId.get(r.courseId)))
+    .sort((a, b) => b.date - a.date).map((r) => ({ r, c: byId.get(r.courseId) }));
+  ribbonHist = { key, hists: courseHistory(rows, course.holes.map((x) => x.par)) };
+  return ribbonHist.hists;
+}
+function openCard() {
+  const { round, course, hole } = cur;
+  const el = document.createElement('div');
+  el.innerHTML = cardHtml({ i: hole, pars: course.holes.map((x) => x.par), scores: round.holes.map((x) => x?.score ?? null), name: golferName(), courseName: round.courseName, hists: ribbonHist.key === histKey(course, round) ? ribbonHist.hists : null });
+  const sheet = el.firstElementChild; document.body.appendChild(sheet);
+  sheet.querySelector('[data-close]').onclick = () => sheet.remove();
+  sheet.addEventListener('click', (e) => { if (e.target === sheet) sheet.remove(); });
+  sheet.querySelectorAll('[data-go]').forEach((b) => b.onclick = () => { sheet.remove(); root.querySelector(`.rb-sc [data-go="${b.dataset.go}"]`)?.click() || goHole(+b.dataset.go); });
+}
+let goHole = () => {};
 let histFilter = 'all';
 const RES_WORD = { FW: 'fairway', G: 'green', HO: 'holed', L: 'left', R: 'right', LL: 'way left', RR: 'way right', S: 'short', LO: 'long', B: 'bunker', PN: 'penalty', FB: 'fairway bunker', W: 'water', OB: 'OB', T: 'trees', RF: 'rough' };
 /** Every earlier play of hole i on any tee variant of this course, newest first, with the shots. */
@@ -201,7 +228,6 @@ function renderHole() {
   const score = h.score;
   const diff = score != null ? score - par : null;
   const sg = putts != null ? holeSG({ ...h, shots: h.shots.map((x) => ({ ...x, lie: x.lie || x.lieAuto })) }, par, ch.yds) : null;
-  const tot = round.holes.reduce((a, x, k) => (x && x.score != null ? { s: a.s + x.score, p: a.p + course.holes[k].par } : a), { s: 0, p: 0 });
   const word = diff == null ? '' : diff <= -2 ? 'Eagle' : diff === -1 ? 'Birdie' : diff === 0 ? 'Par' : diff === 1 ? 'Bogey' : diff === 2 ? 'Double' : `+${diff}`;
   const LIE_D = Object.fromEntries(LIE_DETAIL);
   const CAUSE = Object.fromEntries(CODES.cause), FLIGHT = Object.fromEntries(CODES.flight), STRIKE = Object.fromEntries([['PUR', 'Pure'], ...CODES.strike]);
@@ -233,13 +259,12 @@ function renderHole() {
   if (greenNow && !h.puttList.length) h.puttList.push({ ft: null });
 
   root.innerHTML = `
-    <div class="holebar">
+    <div class="holebar rb-bar">
       <button class="btn icon" data-h="prev" ${i === 0 ? 'disabled' : ''}>‹</button>
-      <div class="hinfo"><div class="hnum">Hole ${i + 1}</div><div class="mute small">Par ${par}${ch.si ? ` · SI ${ch.si}` : ''}${ch.yds ? ` · ${dist(ch.yds)} ${du()}` : ''}</div></div>
+      ${ribbonHtml({ i, pars: course.holes.map((x) => x.par), scores: round.holes.map((x) => x?.score ?? null), name: golferName(), hist: ribbonHist.key === histKey(course, round) ? ribbonHist.hists[i] : null })}
       <button class="btn icon" data-h="next">›</button>
     </div>
-    <div class="holedots">${round.holes.map((x, k) => `<i class="${k === i ? 'on' : ''} ${x && x.score != null ? (x.score < course.holes[k].par ? 'b' : x.score === course.holes[k].par ? 'p' : 'o') : ''}" data-go="${k}"></i>`).join('')}</div>
-    <p class="mute small center">${esc(round.courseName)} · ${tot.s ? `${tot.s} (${toParStr(tot.s - tot.p)}) thru ${played(round).length}` : 'not started'}${review ? ' · reviewing bogeys' : ''}</p>
+    <p class="mute small center">${esc(round.courseName)}${ch.si ? ` · SI ${ch.si}` : ''}${review ? ' · reviewing bogeys' : ''}</p>
     ${round.quick ? '' : '<div id="holeMap"></div><div id="holeHist"></div>'}
     ${cue ? `<div class="cue"><span>${cue}</span><button class="link" data-routine title="My routine">${icon('info', 14)}</button><button class="link" data-cue-off title="Hide cues for this round">✕</button></div>` : review ? '' : `<p class="small right"><button class="link" data-routine>${round.swingThought ? esc(round.swingThought) + ' · ' : ''}routine</button></p>`}
 
@@ -345,7 +370,13 @@ function renderHole() {
     if (!review && h.score != null && !h.at) h.at = Date.now(); // when it was played, for the heat through the round
     derive(h, par);
   };
-  root.querySelectorAll('[data-go]').forEach((b) => b.onclick = () => { commit(); save(); cur.hole = +b.dataset.go; renderHole(); });
+  goHole = (k) => { commit(); save(); cur.hole = k; renderHole(); };
+  root.querySelectorAll('[data-go]').forEach((b) => b.onclick = (e) => { e.stopPropagation(); goHole(+b.dataset.go); });
+  root.querySelector('[data-card]')?.addEventListener('click', openCard);
+  if (ribbonHist.key !== histKey(course, round)) {
+    const at = { round: round.id, hole: i };
+    loadRibbonHistory(course, round).then((hs) => { const el = root.querySelector('[data-hist]'); if (el && cur?.round.id === at.round && cur.hole === at.hole) el.innerHTML = historyLine(hs[i], par); }).catch(() => {});
+  }
   root.querySelectorAll('[data-h]').forEach((b) => b.onclick = async () => {
     const a = b.dataset.h;
     if (a !== 'home' && a !== 'prev') commit();
